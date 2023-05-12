@@ -1,0 +1,54 @@
+package tun
+
+import (
+	"context"
+	"crypto/tls"
+	"github.com/quic-go/quic-go"
+	"net"
+	"time"
+)
+
+type QUICConn struct {
+	quic.Connection
+}
+
+func (c *QUICConn) OpenStream() (Stream, error) {
+	stream, err := c.Connection.OpenStream()
+	return &QUICStream{Stream: stream}, err
+}
+
+func (c *QUICConn) IsClosed() bool {
+	return c.Context().Err() == context.Canceled
+}
+
+func (c *QUICConn) Close() error {
+	return c.Connection.CloseWithError(0, "")
+}
+
+type QUICStream struct {
+	quic.Stream
+}
+
+func (p *QUICStream) ID() int64 {
+	return int64(p.Stream.StreamID())
+}
+
+func (p *QUICStream) RemoteAddr() net.Addr {
+	return nil
+}
+
+func (p *QUICStream) SetReadDeadline(t time.Time) error {
+	return p.Stream.SetReadDeadline(t)
+}
+
+func dialQUICBuilder(addr string) (StreamMaker, error) {
+	tlsConf := &tls.Config{
+		InsecureSkipVerify: true,
+		NextProtos:         []string{"quic-stunnel"},
+	}
+	session, err := quic.DialAddr(addr, tlsConf, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &QUICConn{Connection: session}, nil
+}
