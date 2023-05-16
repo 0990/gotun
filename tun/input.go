@@ -1,7 +1,6 @@
 package tun
 
 import (
-	"encoding/json"
 	"errors"
 )
 
@@ -18,12 +17,17 @@ func newInput(input string, extra string) (input, error) {
 	}
 	switch proto {
 	case TCP:
-		var tcpCfg TCPConfig
-		err := json.Unmarshal([]byte(extra), &tcpCfg)
-		if err != nil {
-			return nil, err
-		}
-		return NewInputTCP(addr, tcpCfg)
+		return NewInputTCP(addr, extra)
+	case TcpMux:
+		return NewInputTcpMux(addr, extra)
+	case UDP:
+		return NewInputUDP(addr, extra)
+	case QUIC:
+		return NewInputQUIC(addr, extra)
+	case KCP:
+		return NewInputKCP(addr, extra)
+	case KcpMux:
+		return NewInputKCPMux(addr, extra)
 	default:
 		return nil, errors.New("unknown protocol")
 	}

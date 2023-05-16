@@ -15,6 +15,7 @@ type gcm struct {
 	w *writer
 }
 
+// 读操作：从rw读数据且解密，返回解密后的数据；写操作：加密后写入rw，
 func newGCM(rw io.ReadWriter, aead cipher.AEAD) io.ReadWriter {
 	if aead == nil {
 		return rw
@@ -54,6 +55,7 @@ func (w *writer) RandomNonce() {
 
 }
 
+// 加密后写入rw，但返回的是b的长度，而不是加密后的长度（为了兼容io.Writer接口）
 func (w *writer) Write(b []byte) (int, error) {
 	n, err := w.write(b)
 	return int(n), err
@@ -109,6 +111,7 @@ func NewReader(r io.Reader, aead cipher.AEAD) *reader {
 	}
 }
 
+// 解密后copy到b中，返回的是解密后的数据长度，而不是解密前的长度（为了兼容io.Reader接口）
 func (r *reader) Read(b []byte) (int, error) {
 	if len(r.leftover) > 0 {
 		n := copy(b, r.leftover)

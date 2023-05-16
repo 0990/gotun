@@ -2,21 +2,22 @@ package tun
 
 import (
 	"encoding/json"
+	"github.com/hashicorp/yamux"
 	"github.com/sirupsen/logrus"
 	"net"
 	"time"
 )
 
-type inputTCP struct {
+type inputTcpMux struct {
 	addr     string
-	cfg      TCPConfig
+	cfg      TCPMuxConfig
 	listener net.Listener
 
 	streamHandler func(stream Stream)
 }
 
-func NewInputTCP(addr string, extra string) (*inputTCP, error) {
-	var tcpCfg TCPConfig
+func NewInputTcpMux(addr string, extra string) (*inputTcpMux, error) {
+	var tcpCfg TCPMuxConfig
 
 	if extra != "" {
 		err := json.Unmarshal([]byte(extra), &tcpCfg)
@@ -25,13 +26,13 @@ func NewInputTCP(addr string, extra string) (*inputTCP, error) {
 		}
 	}
 
-	return &inputTCP{
+	return &inputTcpMux{
 		addr: addr,
 		cfg:  tcpCfg,
 	}, nil
 }
 
-func (p *inputTCP) Run() error {
+func (p *inputTcpMux) Run() error {
 	lis, err := net.Listen("tcp", p.addr)
 	if err != nil {
 		return err
@@ -41,11 +42,11 @@ func (p *inputTCP) Run() error {
 	return nil
 }
 
-func (p *inputTCP) SetStreamHandler(f func(stream Stream)) {
+func (p *inputTcpMux) SetStreamHandler(f func(stream Stream)) {
 	p.streamHandler = f
 }
 
-func (p *inputTCP) serve() {
+func (p *inputTcpMux) serve() {
 	var tempDelay time.Duration
 	for {
 		conn, err := p.listener.Accept()
@@ -70,15 +71,30 @@ func (p *inputTCP) serve() {
 	}
 }
 
-func (p *inputTCP) handleConn(conn net.Conn) {
-	p.handleConnNoMux(conn)
+func (p *inputTcpMux) handleConn(conn net.Conn) {
+	p.handleConnYamux(conn)
 }
 
-func (p *inputTCP) handleConnNoMux(conn net.Conn) {
-	c := &TCPConn{Conn: conn}
-	p.streamHandler(c)
+func (p *inputTcpMux) handleConnYamux(conn net.Conn) {
+	session, err := yamux.Server(conn, nil)
+	if err != nil {
+		return
+	}
+	defer session.Close()
+
+	for {
+		stream, err := session.AcceptStream()
+		if err != nil {
+			return
+		}
+
+		s := &TCPYamuxStream{stream}
+		go func(p1 Stream) {
+			p.streamHandler(p1)
+		}(s)
+	}
 }
 
-func (p *inputTCP) Close() error {
+func (p *inputTcpMux) Close() error {
 	return p.listener.Close()
 }

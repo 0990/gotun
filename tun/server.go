@@ -19,7 +19,7 @@ func NewServer(cfg Config) (*Server, error) {
 		return nil, err
 	}
 
-	output, err := NewOutput(cfg.Output, cfg.OutExtra)
+	output, err := NewOutput(cfg.Output, cfg.OutExtra, cfg.OutMuxConn)
 	if err != nil {
 		return nil, err
 	}

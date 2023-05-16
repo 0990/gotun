@@ -12,16 +12,19 @@ type Config struct {
 	OutCryptKey   string `json:"out_crypt_key"`
 	OutCryptMode  string `json:"out_crypt_mode"`
 	OutExtra      string `json:"out_extra"`
-	OutMuxConn    int32  `json:"out_mux_conn"`
+	OutMuxConn    int    `json:"out_mux_conn"`
 }
 
 type TCPConfig struct {
-	NoMux bool `json:"no_mux"`
+}
+
+type TCPMuxConfig struct {
+}
+
+type QUICConfig struct {
 }
 
 type KCPConfig struct {
-	NoMux        bool `json:"no_mux"`
-	StreamMode   bool `json:"stream_mode"`
 	WriteDelay   bool `json:"write_delay"`
 	MTU          int  `json:"mtu"`
 	SndWnd       int  `json:"sndwnd"`
@@ -36,6 +39,23 @@ type KCPConfig struct {
 	NoCongestion int  `json:"nc"`
 	SockBuf      int  `json:"sockbuf"`
 	StreamBuf    int  `json:"streambuf"`
+}
+
+var defaultKCPConfig = KCPConfig{
+	WriteDelay:   false,
+	MTU:          1300,
+	SndWnd:       2048,
+	RcvWnd:       1024,
+	DataShard:    10,
+	ParityShard:  3,
+	DSCP:         46,
+	AckNodelay:   true,
+	NoDelay:      0,
+	Interval:     40,
+	Resend:       0,
+	NoCongestion: 0,
+	SockBuf:      16777217,
+	StreamBuf:    4194304,
 }
 
 type UDPConfig struct {

@@ -12,7 +12,7 @@ type output interface {
 	GetStream() (Stream, error)
 }
 
-func NewOutput(output string, extra string) (output, error) {
+func NewOutput(output string, extra string, muxConnCount int) (output, error) {
 	proto, addr, err := parseProtocol(output)
 	if err != nil {
 		return nil, err
@@ -30,9 +30,13 @@ func NewOutput(output string, extra string) (output, error) {
 		makeStreamMaker = dialQUICBuilder
 	case KCP, KcpMux:
 		var cfg KCPConfig
-		err := json.Unmarshal([]byte(extra), &cfg)
-		if err != nil {
-			return nil, err
+		if extra != "" {
+			err := json.Unmarshal([]byte(extra), &cfg)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			cfg = defaultKCPConfig
 		}
 
 		if proto == KCP {
@@ -52,6 +56,7 @@ func NewOutput(output string, extra string) (output, error) {
 	o.makeStream = makeStream
 	o.makeStreamMaker = makeStreamMaker
 	o.addr = addr
+	o.poolNum = muxConnCount
 	err = o.Init()
 	if err != nil {
 		return nil, err
@@ -72,14 +77,19 @@ type Output struct {
 }
 
 func (p *Output) Init() error {
-	if p.poolNum <= 0 || p.makeStreamMaker == nil {
-		return nil
+	if p.poolNum <= 0 && p.makeStreamMaker != nil {
+		return errors.New("stream模式下，预连接数outMuxConn不可为0")
+	}
+
+	if p.poolNum > 0 && p.makeStream != nil {
+		return errors.New("非stream模式下，预连接数outMuxConn值无用，不可大于0")
 	}
 
 	makers := make([]StreamMaker, p.poolNum)
 	for k := range makers {
 		makers[k] = p.waitCreateStreamMaker()
 	}
+	p.makerPools = makers
 	return nil
 }
 

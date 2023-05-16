@@ -28,7 +28,7 @@ func dialKCPConn(addr string, config KCPConfig) (*kcp.UDPSession, error) {
 	if err != nil {
 		return nil, err
 	}
-	kcpConn.SetStreamMode(config.StreamMode)
+	kcpConn.SetStreamMode(false)
 	kcpConn.SetWriteDelay(config.WriteDelay)
 	kcpConn.SetMtu(config.MTU)
 	kcpConn.SetACKNoDelay(config.AckNodelay)

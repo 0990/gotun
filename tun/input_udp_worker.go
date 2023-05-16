@@ -1,7 +1,8 @@
 package tun
 
 import (
-	"errors"
+	"bytes"
+	"fmt"
 	"github.com/0990/gotun/syncx"
 	"github.com/sirupsen/logrus"
 	"io"
@@ -29,10 +30,12 @@ func (p *WorkerMap) LoadOrStore(key string, worker *UDPWorker) (w *UDPWorker, lo
 }
 
 type UDPWorker struct {
-	srcAddr      net.Addr
-	timeout      time.Duration
-	relayer      net.PacketConn
-	writeData    chan []byte
+	srcAddr net.Addr
+	timeout time.Duration
+	relayer net.PacketConn
+	//writeData    chan []byte
+	bReaders     chan io.Reader
+	reader       io.Reader
 	onClear      func()
 	readDeadline time.Time
 }
@@ -58,10 +61,12 @@ func (w *UDPWorker) Logger() *logrus.Entry {
 }
 
 func (w *UDPWorker) insert(data []byte) {
-	if len(w.writeData) > 90 {
+	if len(w.bReaders) > 90 {
 		logrus.Warn("UDPWorker writeData reach limit")
 	}
-	w.writeData <- data
+	bReader := bytes.NewBuffer(data)
+	w.bReaders <- bReader
+	//w.writeData <- data
 }
 
 func (w *UDPWorker) Close() error {
@@ -73,26 +78,51 @@ func (w *UDPWorker) Read(p []byte) (n int, err error) {
 	timeout := time.Until(w.readDeadline)
 
 	if timeout <= 0 {
-		data, ok := <-w.writeData
-		if !ok {
-			return 0, io.EOF
+	READ:
+		if w.reader == nil {
+			reader, ok := <-w.bReaders
+			if !ok {
+				return 0, io.EOF
+			}
+			w.reader = reader
 		}
-		return copy(p, data), nil
+
+		n, err := w.reader.Read(p)
+		if err == nil {
+			return n, nil
+		}
+
+		if err != io.EOF {
+			return n, err
+		}
+
+		//以下是err==io.EOF情况
+		if n > 0 {
+			return n, nil
+		}
+
+		//以下是err==io.EOF的情况
+		w.reader = nil
+		goto READ
 	}
 
-	timer := time.NewTimer(timeout)
-	defer timer.Stop()
-	select {
-	case data, ok := <-w.writeData:
-		if !ok {
-			return 0, io.EOF
-		}
-		return copy(p, data), nil
-	case <-timer.C:
-		return 0, errors.New("timeout")
-	}
+	return 0, io.EOF
+
+	//timer := time.NewTimer(timeout)
+	//defer timer.Stop()
+	//select {
+	//case data, ok := <-w.writeData:
+	//	if !ok {
+	//		return 0, io.EOF
+	//	}
+	//	return copy(p, data), nil
+	//case <-timer.C:
+	//	return 0, errors.New("timeout")
+	//}
 }
 
 func (w *UDPWorker) Write(p []byte) (n int, err error) {
-	return w.relayer.WriteTo(p, w.srcAddr)
+	n, err = w.relayer.WriteTo(p, w.srcAddr)
+	fmt.Println("UDPWorker Write", w.relayer.LocalAddr(), w.srcAddr, "长度", n, ":", len(p), err, string(p))
+	return n, err
 }

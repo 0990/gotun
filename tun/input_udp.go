@@ -1,7 +1,9 @@
 package tun
 
 import (
+	"encoding/json"
 	"github.com/sirupsen/logrus"
+	"io"
 	"net"
 	"time"
 )
@@ -15,7 +17,16 @@ type inputUDP struct {
 	streamHandler func(stream Stream)
 }
 
-func NewInputUDP(addr string, cfg UDPConfig) (*inputUDP, error) {
+func NewInputUDP(addr string, extra string) (*inputUDP, error) {
+	var cfg UDPConfig
+
+	if extra != "" {
+		err := json.Unmarshal([]byte(extra), &cfg)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return &inputUDP{
 		addr: addr,
 		cfg:  cfg,
@@ -31,6 +42,10 @@ func (p *inputUDP) Run() error {
 	p.conn = conn
 	go p.serve()
 	return nil
+}
+
+func (p *inputUDP) Close() error {
+	return p.conn.Close()
 }
 
 func (p *inputUDP) SetStreamHandler(f func(stream Stream)) {
@@ -57,10 +72,10 @@ func (p *inputUDP) serve() {
 		data := buf[0:n]
 
 		worker := &UDPWorker{
-			timeout:   timeout,
-			srcAddr:   srcAddr,
-			relayer:   relayer,
-			writeData: make(chan []byte, 100),
+			timeout:  timeout,
+			srcAddr:  srcAddr,
+			relayer:  relayer,
+			bReaders: make(chan io.Reader, 100),
 			onClear: func() {
 				workers.Del(id)
 			},

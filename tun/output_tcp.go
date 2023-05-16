@@ -17,5 +17,6 @@ func dialTCP(addr string) (Stream, error) {
 	if err != nil {
 		return nil, err
 	}
+	conn.(*net.TCPConn).SetNoDelay(false)
 	return &TCPConn{Conn: conn}, nil
 }

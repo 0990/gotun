@@ -7,7 +7,7 @@ import (
 
 // 解析 0.0.0.0:80/tcp
 func parseProtocol(s string) (protocol, string, error) {
-	ss := strings.Split(s, "/")
+	ss := strings.Split(s, "@")
 	if len(ss) != 2 {
 		return 0, "", errors.New("invalid listen protocol")
 	}
