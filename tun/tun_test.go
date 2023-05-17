@@ -13,17 +13,13 @@ func Test_Tcp(t *testing.T) {
 
 	relayAddr := "127.0.0.1:6000"
 	s, err := NewServer(Config{
-		Id:            0,
 		Name:          "tcp",
 		Input:         fmt.Sprintf("tcp@%s", relayAddr),
 		Output:        fmt.Sprintf("tcp@%s", targetAddr),
 		InDecryptKey:  "",
 		InDecryptMode: "",
-		InExtra:       "",
 		OutCryptKey:   "",
 		OutCryptMode:  "",
-		OutExtra:      "",
-		OutMuxConn:    0,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -41,17 +37,13 @@ func Test_TcpTun(t *testing.T) {
 	relayClientAddr := "127.0.0.1:6000"
 	relayServerAddr := "127.0.0.1:6001"
 	c, err := NewServer(Config{
-		Id:            0,
 		Name:          "tcp",
 		Input:         fmt.Sprintf("tcp@%s", relayClientAddr),
 		Output:        fmt.Sprintf("tcp@%s", relayServerAddr),
 		InDecryptKey:  "",
 		InDecryptMode: "",
-		InExtra:       "",
 		OutCryptKey:   "111111",
 		OutCryptMode:  "gcm",
-		OutExtra:      "",
-		OutMuxConn:    0,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -60,17 +52,13 @@ func Test_TcpTun(t *testing.T) {
 	c.Run()
 
 	s, err := NewServer(Config{
-		Id:            0,
 		Name:          "tcp",
 		Input:         fmt.Sprintf("tcp@%s", relayServerAddr),
 		Output:        fmt.Sprintf("tcp@%s", targetAddr),
 		InDecryptKey:  "111111",
 		InDecryptMode: "gcm",
-		InExtra:       "",
 		OutCryptKey:   "",
 		OutCryptMode:  "",
-		OutExtra:      "",
-		OutMuxConn:    0,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -89,17 +77,13 @@ func Test_TcpMuxTun(t *testing.T) {
 	relayServerAddr := "127.0.0.1:6001"
 
 	s, err := NewServer(Config{
-		Id:            0,
 		Name:          "tcp",
 		Input:         fmt.Sprintf("tcp_mux@%s", relayServerAddr),
 		Output:        fmt.Sprintf("tcp@%s", targetAddr),
 		InDecryptKey:  "111111",
 		InDecryptMode: "gcm",
-		InExtra:       "",
 		OutCryptKey:   "",
 		OutCryptMode:  "",
-		OutExtra:      "",
-		OutMuxConn:    0,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -108,17 +92,15 @@ func Test_TcpMuxTun(t *testing.T) {
 	s.Run()
 
 	c, err := NewServer(Config{
-		Id:            0,
+
 		Name:          "tcp",
 		Input:         fmt.Sprintf("tcp@%s", relayClientAddr),
 		Output:        fmt.Sprintf("tcp_mux@%s", relayServerAddr),
 		InDecryptKey:  "",
 		InDecryptMode: "",
-		InExtra:       "",
-		OutCryptKey:   "111111",
-		OutCryptMode:  "gcm",
-		OutExtra:      "",
-		OutMuxConn:    10,
+
+		OutCryptKey:  "111111",
+		OutCryptMode: "gcm",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -138,17 +120,15 @@ func Test_QUICTun(t *testing.T) {
 	relayServerAddr := "127.0.0.1:6001"
 
 	s, err := NewServer(Config{
-		Id:            0,
+
 		Name:          "quic_tun_client",
 		Input:         fmt.Sprintf("quic@%s", relayServerAddr),
 		Output:        fmt.Sprintf("tcp@%s", targetAddr),
 		InDecryptKey:  "111111",
 		InDecryptMode: "gcm",
-		InExtra:       "",
-		OutCryptKey:   "",
-		OutCryptMode:  "",
-		OutExtra:      "",
-		OutMuxConn:    0,
+
+		OutCryptKey:  "",
+		OutCryptMode: "",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -157,17 +137,16 @@ func Test_QUICTun(t *testing.T) {
 	s.Run()
 
 	c, err := NewServer(Config{
-		Id:            0,
+
 		Name:          "quic_tun_client",
 		Input:         fmt.Sprintf("tcp@%s", relayClientAddr),
 		Output:        fmt.Sprintf("quic@%s", relayServerAddr),
 		InDecryptKey:  "",
 		InDecryptMode: "",
-		InExtra:       "",
-		OutCryptKey:   "111111",
-		OutCryptMode:  "gcm",
-		OutExtra:      "",
-		OutMuxConn:    10,
+
+		OutCryptKey:  "111111",
+		OutCryptMode: "gcm",
+		OutExtend:    OutExtend{MuxConn: 10},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -187,17 +166,13 @@ func Test_KCPTun(t *testing.T) {
 	relayServerAddr := "127.0.0.1:6001"
 
 	s, err := NewServer(Config{
-		Id:            0,
 		Name:          "",
 		Input:         fmt.Sprintf("kcp@%s", relayServerAddr),
 		Output:        fmt.Sprintf("tcp@%s", targetAddr),
 		InDecryptKey:  "111111",
 		InDecryptMode: "gcm",
-		InExtra:       "",
 		OutCryptKey:   "",
 		OutCryptMode:  "",
-		OutExtra:      "",
-		OutMuxConn:    0,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -206,17 +181,15 @@ func Test_KCPTun(t *testing.T) {
 	s.Run()
 
 	c, err := NewServer(Config{
-		Id:            0,
+
 		Name:          "",
 		Input:         fmt.Sprintf("tcp@%s", relayClientAddr),
 		Output:        fmt.Sprintf("kcp@%s", relayServerAddr),
 		InDecryptKey:  "",
 		InDecryptMode: "",
-		InExtra:       "",
-		OutCryptKey:   "111111",
-		OutCryptMode:  "gcm",
-		OutExtra:      "",
-		OutMuxConn:    0,
+
+		OutCryptKey:  "111111",
+		OutCryptMode: "gcm",
 	})
 
 	if err != nil {
@@ -237,17 +210,15 @@ func Test_KCPMuxTun(t *testing.T) {
 	relayServerAddr := "127.0.0.1:6001"
 
 	s, err := NewServer(Config{
-		Id:            0,
+
 		Name:          "",
 		Input:         fmt.Sprintf("kcp_mux@%s", relayServerAddr),
 		Output:        fmt.Sprintf("tcp@%s", targetAddr),
 		InDecryptKey:  "111111",
 		InDecryptMode: "gcm",
-		InExtra:       "",
-		OutCryptKey:   "",
-		OutCryptMode:  "",
-		OutExtra:      "",
-		OutMuxConn:    0,
+
+		OutCryptKey:  "",
+		OutCryptMode: "",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -256,17 +227,15 @@ func Test_KCPMuxTun(t *testing.T) {
 	s.Run()
 
 	c, err := NewServer(Config{
-		Id:            0,
 		Name:          "",
 		Input:         fmt.Sprintf("tcp@%s", relayClientAddr),
 		Output:        fmt.Sprintf("kcp_mux@%s", relayServerAddr),
 		InDecryptKey:  "",
 		InDecryptMode: "",
-		InExtra:       "",
-		OutCryptKey:   "111111",
-		OutCryptMode:  "gcm",
-		OutExtra:      "",
-		OutMuxConn:    10,
+
+		OutCryptKey:  "111111",
+		OutCryptMode: "gcm",
+		OutExtend:    OutExtend{MuxConn: 10},
 	})
 
 	if err != nil {

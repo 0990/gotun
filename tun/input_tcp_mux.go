@@ -9,18 +9,18 @@ import (
 )
 
 type inputTcpMux struct {
-	addr     string
-	cfg      TCPMuxConfig
-	listener net.Listener
+	inputBase
 
-	streamHandler func(stream Stream)
+	addr     string
+	cfg      InProtoTCPMux
+	listener net.Listener
 }
 
-func NewInputTcpMux(addr string, extra string) (*inputTcpMux, error) {
-	var tcpCfg TCPMuxConfig
+func NewInputTcpMux(addr string, config string) (*inputTcpMux, error) {
+	var cfg InProtoTCPMux
 
-	if extra != "" {
-		err := json.Unmarshal([]byte(extra), &tcpCfg)
+	if config != "" {
+		err := json.Unmarshal([]byte(config), &cfg)
 		if err != nil {
 			return nil, err
 		}
@@ -28,7 +28,7 @@ func NewInputTcpMux(addr string, extra string) (*inputTcpMux, error) {
 
 	return &inputTcpMux{
 		addr: addr,
-		cfg:  tcpCfg,
+		cfg:  cfg,
 	}, nil
 }
 
@@ -40,10 +40,6 @@ func (p *inputTcpMux) Run() error {
 	p.listener = lis
 	go p.serve()
 	return nil
-}
-
-func (p *inputTcpMux) SetStreamHandler(f func(stream Stream)) {
-	p.streamHandler = f
 }
 
 func (p *inputTcpMux) serve() {
@@ -72,7 +68,21 @@ func (p *inputTcpMux) serve() {
 }
 
 func (p *inputTcpMux) handleConn(conn net.Conn) {
+	err := p.OnNewConn(conn)
+	if err != nil {
+		logrus.WithError(err).Error("OnNewConn")
+		conn.Close()
+		return
+	}
 	p.handleConnYamux(conn)
+}
+
+func (p *inputTcpMux) OnNewConn(conn net.Conn) error {
+	err := tcpTrimHead(conn, p.cfg.HeadTrim)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (p *inputTcpMux) handleConnYamux(conn net.Conn) {
@@ -90,7 +100,7 @@ func (p *inputTcpMux) handleConnYamux(conn net.Conn) {
 
 		s := &TCPYamuxStream{stream}
 		go func(p1 Stream) {
-			p.streamHandler(p1)
+			p.inputBase.OnNewStream(p1)
 		}(s)
 	}
 }

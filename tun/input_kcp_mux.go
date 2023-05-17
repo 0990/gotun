@@ -11,11 +11,12 @@ import (
 )
 
 type inputKCPMux struct {
+	inputBase
+
 	addr string
 	cfg  KCPConfig
 
-	listener      *kcp.Listener
-	streamHandler func(stream Stream)
+	listener *kcp.Listener
 }
 
 func NewInputKCPMux(addr string, extra string) (*inputKCPMux, error) {
@@ -116,11 +117,7 @@ func (p *inputKCPMux) handleConn(conn net.Conn) {
 		s := &KCPsmuxStream{Stream: stream}
 
 		go func(p1 Stream) {
-			p.streamHandler(p1)
+			p.inputBase.OnNewStream(p1)
 		}(s)
 	}
-}
-
-func (p *inputKCPMux) SetStreamHandler(f func(stream Stream)) {
-	p.streamHandler = f
 }

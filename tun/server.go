@@ -14,12 +14,12 @@ type Server struct {
 }
 
 func NewServer(cfg Config) (*Server, error) {
-	input, err := newInput(cfg.Input, cfg.InExtra)
+	input, err := newInput(cfg.Input, cfg.InProtoCfg)
 	if err != nil {
 		return nil, err
 	}
 
-	output, err := NewOutput(cfg.Output, cfg.OutExtra, cfg.OutMuxConn)
+	output, err := NewOutput(cfg.Output, cfg.OutProtoCfg, cfg.OutExtend)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +42,7 @@ func (s *Server) Run() error {
 	if err != nil {
 		return err
 	}
-	s.input.SetStreamHandler(s.handleInputStream)
+	s.input.SetOnNewStream(s.handleInputStream)
 	return nil
 }
 

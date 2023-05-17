@@ -41,7 +41,7 @@ func (p *QUICStream) SetReadDeadline(t time.Time) error {
 	return p.Stream.SetReadDeadline(t)
 }
 
-func dialQUICBuilder(addr string) (StreamMaker, error) {
+func dialQUICBuilder(addr string, config string) (StreamMaker, error) {
 	tlsConf := &tls.Config{
 		InsecureSkipVerify: true,
 		NextProtos:         []string{"quic-stunnel"},

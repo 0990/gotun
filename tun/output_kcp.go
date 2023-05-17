@@ -1,6 +1,7 @@
 package tun
 
 import (
+	"encoding/json"
 	"github.com/xtaci/kcp-go/v5"
 	"log"
 )
@@ -13,14 +14,22 @@ func (c *KCPSession) ID() int64 {
 	return int64(1)
 }
 
-func dialKCP(config KCPConfig) func(addr string) (Stream, error) {
-	return func(addr string) (Stream, error) {
-		session, err := dialKCPConn(addr, config)
+func dialKCP(addr string, config string) (Stream, error) {
+	var cfg KCPConfig
+	if config != "" {
+		err := json.Unmarshal([]byte(config), &cfg)
 		if err != nil {
 			return nil, err
 		}
-		return &KCPSession{UDPSession: session}, nil
+	} else {
+		cfg = defaultKCPConfig
 	}
+
+	session, err := dialKCPConn(addr, cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &KCPSession{UDPSession: session}, nil
 }
 
 func dialKCPConn(addr string, config KCPConfig) (*kcp.UDPSession, error) {

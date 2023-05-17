@@ -9,12 +9,11 @@ import (
 )
 
 type inputUDP struct {
+	inputBase
+
 	addr string
 	cfg  UDPConfig
-
 	conn net.PacketConn
-
-	streamHandler func(stream Stream)
 }
 
 func NewInputUDP(addr string, extra string) (*inputUDP, error) {
@@ -46,10 +45,6 @@ func (p *inputUDP) Run() error {
 
 func (p *inputUDP) Close() error {
 	return p.conn.Close()
-}
-
-func (p *inputUDP) SetStreamHandler(f func(stream Stream)) {
-	p.streamHandler = f
 }
 
 // send: client->relayer->sender->remote
@@ -84,7 +79,7 @@ func (p *inputUDP) serve() {
 		w, load := workers.LoadOrStore(id, worker)
 		if !load {
 			go func() {
-				p.streamHandler(w)
+				p.inputBase.OnNewStream(w)
 			}()
 		}
 

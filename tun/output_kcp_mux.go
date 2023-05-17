@@ -1,31 +1,40 @@
 package tun
 
 import (
+	"encoding/json"
 	"github.com/xtaci/smux"
 	"log"
 	"time"
 )
 
-func dialKCPBuilder(config KCPConfig) func(addr string) (StreamMaker, error) {
-	return func(addr string) (StreamMaker, error) {
-		session, err := dialKCPConn(addr, config)
+func dialKCPBuilder(addr string, config string) (StreamMaker, error) {
+	var cfg KCPConfig
+	if config != "" {
+		err := json.Unmarshal([]byte(config), &cfg)
 		if err != nil {
 			return nil, err
 		}
-
-		smuxConfig := smux.DefaultConfig()
-		smuxConfig.MaxReceiveBuffer = config.StreamBuf
-
-		if err := smux.VerifyConfig(smuxConfig); err != nil {
-			log.Fatalf("%+v", err)
-		}
-
-		smuxSess, err := smux.Client(session, smuxConfig)
-		if err != nil {
-			return nil, err
-		}
-		return &KCPsmuxSession{session: smuxSess}, nil
+	} else {
+		cfg = defaultKCPConfig
 	}
+
+	session, err := dialKCPConn(addr, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	smuxConfig := smux.DefaultConfig()
+	smuxConfig.MaxReceiveBuffer = cfg.StreamBuf
+
+	if err := smux.VerifyConfig(smuxConfig); err != nil {
+		log.Fatalf("%+v", err)
+	}
+
+	smuxSess, err := smux.Client(session, smuxConfig)
+	if err != nil {
+		return nil, err
+	}
+	return &KCPsmuxSession{session: smuxSess}, nil
 }
 
 type KCPsmuxSession struct {

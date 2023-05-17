@@ -14,17 +14,13 @@ func Test_UDP(t *testing.T) {
 
 	relayAddr := "127.0.0.1:6000"
 	s, err := NewServer(Config{
-		Id:            0,
 		Name:          "udp",
 		Input:         fmt.Sprintf("udp@%s", relayAddr),
 		Output:        fmt.Sprintf("udp@%s", targetAddr),
 		InDecryptKey:  "",
 		InDecryptMode: "",
-		InExtra:       "",
 		OutCryptKey:   "",
 		OutCryptMode:  "",
-		OutExtra:      "",
-		OutMuxConn:    0,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -47,17 +43,13 @@ func Test_UDPTun(t *testing.T) {
 	relayClientAddr := "127.0.0.1:6000"
 	relayServerAddr := "127.0.0.1:6001"
 	c, err := NewServer(Config{
-		Id:            0,
 		Name:          "udp_tun_client",
 		Input:         fmt.Sprintf("udp@%s", relayClientAddr),
 		Output:        fmt.Sprintf("udp@%s", relayServerAddr),
 		InDecryptKey:  "",
 		InDecryptMode: "",
-		InExtra:       "",
 		OutCryptKey:   "111111",
 		OutCryptMode:  "gcm",
-		OutExtra:      "",
-		OutMuxConn:    0,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -66,17 +58,13 @@ func Test_UDPTun(t *testing.T) {
 	c.Run()
 
 	s, err := NewServer(Config{
-		Id:            0,
 		Name:          "udp_tun_server",
 		Input:         fmt.Sprintf("udp@%s", relayServerAddr),
 		Output:        fmt.Sprintf("udp@%s", targetAddr),
 		InDecryptKey:  "111111",
 		InDecryptMode: "gcm",
-		InExtra:       "",
 		OutCryptKey:   "",
 		OutCryptMode:  "",
-		OutExtra:      "",
-		OutMuxConn:    0,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -99,17 +87,13 @@ func Test_UDPTunTCP(t *testing.T) {
 	relayClientAddr := "127.0.0.1:6000"
 	relayServerAddr := "127.0.0.1:6001"
 	c, err := NewServer(Config{
-		Id:            0,
 		Name:          "udp_tun_client",
 		Input:         fmt.Sprintf("udp@%s", relayClientAddr),
 		Output:        fmt.Sprintf("tcp@%s", relayServerAddr),
 		InDecryptKey:  "",
 		InDecryptMode: "",
-		InExtra:       "",
 		OutCryptKey:   "111111",
 		OutCryptMode:  "gcm",
-		OutExtra:      "",
-		OutMuxConn:    0,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -118,17 +102,13 @@ func Test_UDPTunTCP(t *testing.T) {
 	c.Run()
 
 	s, err := NewServer(Config{
-		Id:            0,
 		Name:          "udp_tun_server",
 		Input:         fmt.Sprintf("tcp@%s", relayServerAddr),
 		Output:        fmt.Sprintf("udp@%s", targetAddr),
 		InDecryptKey:  "111111",
 		InDecryptMode: "gcm",
-		InExtra:       "",
 		OutCryptKey:   "",
 		OutCryptMode:  "",
-		OutExtra:      "",
-		OutMuxConn:    0,
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -43,7 +43,7 @@ func (c *UDPConn) Read(b []byte) (int, error) {
 	return c.Read(b)
 }
 
-func dialUDP(addr string) (Stream, error) {
+func dialUDP(addr string, config string) (Stream, error) {
 	raddr, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
 		return nil, err

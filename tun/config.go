@@ -1,24 +1,42 @@
 package tun
 
 type Config struct {
-	Id     int32  `json:"id"`
 	Name   string `json:"name"`
 	Input  string `json:"input"`
 	Output string `json:"output"`
 
-	InDecryptKey  string `json:"in_decrypt_key"`
-	InDecryptMode string `json:"in_decrypt_mode"`
-	InExtra       string `json:"in_extra"`
-	OutCryptKey   string `json:"out_crypt_key"`
-	OutCryptMode  string `json:"out_crypt_mode"`
-	OutExtra      string `json:"out_extra"`
-	OutMuxConn    int    `json:"out_mux_conn"`
+	InProtoCfg    string   `json:"in_proto_cfg"`
+	InDecryptMode string   `json:"in_decrypt_mode"`
+	InDecryptKey  string   `json:"in_decrypt_key"`
+	InExtend      InExtend `json:"in_extend"`
+
+	OutProtoCfg  string    `json:"out_proto_cfg"`
+	OutCryptMode string    `json:"out_crypt_mode"`
+	OutCryptKey  string    `json:"out_crypt_key"`
+	OutExtend    OutExtend `json:"out_extend"`
 }
 
-type TCPConfig struct {
+type InExtend struct {
 }
 
-type TCPMuxConfig struct {
+type OutExtend struct {
+	MuxConn int `json:"mux_conn"`
+}
+
+type InProtoTCP struct {
+	HeadTrim []byte `json:"head_trim"` //头部字段匹配删除
+}
+
+type OutProtoTCP struct {
+	HeadAppend []byte `json:"head_extend"` //头部数据填充
+}
+
+type InProtoTCPMux struct {
+	HeadTrim []byte `json:"head_trim"` //头部字段匹配删除
+}
+
+type OutProtoTCPMux struct {
+	HeadAppend []byte `json:"head_extend"` //头部数据填充
 }
 
 type QUICConfig struct {

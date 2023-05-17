@@ -1,6 +1,7 @@
 package tun
 
 import (
+	"encoding/json"
 	"github.com/hashicorp/yamux"
 	"net"
 	"time"
@@ -35,8 +36,21 @@ func (c *TCPYamuxStream) SetReadDeadline(t time.Time) error {
 	return c.Stream.SetReadDeadline(t)
 }
 
-func dialTCPYamuxBuilder(addr string) (StreamMaker, error) {
+func dialTCPYamuxBuilder(addr string, config string) (StreamMaker, error) {
+	var cfg OutProtoTCPMux
+	if config != "" {
+		err := json.Unmarshal([]byte(config), &cfg)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+
+	err = tcpHeadAppend(conn, cfg.HeadAppend)
 	if err != nil {
 		return nil, err
 	}

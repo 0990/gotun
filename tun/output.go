@@ -1,7 +1,6 @@
 package tun
 
 import (
-	"encoding/json"
 	"errors"
 	"github.com/sirupsen/logrus"
 	"time"
@@ -12,14 +11,14 @@ type output interface {
 	GetStream() (Stream, error)
 }
 
-func NewOutput(output string, extra string, muxConnCount int) (output, error) {
+func NewOutput(output string, config string, extend OutExtend) (output, error) {
 	proto, addr, err := parseProtocol(output)
 	if err != nil {
 		return nil, err
 	}
 
-	var makeStream func(addr string) (Stream, error)
-	var makeStreamMaker func(addr string) (StreamMaker, error)
+	var makeStream func(addr string, config string) (Stream, error)
+	var makeStreamMaker func(addr string, config string) (StreamMaker, error)
 
 	switch proto {
 	case TCP:
@@ -28,24 +27,10 @@ func NewOutput(output string, extra string, muxConnCount int) (output, error) {
 		makeStreamMaker = dialTCPYamuxBuilder
 	case QUIC:
 		makeStreamMaker = dialQUICBuilder
-	case KCP, KcpMux:
-		var cfg KCPConfig
-		if extra != "" {
-			err := json.Unmarshal([]byte(extra), &cfg)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			cfg = defaultKCPConfig
-		}
-
-		if proto == KCP {
-			makeStream = dialKCP(cfg)
-		}
-
-		if proto == KcpMux {
-			makeStreamMaker = dialKCPBuilder(cfg)
-		}
+	case KCP:
+		makeStream = dialKCP
+	case KcpMux:
+		makeStreamMaker = dialKCPBuilder
 	case UDP:
 		makeStream = dialUDP
 	default:
@@ -56,7 +41,8 @@ func NewOutput(output string, extra string, muxConnCount int) (output, error) {
 	o.makeStream = makeStream
 	o.makeStreamMaker = makeStreamMaker
 	o.addr = addr
-	o.poolNum = muxConnCount
+	o.config = config
+	o.poolNum = extend.MuxConn
 	err = o.Init()
 	if err != nil {
 		return nil, err
@@ -66,10 +52,11 @@ func NewOutput(output string, extra string, muxConnCount int) (output, error) {
 }
 
 type Output struct {
-	makeStreamMaker func(addr string) (StreamMaker, error)
-	makeStream      func(addr string) (Stream, error)
+	makeStreamMaker func(addr string, config string) (StreamMaker, error)
+	makeStream      func(addr string, config string) (Stream, error)
 
-	addr string
+	addr   string
+	config string
 
 	poolNum    int //此值>0时，会预先生成muxConnNum个连接，用于后续的多路复用，<=0时，每次都会新建连接
 	makerPools []StreamMaker
@@ -96,7 +83,7 @@ func (p *Output) Init() error {
 // 默认通过makeStream临时创建，不存在makeStream时，则一定从streamMaker池中取streamMaker来创建stream(多路复用情况下)
 func (p *Output) GetStream() (Stream, error) {
 	if p.makeStream != nil {
-		return p.makeStream(p.addr)
+		return p.makeStream(p.addr, p.config)
 	}
 
 	if p.poolNum <= 0 {
@@ -117,7 +104,7 @@ func (p *Output) GetStream() (Stream, error) {
 func (p *Output) waitCreateStreamMaker() StreamMaker {
 	for {
 		logrus.Warn("creating conn....")
-		if conn, err := p.makeStreamMaker(p.addr); err == nil {
+		if conn, err := p.makeStreamMaker(p.addr, p.config); err == nil {
 			logrus.Warn("creating conn ok")
 			return conn
 		} else {

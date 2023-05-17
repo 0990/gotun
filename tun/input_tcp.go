@@ -2,24 +2,26 @@ package tun
 
 import (
 	"encoding/json"
+	"errors"
 	"github.com/sirupsen/logrus"
+	"io"
 	"net"
 	"time"
 )
 
 type inputTCP struct {
-	addr     string
-	cfg      TCPConfig
-	listener net.Listener
+	inputBase
 
-	streamHandler func(stream Stream)
+	addr     string
+	cfg      InProtoTCP
+	listener net.Listener
 }
 
 func NewInputTCP(addr string, extra string) (*inputTCP, error) {
-	var tcpCfg TCPConfig
+	var cfg InProtoTCP
 
 	if extra != "" {
-		err := json.Unmarshal([]byte(extra), &tcpCfg)
+		err := json.Unmarshal([]byte(extra), &cfg)
 		if err != nil {
 			return nil, err
 		}
@@ -27,7 +29,7 @@ func NewInputTCP(addr string, extra string) (*inputTCP, error) {
 
 	return &inputTCP{
 		addr: addr,
-		cfg:  tcpCfg,
+		cfg:  cfg,
 	}, nil
 }
 
@@ -39,10 +41,6 @@ func (p *inputTCP) Run() error {
 	p.listener = lis
 	go p.serve()
 	return nil
-}
-
-func (p *inputTCP) SetStreamHandler(f func(stream Stream)) {
-	p.streamHandler = f
 }
 
 func (p *inputTCP) serve() {
@@ -71,14 +69,49 @@ func (p *inputTCP) serve() {
 }
 
 func (p *inputTCP) handleConn(conn net.Conn) {
-	p.handleConnNoMux(conn)
-}
+	err := p.OnNewConn(conn)
+	if err != nil {
+		logrus.WithError(err).Error("OnNewConn")
+		conn.Close()
+		return
+	}
 
-func (p *inputTCP) handleConnNoMux(conn net.Conn) {
 	c := &TCPConn{Conn: conn}
-	p.streamHandler(c)
+	p.inputBase.OnNewStream(c)
 }
 
 func (p *inputTCP) Close() error {
 	return p.listener.Close()
+}
+
+func (p *inputTCP) OnNewConn(conn net.Conn) error {
+	err := tcpTrimHead(conn, p.cfg.HeadTrim)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func tcpTrimHead(conn net.Conn, trim []byte) error {
+	if len(trim) == 0 {
+		return nil
+	}
+
+	conn.SetReadDeadline(time.Now().Add(time.Second * 5))
+
+	data := make([]byte, len(trim))
+	n, err := io.ReadFull(conn, data)
+	if err != nil {
+		return err
+	}
+
+	if n != len(trim) {
+		return errors.New("read head trim failed")
+	}
+
+	if string(data) != string(trim) {
+		return errors.New("head trim not match")
+	}
+
+	return nil
 }

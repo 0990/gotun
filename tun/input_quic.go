@@ -16,10 +16,11 @@ import (
 )
 
 type inputQUIC struct {
-	addr          string
-	cfg           QUICConfig
-	streamHandler func(stream Stream)
-	listener      quic.Listener
+	inputBase
+
+	addr     string
+	cfg      QUICConfig
+	listener quic.Listener
 }
 
 func NewInputQUIC(addr string, extra string) (*inputQUIC, error) {
@@ -84,13 +85,9 @@ func (p *inputQUIC) handleSession(session quic.Connection) {
 
 		s := &QUICStream{stream}
 		go func(p1 Stream) {
-			p.streamHandler(p1)
+			p.inputBase.OnNewStream(p1)
 		}(s)
 	}
-}
-
-func (p *inputQUIC) SetStreamHandler(f func(stream Stream)) {
-	p.streamHandler = f
 }
 
 func (p *inputQUIC) Close() error {

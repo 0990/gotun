@@ -10,11 +10,11 @@ import (
 )
 
 type inputKCP struct {
-	addr string
-	cfg  KCPConfig
+	inputBase
 
-	listener      *kcp.Listener
-	streamHandler func(stream Stream)
+	addr     string
+	cfg      KCPConfig
+	listener *kcp.Listener
 }
 
 func NewInputKCP(addr string, extra string) (*inputKCP, error) {
@@ -99,10 +99,6 @@ func (p *inputKCP) serve() {
 func (p *inputKCP) handleConn(session *kcp.UDPSession) {
 	s := &KCPSession{UDPSession: session}
 	go func(p1 Stream) {
-		p.streamHandler(p1)
+		p.inputBase.OnNewStream(p1)
 	}(s)
-}
-
-func (p *inputKCP) SetStreamHandler(f func(stream Stream)) {
-	p.streamHandler = f
 }
