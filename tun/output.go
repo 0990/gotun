@@ -11,7 +11,7 @@ type output interface {
 	GetStream() (Stream, error)
 }
 
-func NewOutput(output string, config string, extend OutExtend) (output, error) {
+func NewOutput(output string, config string, extend Extend) (output, error) {
 	proto, addr, err := parseProtocol(output)
 	if err != nil {
 		return nil, err

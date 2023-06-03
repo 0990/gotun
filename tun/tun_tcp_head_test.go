@@ -97,7 +97,7 @@ func Test_TcpMuxTunHead(t *testing.T) {
 		OutProtoCfg:   string(out),
 		OutCryptKey:   "111111",
 		OutCryptMode:  "gcm",
-		OutExtend:     OutExtend{MuxConn: 1},
+		OutExtend:     Extend{MuxConn: 1},
 	})
 	if err != nil {
 		t.Fatal(err)

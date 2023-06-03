@@ -46,7 +46,7 @@ func (s *Server) Run() error {
 	return nil
 }
 
-func (s *Server) Closer() error {
+func (s *Server) Close() error {
 	s.input.Close()
 	s.output.Close()
 	return nil

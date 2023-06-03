@@ -2,6 +2,7 @@ package tun
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"github.com/0990/gotun/syncx"
 	"github.com/sirupsen/logrus"
@@ -30,10 +31,9 @@ func (p *WorkerMap) LoadOrStore(key string, worker *UDPWorker) (w *UDPWorker, lo
 }
 
 type UDPWorker struct {
-	srcAddr net.Addr
-	timeout time.Duration
-	relayer net.PacketConn
-	//writeData    chan []byte
+	srcAddr      net.Addr
+	timeout      time.Duration
+	relayer      net.PacketConn
 	bReaders     chan io.Reader
 	reader       io.Reader
 	onClear      func()
@@ -66,7 +66,6 @@ func (w *UDPWorker) insert(data []byte) {
 	}
 	bReader := bytes.NewBuffer(data)
 	w.bReaders <- bReader
-	//w.writeData <- data
 }
 
 func (w *UDPWorker) Close() error {
@@ -75,50 +74,48 @@ func (w *UDPWorker) Close() error {
 }
 
 func (w *UDPWorker) Read(p []byte) (n int, err error) {
-	timeout := time.Until(w.readDeadline)
+	var timeout time.Duration = time.Minute * 100
+	if !w.readDeadline.IsZero() {
+		timeout = time.Until(w.readDeadline)
+	}
 
 	if timeout <= 0 {
-	READ:
-		if w.reader == nil {
-			reader, ok := <-w.bReaders
+		return 0, errors.New("timeout")
+	}
+
+READ:
+	if w.reader == nil {
+		timer := time.NewTimer(timeout)
+		defer timer.Stop()
+
+		select {
+		case reader, ok := <-w.bReaders:
 			if !ok {
 				return 0, io.EOF
 			}
 			w.reader = reader
+		case <-timer.C:
+			return 0, errors.New("timeout")
 		}
-
-		n, err := w.reader.Read(p)
-		if err == nil {
-			return n, nil
-		}
-
-		if err != io.EOF {
-			return n, err
-		}
-
-		//以下是err==io.EOF情况
-		if n > 0 {
-			return n, nil
-		}
-
-		//以下是err==io.EOF的情况
-		w.reader = nil
-		goto READ
 	}
 
-	return 0, io.EOF
+	n, err = w.reader.Read(p)
+	if err == nil {
+		return n, nil
+	}
 
-	//timer := time.NewTimer(timeout)
-	//defer timer.Stop()
-	//select {
-	//case data, ok := <-w.writeData:
-	//	if !ok {
-	//		return 0, io.EOF
-	//	}
-	//	return copy(p, data), nil
-	//case <-timer.C:
-	//	return 0, errors.New("timeout")
-	//}
+	if err != io.EOF {
+		return n, err
+	}
+
+	//以下是err==io.EOF情况
+	if n > 0 {
+		return n, nil
+	}
+
+	//以下是err==io.EOF的情况
+	w.reader = nil
+	goto READ
 }
 
 func (w *UDPWorker) Write(p []byte) (n int, err error) {

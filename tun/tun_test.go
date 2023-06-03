@@ -146,7 +146,7 @@ func Test_QUICTun(t *testing.T) {
 
 		OutCryptKey:  "111111",
 		OutCryptMode: "gcm",
-		OutExtend:    OutExtend{MuxConn: 10},
+		OutExtend:    Extend{MuxConn: 10},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -235,7 +235,7 @@ func Test_KCPMuxTun(t *testing.T) {
 
 		OutCryptKey:  "111111",
 		OutCryptMode: "gcm",
-		OutExtend:    OutExtend{MuxConn: 10},
+		OutExtend:    Extend{MuxConn: 10},
 	})
 
 	if err != nil {
