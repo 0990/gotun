@@ -2,6 +2,7 @@ package tun
 
 import (
 	"fmt"
+	"github.com/0990/gotun/echoserver"
 	"github.com/sirupsen/logrus"
 	"net"
 	"testing"
@@ -10,7 +11,7 @@ import (
 
 func Test_UDP(t *testing.T) {
 	targetAddr := "127.0.0.1:7007"
-	startUDPEchoServer(targetAddr)
+	echoserver.StartUDPEchoServer(targetAddr)
 
 	relayAddr := "127.0.0.1:6000"
 	s, err := NewServer(Config{
@@ -38,7 +39,7 @@ func Test_UDPTun(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
 	targetAddr := "127.0.0.1:7007"
-	startUDPEchoServer(targetAddr)
+	echoserver.StartUDPEchoServer(targetAddr)
 
 	relayClientAddr := "127.0.0.1:6000"
 	relayServerAddr := "127.0.0.1:6001"
@@ -82,7 +83,7 @@ func Test_UDPTunTCP(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
 	targetAddr := "127.0.0.1:7007"
-	startUDPEchoServer(targetAddr)
+	echoserver.StartUDPEchoServer(targetAddr)
 
 	relayClientAddr := "127.0.0.1:6000"
 	relayServerAddr := "127.0.0.1:6001"
@@ -121,36 +122,6 @@ func Test_UDPTunTCP(t *testing.T) {
 		t.Fatal(err)
 	}
 	fmt.Println("over")
-}
-
-func startUDPEchoServer(targetAddr string) error {
-	addr, err := net.ResolveUDPAddr("udp", targetAddr)
-	if err != nil {
-		return err
-	}
-	listen, err := net.ListenUDP("udp", addr)
-	if err != nil {
-		return err
-	}
-
-	go func() {
-		for {
-			var data [1024]byte
-			n, addr, err := listen.ReadFromUDP(data[:])
-			if err != nil {
-				fmt.Println(err)
-				break
-			}
-
-			fmt.Printf("echoserver receive,addr:%v data:%v count:%v\n", addr, string(data[:n]), n)
-			_, err = listen.WriteToUDP(data[:n], addr)
-			if err != nil {
-				fmt.Println(err)
-				continue
-			}
-		}
-	}()
-	return nil
 }
 
 func echoUDP(clientAddr string) error {

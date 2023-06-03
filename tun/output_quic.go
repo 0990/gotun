@@ -41,12 +41,12 @@ func (p *QUICStream) SetReadDeadline(t time.Time) error {
 	return p.Stream.SetReadDeadline(t)
 }
 
-func dialQUICBuilder(addr string, config string) (StreamMaker, error) {
+func dialQUICBuilder(ctx context.Context, addr string, config string) (StreamMaker, error) {
 	tlsConf := &tls.Config{
 		InsecureSkipVerify: true,
 		NextProtos:         []string{"quic-stunnel"},
 	}
-	session, err := quic.DialAddr(addr, tlsConf, nil)
+	session, err := quic.DialAddrContext(ctx, addr, tlsConf, nil)
 	if err != nil {
 		return nil, err
 	}

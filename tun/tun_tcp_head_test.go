@@ -3,13 +3,14 @@ package tun
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/0990/gotun/echoserver"
 	"testing"
 	"time"
 )
 
 func Test_TcpTunHead(t *testing.T) {
 	targetAddr := "127.0.0.1:7007"
-	startEchoServer(targetAddr)
+	echoserver.StartTCPEchoServer(targetAddr)
 
 	inHead := []byte("GET / HTTP/1.1\r\nHost:")
 	outHead := []byte("GET / HTTP/1.1\r\nHost:")
@@ -58,7 +59,7 @@ func Test_TcpTunHead(t *testing.T) {
 
 func Test_TcpMuxTunHead(t *testing.T) {
 	targetAddr := "127.0.0.1:7007"
-	startEchoServer(targetAddr)
+	echoserver.StartTCPEchoServer(targetAddr)
 
 	inHead := []byte("ABCDE")
 	outHead := []byte("ABCDE")
@@ -97,7 +98,7 @@ func Test_TcpMuxTunHead(t *testing.T) {
 		OutProtoCfg:   string(out),
 		OutCryptKey:   "111111",
 		OutCryptMode:  "gcm",
-		OutExtend:     Extend{MuxConn: 1},
+		OutExtend:     muxConnExtend(1),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -107,6 +108,12 @@ func Test_TcpMuxTunHead(t *testing.T) {
 
 	time.Sleep(time.Second * 2)
 	echo(t, relayClientAddr)
+}
+
+func muxConnExtend(count int) string {
+	e := Extend{MuxConn: count}
+	data, _ := json.Marshal(e)
+	return string(data)
 }
 
 func prepareHeadInOutCfg(inHead []byte, outHead []byte) (string, string, error) {

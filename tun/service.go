@@ -5,6 +5,7 @@ import "fmt"
 type Service interface {
 	Run() error
 	Close() error
+	Cfg() Config
 }
 
 func NewService(cfg Config) (Service, error) {

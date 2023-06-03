@@ -43,6 +43,11 @@ func (s *Server) Run() error {
 		return err
 	}
 	s.input.SetOnNewStream(s.handleInputStream)
+
+	err = s.output.Run()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -50,6 +55,10 @@ func (s *Server) Close() error {
 	s.input.Close()
 	s.output.Close()
 	return nil
+}
+
+func (s *Server) Cfg() Config {
+	return s.cfg
 }
 
 func (s *Server) handleInputStream(src Stream) {

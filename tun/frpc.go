@@ -49,7 +49,18 @@ func NewFrpc(cfg Config) (*Frpc, error) {
 }
 
 func (s *Frpc) Run() error {
-	err := s.startWorker(FRP_WORKER_COUNT)
+
+	err := s.worker.Run()
+	if err != nil {
+		return err
+	}
+
+	err = s.output.Run()
+	if err != nil {
+		return err
+	}
+
+	err = s.startWorker(FRP_WORKER_COUNT)
 	if err != nil {
 		return err
 	}
@@ -64,6 +75,9 @@ func (s *Frpc) Close() error {
 		s.keepWorkerTicker.Stop()
 	}
 	return nil
+}
+func (s *Frpc) Cfg() Config {
+	return s.cfg
 }
 
 func (s *Frpc) handleWorkerStream(src Stream) {

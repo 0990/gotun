@@ -58,6 +58,10 @@ func (s *Frps) Run() error {
 	return nil
 }
 
+func (s *Frps) Cfg() Config {
+	return s.cfg
+}
+
 func (s *Frps) handlerWorkerStream(stream Stream) {
 	s.workerStreams <- stream
 }
@@ -78,6 +82,7 @@ func (s *Frps) leftStreamCount() int {
 func (s *Frps) Close() error {
 	s.input.Close()
 	s.worker.Close()
+	close(s.workerStreams)
 	return nil
 }
 

@@ -2,6 +2,7 @@ package tun
 
 import (
 	"fmt"
+	"github.com/0990/gotun/echoserver"
 	"net"
 	"testing"
 	"time"
@@ -9,7 +10,7 @@ import (
 
 func Test_Tcp(t *testing.T) {
 	targetAddr := "127.0.0.1:7007"
-	startEchoServer(targetAddr)
+	echoserver.StartTCPEchoServer(targetAddr)
 
 	relayAddr := "127.0.0.1:6000"
 	s, err := NewServer(Config{
@@ -32,7 +33,7 @@ func Test_Tcp(t *testing.T) {
 
 func Test_TcpTun(t *testing.T) {
 	targetAddr := "127.0.0.1:7007"
-	startEchoServer(targetAddr)
+	echoserver.StartTCPEchoServer(targetAddr)
 
 	relayClientAddr := "127.0.0.1:6000"
 	relayServerAddr := "127.0.0.1:6001"
@@ -71,7 +72,7 @@ func Test_TcpTun(t *testing.T) {
 
 func Test_TcpMuxTun(t *testing.T) {
 	targetAddr := "127.0.0.1:7007"
-	startEchoServer(targetAddr)
+	echoserver.StartTCPEchoServer(targetAddr)
 
 	relayClientAddr := "127.0.0.1:6000"
 	relayServerAddr := "127.0.0.1:6001"
@@ -114,7 +115,7 @@ func Test_TcpMuxTun(t *testing.T) {
 
 func Test_QUICTun(t *testing.T) {
 	targetAddr := "127.0.0.1:7007"
-	startEchoServer(targetAddr)
+	echoserver.StartTCPEchoServer(targetAddr)
 
 	relayClientAddr := "127.0.0.1:6000"
 	relayServerAddr := "127.0.0.1:6001"
@@ -146,7 +147,7 @@ func Test_QUICTun(t *testing.T) {
 
 		OutCryptKey:  "111111",
 		OutCryptMode: "gcm",
-		OutExtend:    Extend{MuxConn: 10},
+		OutExtend:    muxConnExtend(10),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -160,7 +161,7 @@ func Test_QUICTun(t *testing.T) {
 
 func Test_KCPTun(t *testing.T) {
 	targetAddr := "127.0.0.1:7007"
-	startEchoServer(targetAddr)
+	echoserver.StartTCPEchoServer(targetAddr)
 
 	relayClientAddr := "127.0.0.1:6000"
 	relayServerAddr := "127.0.0.1:6001"
@@ -204,7 +205,7 @@ func Test_KCPTun(t *testing.T) {
 
 func Test_KCPMuxTun(t *testing.T) {
 	targetAddr := "127.0.0.1:7007"
-	startEchoServer(targetAddr)
+	echoserver.StartTCPEchoServer(targetAddr)
 
 	relayClientAddr := "127.0.0.1:6000"
 	relayServerAddr := "127.0.0.1:6001"
@@ -235,7 +236,7 @@ func Test_KCPMuxTun(t *testing.T) {
 
 		OutCryptKey:  "111111",
 		OutCryptMode: "gcm",
-		OutExtend:    Extend{MuxConn: 10},
+		OutExtend:    muxConnExtend(10),
 	})
 
 	if err != nil {
@@ -260,29 +261,6 @@ func echo(t *testing.T, clientAddr string) error {
 		t.Fatal(err)
 	}
 	fmt.Println("latency:", time.Since(before).Milliseconds())
-	return nil
-}
-
-func startEchoServer(addr string) error {
-	listener, err := net.Listen("tcp", addr)
-	if err != nil {
-		return err
-	}
-
-	go func() {
-		for {
-			conn, err := listener.Accept()
-			if err != nil {
-				return
-			}
-			buf := make([]byte, 65535)
-			n, err := conn.Read(buf)
-			if err != nil {
-				fmt.Println(err)
-			}
-			conn.Write(buf[0:n])
-		}
-	}()
 	return nil
 }
 

@@ -1,5 +1,16 @@
 package tun
 
+import (
+	"encoding/json"
+	"errors"
+	"os"
+	"path"
+	"time"
+)
+
+const CONFIG_SUFFIX = ".tun"
+const CONFIG_DIR = "config"
+
 type Config struct {
 	Name   string `json:"name"`
 	Input  string `json:"input"`
@@ -9,12 +20,14 @@ type Config struct {
 	InProtoCfg    string `json:"in_proto_cfg"`
 	InDecryptMode string `json:"in_decrypt_mode"`
 	InDecryptKey  string `json:"in_decrypt_key"`
-	InExtend      Extend `json:"in_extend"`
+	InExtend      string `json:"in_extend"`
 
 	OutProtoCfg  string `json:"out_proto_cfg"`
 	OutCryptMode string `json:"out_crypt_mode"`
 	OutCryptKey  string `json:"out_crypt_key"`
-	OutExtend    Extend `json:"out_extend"`
+	OutExtend    string `json:"out_extend"`
+
+	CreatedAt time.Time `json:"create_at"`
 }
 
 type Extend struct {
@@ -26,7 +39,7 @@ type InProtoTCP struct {
 }
 
 type OutProtoTCP struct {
-	HeadAppend []byte `json:"head_extend"` //头部数据填充
+	HeadAppend []byte `json:"head_append"` //头部数据填充
 }
 
 type InProtoTCPMux struct {
@@ -34,7 +47,7 @@ type InProtoTCPMux struct {
 }
 
 type OutProtoTCPMux struct {
-	HeadAppend []byte `json:"head_extend"` //头部数据填充
+	HeadAppend []byte `json:"head_append"` //头部数据填充
 }
 
 type QUICConfig struct {
@@ -76,4 +89,91 @@ var defaultKCPConfig = KCPConfig{
 
 type UDPConfig struct {
 	Timeout int `json:"timeout"`
+}
+
+func createServiceFile(cfg Config) error {
+	cfgData, err := json.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+
+	filename := CONFIG_DIR + "/" + cfg.Name + CONFIG_SUFFIX
+	os.Mkdir(CONFIG_DIR, os.ModePerm)
+
+	if isFileExist(filename) {
+		return errors.New("tun already exist")
+	}
+
+	f, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.Write(cfgData)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func deleteServiceFile(name string) error {
+	filename := CONFIG_DIR + "/" + name + CONFIG_SUFFIX
+	err := os.Remove(filename)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
+func loadAllServiceFile() ([]Config, error) {
+	dir := CONFIG_DIR
+	rd, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	var cfgs []Config
+	for _, v := range rd {
+		if v.IsDir() {
+			continue
+		}
+		name := v.Name()
+
+		suffix := path.Ext(name)
+		if suffix != CONFIG_SUFFIX {
+			continue
+		}
+
+		data, err := os.ReadFile(CONFIG_DIR + "/" + v.Name())
+		if err != nil {
+			return nil, err
+		}
+
+		var cfg Config
+		err = json.Unmarshal(data, &cfg)
+		if err != nil {
+			return nil, err
+		}
+
+		cfgs = append(cfgs, cfg)
+	}
+	return cfgs, nil
+}
+
+func isFileExist(path string) bool {
+	_, err := os.Stat(path) //os.Stat获取文件信息
+	if err != nil {
+		if os.IsExist(err) {
+			return true
+		}
+		return false
+	}
+	return true
 }

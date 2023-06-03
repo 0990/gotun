@@ -2,6 +2,7 @@ package tun
 
 import (
 	"fmt"
+	"github.com/0990/gotun/echoserver"
 	"github.com/sirupsen/logrus"
 	"testing"
 	"time"
@@ -9,7 +10,7 @@ import (
 
 func TestFrp_Run(t *testing.T) {
 	targetAddr := "127.0.0.1:7007"
-	startEchoServer(targetAddr)
+	echoserver.StartTCPEchoServer(targetAddr)
 
 	relayClientAddr := "127.0.0.1:6000"
 	workerRemoteAddr := "127.0.0.1:6001"
@@ -50,7 +51,7 @@ func TestFrp_Run(t *testing.T) {
 
 func Test_Frp_KCPMuxTun(t *testing.T) {
 	targetAddr := "127.0.0.1:7007"
-	startEchoServer(targetAddr)
+	echoserver.StartTCPEchoServer(targetAddr)
 
 	relayClientAddr := "127.0.0.1:6000"
 	workerServerAddr := "127.0.0.1:6001"
@@ -62,7 +63,7 @@ func Test_Frp_KCPMuxTun(t *testing.T) {
 		Output:        fmt.Sprintf("tcp@%s", targetAddr),
 		InDecryptKey:  "111111",
 		InDecryptMode: "gcm",
-		InExtend:      Extend{MuxConn: 10},
+		InExtend:      muxConnExtend(10),
 
 		OutCryptKey:  "",
 		OutCryptMode: "",
@@ -83,7 +84,7 @@ func Test_Frp_KCPMuxTun(t *testing.T) {
 
 		OutCryptKey:  "111111",
 		OutCryptMode: "gcm",
-		OutExtend:    Extend{MuxConn: 10},
+		OutExtend:    muxConnExtend(10),
 	})
 
 	if err != nil {
@@ -100,7 +101,7 @@ func Test_Frp_UDPTun(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
 	targetAddr := "127.0.0.1:7007"
-	startUDPEchoServer(targetAddr)
+	echoserver.StartUDPEchoServer(targetAddr)
 
 	relayClientAddr := "127.0.0.1:6000"
 	workerServerAddr := "127.0.0.1:6001"

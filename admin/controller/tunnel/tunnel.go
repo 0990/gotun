@@ -2,288 +2,294 @@ package tunnel
 
 import (
 	"encoding/json"
-	"errors"
-	"io/ioutil"
-	"log"
+	"fmt"
+	"github.com/0990/gotun/tun"
+	"io"
 	"math"
 	"net/http"
+	"sort"
 	"strconv"
+	"time"
 
-	"github.com/0990/gotun/admin/config"
 	"github.com/0990/gotun/admin/model"
 	"github.com/0990/gotun/admin/response"
 )
 
-func List(writer http.ResponseWriter, request *http.Request) error {
-	db := config.GlobalDbConnect
-	if db == nil {
-		return errors.New("db is nil")
-	}
-	// Get page
-	err := request.ParseForm()
-	if err != nil {
-		return err
-	}
+func List(mgr *tun.Manager) func(writer http.ResponseWriter, request *http.Request) {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		defer func() {
+			if err := recover(); err != nil {
+				msg, _ := json.Marshal(response.Ret{
+					Code: http.StatusInternalServerError,
+					Msg:  fmt.Sprintf("%v", err),
+				})
+				writer.Write(msg)
+			}
+		}()
 
-	page := request.FormValue("page")
-	if page == "" {
-		page = "1"
-	}
+		// Get page
+		err := request.ParseForm()
+		if err != nil {
+			panic(err.Error())
+		}
 
-	pageInt, err := strconv.Atoi(page)
-	if err != nil {
-		return err
-	}
-	// Get search_data
-	body, err := ioutil.ReadAll(request.Body)
-	if err != nil {
-		return err
-	}
+		page := request.FormValue("page")
+		if page == "" {
+			page = "1"
+		}
 
-	filters := &model.Tunnel{}
-	err = json.Unmarshal(body, &filters)
-	if err != nil {
-		return err
-	}
-	// Get total nums
-	totalNums := 0
-	pageSize := 20
-	table := []model.Tunnel{}
-	db.Where(filters).Find(&table).Count(&totalNums)
+		pageInt, err := strconv.Atoi(page)
+		if err != nil {
+			panic(err.Error())
+		}
 
-	// Compute total_pages
-	totalPages := math.Ceil(float64(totalNums) / float64(pageSize))
+		ss := mgr.AllService()
 
-	// Get records
-	records := []model.Tunnel{}
-	//db.Where(filters).Find(&records)
-	db.Where(filters).Limit(pageSize).Offset((pageInt - 1) * pageSize).Order("created_at desc").Find(&records)
+		var cfgs []tun.Config
+		for _, v := range ss {
+			cfgs = append(cfgs, v.Cfg())
+		}
 
-	ret := response.Ret{
-		Code: http.StatusOK,
-		Data: response.List{
-			List: &records,
-			Pagination: response.Pagination{
-				PageSize:    pageSize,
-				TotalNums:   totalNums,
-				TotalPages:  int(totalPages),
-				CurrentPage: pageInt,
+		sort.Slice(cfgs, func(i, j int) bool {
+			return cfgs[i].CreatedAt.Unix() > cfgs[j].CreatedAt.Unix()
+		})
+
+		var records []model.Tunnel
+		for _, cfg := range cfgs {
+			records = append(records, Config2Model(cfg))
+		}
+
+		if records == nil {
+			records = make([]model.Tunnel, 0)
+		}
+
+		totalNums := len(records)
+		pageSize := 20
+		totalPages := math.Ceil(float64(totalNums) / float64(pageSize))
+
+		ret := response.Ret{
+			Code: http.StatusOK,
+			Data: response.List{
+				List: &records,
+				Pagination: response.Pagination{
+					PageSize:    pageSize,
+					TotalNums:   totalNums,
+					TotalPages:  int(totalPages),
+					CurrentPage: pageInt,
+				},
 			},
-		},
-	}
+		}
 
-	d, err := json.Marshal(&ret)
-	if err != nil {
-		return err
-	}
+		d, err := json.Marshal(&ret)
+		if err != nil {
+			panic(err.Error())
+		}
 
-	_, err = writer.Write(d)
-	if err != nil {
-		return err
+		_, err = writer.Write(d)
+		if err != nil {
+			panic(err.Error())
+		}
 	}
-
-	return nil
 }
 
-func Delete(writer http.ResponseWriter, request *http.Request) error {
-	db := config.GlobalDbConnect
-	if db == nil {
-		return errors.New("db is nil")
+func Create(mgr *tun.Manager) func(writer http.ResponseWriter, request *http.Request) {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		defer func() {
+			if err := recover(); err != nil {
+				msg, _ := json.Marshal(response.Ret{
+					Code: http.StatusInternalServerError,
+					Msg:  fmt.Sprintf("%v", err),
+				})
+				writer.Write(msg)
+			}
+		}()
+
+		body, err := io.ReadAll(request.Body)
+		if err != nil {
+			panic(err.Error())
+		}
+
+		data := model.Tunnel{}
+		err = json.Unmarshal(body, &data)
+		if err != nil {
+			panic(err.Error())
+		}
+
+		cfg, err := Model2Config(&data)
+		if err != nil {
+			panic(err.Error())
+		}
+
+		now := time.Now()
+		cfg.CreatedAt = now
+
+		err = mgr.AddService(*cfg, true)
+		if err != nil {
+			panic(err.Error())
+		}
+
+		ret := response.Ret{
+			Code: http.StatusOK,
+			Msg:  "success",
+		}
+
+		d, err := json.Marshal(&ret)
+		if err != nil {
+			panic(err.Error())
+		}
+
+		_, err = writer.Write(d)
+		if err != nil {
+			panic(err.Error())
+		}
 	}
-
-	body, err := ioutil.ReadAll(request.Body)
-	if err != nil {
-		log.Printf("%v", err)
-		return err
-	}
-
-	data := make(map[string]int32)
-	err = json.Unmarshal(body, &data)
-	if err != nil {
-		return err
-	}
-
-	sql := model.Tunnel{
-		Id: data["id"],
-	}
-
-	db.Delete(&sql)
-
-	ret := response.Ret{
-		Code: http.StatusOK,
-		Msg:  "success",
-	}
-
-	d, err := json.Marshal(&ret)
-	if err != nil {
-		return err
-	}
-
-	_, err = writer.Write(d)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
-func Create(writer http.ResponseWriter, request *http.Request) error {
-	db := config.GlobalDbConnect
-	if db == nil {
-		return errors.New("db is nil")
-	}
-
-	body, err := ioutil.ReadAll(request.Body)
-	if err != nil {
-		return err
-	}
-
-	data := model.Tunnel{}
-	err = json.Unmarshal(body, &data)
-	if err != nil {
-		return err
-	}
-
-	db.Create(&data)
-
-	ret := response.Ret{
-		Code: http.StatusOK,
-		Msg:  "success",
-	}
-
-	d, err := json.Marshal(&ret)
-	if err != nil {
-		return err
-	}
-
-	_, err = writer.Write(d)
-	if err != nil {
-		return err
-	}
-
-	return nil
+func Model2Config(ls *model.Tunnel) (*tun.Config, error) {
+	return &tun.Config{
+		Name:          ls.Name,
+		Input:         ls.Input,
+		Output:        ls.Output,
+		Mode:          ls.Mode,
+		InProtoCfg:    ls.InProtoCfg,
+		InDecryptMode: ls.InDecryptMode,
+		InDecryptKey:  ls.InDecryptKey,
+		InExtend:      ls.InExtend,
+		OutProtoCfg:   ls.OutProtoCfg,
+		OutCryptMode:  ls.OutCryptMode,
+		OutCryptKey:   ls.OutCryptKey,
+		OutExtend:     ls.OutExtend,
+	}, nil
 }
 
-func Edit(writer http.ResponseWriter, request *http.Request) error {
-	db := config.GlobalDbConnect
-	if db == nil {
-		return errors.New("db is nil")
+func Config2Model(ls tun.Config) model.Tunnel {
+	return model.Tunnel{
+		Name:          ls.Name,
+		Input:         ls.Input,
+		Output:        ls.Output,
+		Mode:          ls.Mode,
+		InProtoCfg:    ls.InProtoCfg,
+		InDecryptMode: ls.InDecryptMode,
+		InDecryptKey:  ls.InDecryptKey,
+		InExtend:      ls.InExtend,
+		OutProtoCfg:   ls.OutProtoCfg,
+		OutCryptMode:  ls.OutCryptMode,
+		OutCryptKey:   ls.OutCryptKey,
+		OutExtend:     ls.OutExtend,
+		CreatedAt:     ParseTime2String(ls.CreatedAt),
 	}
-
-	body, err := ioutil.ReadAll(request.Body)
-	if err != nil {
-		return err
-	}
-
-	data := model.Tunnel{}
-	err = json.Unmarshal(body, &data)
-	if err != nil {
-		return err
-	}
-
-	updateData := model.Tunnel{}
-	db.First(&updateData, data.Id)
-	updateData = data
-	db.Save(&updateData)
-
-	ret := response.Ret{
-		Code: http.StatusOK,
-		Msg:  "success",
-		Data: &data,
-	}
-
-	d, err := json.Marshal(&ret)
-	if err != nil {
-		return err
-	}
-
-	_, err = writer.Write(d)
-	if err != nil {
-		return err
-	}
-
-	return nil
-
 }
 
-func Detail(writer http.ResponseWriter, request *http.Request) error {
-	db := config.GlobalDbConnect
-	if db == nil {
-		return errors.New("db is nil")
+func ParseTime2String(t time.Time) string {
+	if t.IsZero() {
+		return ""
 	}
-
-	body, err := ioutil.ReadAll(request.Body)
-	if err != nil {
-		return err
-	}
-
-	log.Printf("%s", body)
-
-	params := make(map[string]int)
-	err = json.Unmarshal(body, &params)
-	if err != nil {
-		return err
-	}
-
-	data := model.Tunnel{}
-
-	db.First(&data, params["id"])
-
-	ret := response.Ret{
-		Code: http.StatusOK,
-		Msg:  "success",
-		Data: &data,
-	}
-
-	d, err := json.Marshal(&ret)
-	if err != nil {
-		return err
-	}
-
-	_, err = writer.Write(d)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return t.Format("2006-01-02 15:04:05")
 }
 
-func BatchDelete(writer http.ResponseWriter, request *http.Request) error {
-	db := config.GlobalDbConnect
-	if db == nil {
-		return errors.New("db is nil")
-	}
+func Edit(mgr *tun.Manager) func(writer http.ResponseWriter, request *http.Request) {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		defer func() {
+			if err := recover(); err != nil {
+				msg, _ := json.Marshal(response.Ret{
+					Code: http.StatusInternalServerError,
+					Msg:  fmt.Sprintf("%v", err),
+				})
+				writer.Write(msg)
+			}
+		}()
 
-	body, err := ioutil.ReadAll(request.Body)
-	if err != nil {
-		log.Printf("%v", err)
-		return err
-	}
+		body, err := io.ReadAll(request.Body)
+		if err != nil {
+			panic(err.Error())
+		}
 
-	data := []int32{}
-	err = json.Unmarshal(body, &data)
-	if err != nil {
-		return err
-	}
+		data := model.Tunnel{}
+		err = json.Unmarshal(body, &data)
+		if err != nil {
+			panic(err.Error())
+		}
 
-	for _, id := range data {
-		db.Where(model.Tunnel{Id: id}).Delete(model.Tunnel{})
-	}
+		cfg, err := Model2Config(&data)
+		if err != nil {
+			panic(err.Error())
+		}
 
-	ret := response.Ret{
-		Code: http.StatusOK,
-		Msg:  "success",
-	}
+		err = mgr.RemoveService(cfg.Name)
+		if err != nil {
+			panic(err.Error())
+		}
 
-	d, err := json.Marshal(&ret)
-	if err != nil {
-		return err
-	}
+		now := time.Now()
+		cfg.CreatedAt = now
+		err = mgr.AddService(*cfg, true)
+		if err != nil {
+			panic(err.Error())
+		}
 
-	_, err = writer.Write(d)
-	if err != nil {
-		return err
-	}
+		ret := response.Ret{
+			Code: http.StatusOK,
+			Msg:  "success",
+		}
 
-	return nil
+		d, err := json.Marshal(&ret)
+		if err != nil {
+			panic(err.Error())
+		}
+
+		_, err = writer.Write(d)
+		if err != nil {
+			panic(err.Error())
+		}
+	}
+}
+
+func Delete(mgr *tun.Manager) func(writer http.ResponseWriter, request *http.Request) {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		defer func() {
+			if err := recover(); err != nil {
+				msg, _ := json.Marshal(response.Ret{
+					Code: http.StatusInternalServerError,
+					Msg:  fmt.Sprintf("%v", err),
+				})
+				writer.Write(msg)
+			}
+		}()
+
+		body, err := io.ReadAll(request.Body)
+		if err != nil {
+			panic(err.Error())
+		}
+
+		data := model.Tunnel{}
+		err = json.Unmarshal(body, &data)
+		if err != nil {
+			panic(err.Error())
+		}
+
+		cfg, err := Model2Config(&data)
+		if err != nil {
+			panic(err.Error())
+		}
+
+		err = mgr.RemoveService(cfg.Name)
+		if err != nil {
+			panic(err.Error())
+		}
+
+		ret := response.Ret{
+			Code: http.StatusOK,
+			Msg:  "success",
+		}
+
+		d, err := json.Marshal(&ret)
+		if err != nil {
+			panic(err.Error())
+		}
+
+		_, err = writer.Write(d)
+		if err != nil {
+			panic(err.Error())
+		}
+	}
 }

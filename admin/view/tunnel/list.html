@@ -14,7 +14,6 @@
             <i-table :columns="col_list" :data="main_data"  @on-selection-change="table_selection_change">
                 <template slot-scope="{row}" slot="detail_button">
                     <i-button type="info" size="small" @click="invokeView(row)">View</i-button>
-                    <i-button type="info" size="small" @click="invokeDetail(row)">Detail</i-button>
                     <i-button type="info" size="small" @click="invokeEdit(row)">Edit</i-button>
                     <i-button type="defaut" size="small" @click="invokeDelete(row)">Delete</i-button>
                 </template>
@@ -66,19 +65,12 @@
                 batchDeleteModalData:[],
                 col_list: [
                     {type:'selection',width:60,align:'center'},
-                    {title:'id', key:'id'},
-{title:'in_decrypt_key', key:'in_decrypt_key'},
-{title:'in_decrypt_mode', key:'in_decrypt_mode'},
-{title:'in_extra', key:'in_extra'},
-{title:'input', key:'input'},
-{title:'name', key:'name'},
-{title:'out_crypt_key', key:'out_crypt_key'},
-{title:'out_crypt_mode', key:'out_crypt_mode'},
-{title:'out_extra', key:'out_extra'},
-{title:'out_mux_conn', key:'out_mux_conn'},
-{title:'output', key:'output'},
+                    {title:'name', key:'name'},
+                    {title:'mode', key:'mode'},
+                    {title:'input', key:'input'},
+
+                    {title:'output', key:'output'},
 {title:'created_at', key:'created_at'},
-{title:'updated_at', key:'updated_at'},
 
                     {title:'operate', slot:'detail_button', width: 250}
                 ],
@@ -87,19 +79,21 @@
                 search_fields: [
                 ],
                 fields_type:{
-                    id:'number',
-in_decrypt_key:'string',
-in_decrypt_mode:'string',
-in_extra:'string',
-input:'string',
-name:'string',
-out_crypt_key:'string',
-out_crypt_mode:'string',
-out_extra:'string',
-out_mux_conn:'number',
-output:'string',
+                    name:'string',
+                    input:'string',
+                    mode:'string',
+                    in_proto_cfg:'string',
+                    in_decrypt_mode:'string',
+                    in_decrypt_key:'string',
+                    in_extend:'string',
+
+                    output:'string',
+                    out_proto_cfg:'string',
+                    out_crypt_mode:'string',
+                    out_crypt_key:'string',
+                    out_extend:'string',
+
 created_at:'string',
-updated_at:'string',
 
                 }
             }
@@ -137,7 +131,7 @@ updated_at:'string',
                 this.$router.push({path:'/tunnel/detail',query:{id:row.id}})
             },
             invokeEdit: function(row) {
-                this.$router.push({path:'/tunnel/edit',query:{id:row.id}})
+                this.$router.push({path:'/tunnel/edit',query:{data:row}})
             },
             invokeCreate: function() {
                 this.$router.push({path:'/tunnel/create'})
@@ -150,7 +144,7 @@ updated_at:'string',
             },
             invokeConfirmDelete: function() {
                 this.axios
-                    .post('/api/tunnel/delete',{id:this.deleteModalData.id})
+                    .post('/api/tunnel/delete',{name:this.deleteModalData.name})
                     .then(response=>{
                         if(response.data.code !== 200) {
                             alert(response.data.msg)

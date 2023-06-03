@@ -1,17 +1,13 @@
 package sword
 
 import (
-	"github.com/0990/gotun/admin/config"
+	"embed"
 	"github.com/0990/gotun/admin/route"
+	"github.com/0990/gotun/tun"
+	auth "github.com/abbot/go-http-auth"
 	_ "github.com/go-sql-driver/mysql"
 )
 
-func Run(conf string) {
-	err := config.LoadConfig(conf)
-	if err != nil {
-		panic(err)
-	}
-	config.InitDB()
-	// Register route
-	route.Register()
+func Run(assets embed.FS, port int32, manager *tun.Manager, digestAuth *auth.DigestAuth) {
+	route.Register(assets, port, manager, digestAuth)
 }

@@ -36,13 +36,13 @@ func toProtocol(s string) (protocol, error) {
 	switch s {
 	case "tcp":
 		return TCP, nil
-	case "tcp_mux":
+	case "tcp_mux", "tcpmux":
 		return TcpMux, nil
 	case "quic":
 		return QUIC, nil
 	case "kcp":
 		return KCP, nil
-	case "kcp_mux":
+	case "kcp_mux", "kcpmux":
 		return KcpMux, nil
 	case "udp":
 		return UDP, nil

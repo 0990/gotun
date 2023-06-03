@@ -1,24 +1,32 @@
 package tun
 
 import (
+	"context"
 	"errors"
 	"github.com/sirupsen/logrus"
+	"sync/atomic"
 	"time"
 )
 
 type output interface {
+	Run() error
 	Close() error
 	GetStream() (Stream, error)
 }
 
-func NewOutput(output string, config string, extend Extend) (output, error) {
+func NewOutput(output string, config string, extendStr string) (output, error) {
 	proto, addr, err := parseProtocol(output)
 	if err != nil {
 		return nil, err
 	}
 
+	extend, err := parseExtend(extendStr)
+	if err != nil {
+		return nil, err
+	}
+
 	var makeStream func(addr string, config string) (Stream, error)
-	var makeStreamMaker func(addr string, config string) (StreamMaker, error)
+	var makeStreamMaker func(ctx context.Context, addr string, config string) (StreamMaker, error)
 
 	switch proto {
 	case TCP:
@@ -43,7 +51,7 @@ func NewOutput(output string, config string, extend Extend) (output, error) {
 	o.addr = addr
 	o.config = config
 	o.poolNum = extend.MuxConn
-	err = o.Init()
+	err = o.CheckCfg()
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +60,7 @@ func NewOutput(output string, config string, extend Extend) (output, error) {
 }
 
 type Output struct {
-	makeStreamMaker func(addr string, config string) (StreamMaker, error)
+	makeStreamMaker func(ctx context.Context, addr string, config string) (StreamMaker, error)
 	makeStream      func(addr string, config string) (Stream, error)
 
 	addr   string
@@ -61,20 +69,31 @@ type Output struct {
 	poolNum    int //此值>0时，会预先生成muxConnNum个连接，用于后续的多路复用，<=0时，每次都会新建连接
 	makerPools []StreamMaker
 	poolIdx    int
+
+	close int32
 }
 
-func (p *Output) Init() error {
+func (p *Output) CheckCfg() error {
+	//下面的stream模式是指，单个连接可以创建多个子连接，而非stream模式下，单个连接仅有一个
+	//非stream模式下，单个连接不可复用，所以poolNum无用，而stream模式下，单个连接可以使用mux技术创建新的子连接,所以poolNum有用
 	if p.poolNum <= 0 && p.makeStreamMaker != nil {
-		return errors.New("stream模式下，预连接数outMuxConn不可为0")
+		return errors.New("stream模式下，预连接数muxConn不可为0")
 	}
 
 	if p.poolNum > 0 && p.makeStream != nil {
-		return errors.New("非stream模式下，预连接数outMuxConn值无用，不可大于0")
+		return errors.New("非stream模式下，预连接数muxConn值无用，不可大于0")
 	}
+	return nil
+}
 
+func (p *Output) Run() error {
 	makers := make([]StreamMaker, p.poolNum)
 	for k := range makers {
-		makers[k] = p.waitCreateStreamMaker()
+		m, err := p.waitCreateStreamMaker()
+		if err != nil {
+			return err
+		}
+		makers[k] = m
 	}
 	p.makerPools = makers
 	return nil
@@ -95,19 +114,29 @@ func (p *Output) GetStream() (Stream, error) {
 
 	maker := p.makerPools[idx]
 	if maker == nil || maker.IsClosed() {
-		p.makerPools[idx] = p.waitCreateStreamMaker()
+		m, err := p.waitCreateStreamMaker()
+		if err != nil {
+			return nil, errors.New("waitCreateStreamMaker error")
+		}
+		p.makerPools[idx] = m
 	}
 
 	return p.makerPools[idx].OpenStream()
 }
 
-func (p *Output) waitCreateStreamMaker() StreamMaker {
+func (p *Output) waitCreateStreamMaker() (StreamMaker, error) {
+
 	for {
 		logrus.Warn("creating conn....")
-		if conn, err := p.makeStreamMaker(p.addr, p.config); err == nil {
+		if conn, err := p.makeStreamMaker(context.Background(), p.addr, p.config); err == nil {
 			logrus.Warn("creating conn ok")
-			return conn
+			return conn, nil
 		} else {
+
+			//如果关闭了，就不再重连
+			if atomic.LoadInt32(&p.close) > 0 {
+				return nil, errors.New("output closed")
+			}
 			logrus.Warn("re-connecting:", err)
 			time.Sleep(time.Second)
 		}
@@ -115,6 +144,7 @@ func (p *Output) waitCreateStreamMaker() StreamMaker {
 }
 
 func (p *Output) Close() error {
+	atomic.AddInt32(&p.close, 1)
 	for _, v := range p.makerPools {
 		err := v.Close()
 		if err != nil {

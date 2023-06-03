@@ -1,6 +1,7 @@
 package tun
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 )
@@ -15,10 +16,19 @@ func parseProtocol(s string) (protocol, string, error) {
 	protocol := ss[0]
 	proto, err := toProtocol(protocol)
 	if err != nil {
-		return 0, "", nil
+		return 0, "", err
 	}
 
 	addr := ss[1]
 
 	return proto, addr, err
+}
+
+func parseExtend(s string) (Extend, error) {
+	var extend Extend
+	err := json.Unmarshal([]byte(s), &extend)
+	if err != nil {
+		return Extend{}, nil
+	}
+	return extend, nil
 }

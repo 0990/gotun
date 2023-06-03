@@ -1,6 +1,7 @@
 package tun
 
 import (
+	"context"
 	"encoding/json"
 	"github.com/hashicorp/yamux"
 	"net"
@@ -36,7 +37,7 @@ func (c *TCPYamuxStream) SetReadDeadline(t time.Time) error {
 	return c.Stream.SetReadDeadline(t)
 }
 
-func dialTCPYamuxBuilder(addr string, config string) (StreamMaker, error) {
+func dialTCPYamuxBuilder(ctx context.Context, addr string, config string) (StreamMaker, error) {
 	var cfg OutProtoTCPMux
 	if config != "" {
 		err := json.Unmarshal([]byte(config), &cfg)
@@ -45,7 +46,7 @@ func dialTCPYamuxBuilder(addr string, config string) (StreamMaker, error) {
 		}
 	}
 
-	conn, err := net.Dial("tcp", addr)
+	conn, err := dialWithContext(ctx, "tcp", addr)
 	if err != nil {
 		return nil, err
 	}
@@ -59,4 +60,9 @@ func dialTCPYamuxBuilder(addr string, config string) (StreamMaker, error) {
 		return nil, err
 	}
 	return &TCPYamuxSession{session: session}, nil
+}
+
+func dialWithContext(ctx context.Context, network string, address string) (net.Conn, error) {
+	var d net.Dialer
+	return d.DialContext(ctx, network, address)
 }

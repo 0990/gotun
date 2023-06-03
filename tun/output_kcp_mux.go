@@ -1,13 +1,14 @@
 package tun
 
 import (
+	"context"
 	"encoding/json"
 	"github.com/xtaci/smux"
 	"log"
 	"time"
 )
 
-func dialKCPBuilder(addr string, config string) (StreamMaker, error) {
+func dialKCPBuilder(ctx context.Context, addr string, config string) (StreamMaker, error) {
 	var cfg KCPConfig
 	if config != "" {
 		err := json.Unmarshal([]byte(config), &cfg)
@@ -18,7 +19,7 @@ func dialKCPBuilder(addr string, config string) (StreamMaker, error) {
 		cfg = defaultKCPConfig
 	}
 
-	session, err := dialKCPConn(addr, cfg)
+	session, err := dialKCPConn(ctx, addr, cfg)
 	if err != nil {
 		return nil, err
 	}

@@ -1,6 +1,7 @@
 package tun
 
 import (
+	"context"
 	"encoding/json"
 	"github.com/xtaci/kcp-go/v5"
 	"log"
@@ -25,14 +26,14 @@ func dialKCP(addr string, config string) (Stream, error) {
 		cfg = defaultKCPConfig
 	}
 
-	session, err := dialKCPConn(addr, cfg)
+	session, err := dialKCPConn(context.Background(), addr, cfg)
 	if err != nil {
 		return nil, err
 	}
 	return &KCPSession{UDPSession: session}, nil
 }
 
-func dialKCPConn(addr string, config KCPConfig) (*kcp.UDPSession, error) {
+func dialKCPConn(ctx context.Context, addr string, config KCPConfig) (*kcp.UDPSession, error) {
 	kcpConn, err := kcp.DialWithOptions(addr, nil, config.DataShard, config.ParityShard)
 	if err != nil {
 		return nil, err

@@ -8,7 +8,7 @@
             <i-row type="flex" justify="start" align="middle" :gutter="16" v-for="(value,name) in info"  :style="{margin:'20px 0'}">
                 <i-col span="2" :style="{textAlign:'right'}">{{name}}</i-col>
                 <i-col span="6">
-                    <i-input v-model="info[name]"></i-input>
+                    <i-input v-model="info[name]" :placeholder="placeholder[name]" @input="updateOtherInput(name, $event)"></i-input>
                 </i-col>
             </i-row>
             <i-row>
@@ -26,35 +26,161 @@
             return {
                 routeId: this.id,
                 info:{
-                   in_decrypt_key:'',
-in_decrypt_mode:'',
-in_extra:'',
-input:'',
-name:'',
-out_crypt_key:'',
-out_crypt_mode:'',
-out_extra:'',
-out_mux_conn:'',
-output:'',
+                    name:'tcp客户端',
+                    mode:'',
+                    input:'tcp@127.0.0.1:1080',
+                    in_proto_cfg:'{"head_trim":""}',
+                    in_decrypt_mode:'',
+                    in_decrypt_key:'',
+                    in_extend:'',
 
+                    output:'tcp_mux@127.0.0.1:9999',
+                    out_proto_cfg:'{"head_append":""}',
+
+                    out_crypt_mode:'gcm',
+                    out_crypt_key:'goodweather',
+                    out_extend:'{"mux_conn":10}',
+                },
+                placeholder:{
+                    mode: '空|frpc|frps',
                 },
                 fields_type:{
+                    name:'string',
+                    input:'string',
+                    mode:'string',
+                    in_proto_cfg:'string',
+                    in_decrypt_mode:'string',
                     in_decrypt_key:'string',
-in_decrypt_mode:'string',
-in_extra:'string',
-input:'string',
-name:'string',
-out_crypt_key:'string',
-out_crypt_mode:'string',
-out_extra:'string',
-out_mux_conn:'number',
-output:'string',
+                    in_extend:'string',
+
+                    output:'string',
+                    out_proto_cfg:'string',
+                    out_crypt_mode:'string',
+                    out_crypt_key:'string',
+                    out_extend:'string',
+
+                    created_at:'string',
+                    updated_at:'string',
 
                 }
             }
         },
         props: ['id'],
         methods: {
+            updateOtherInput(name, newValue) {
+                if (name==='input'||name==="mode") {
+                    // 从 @ 处截取前面的字符
+                    const proto = this.info['input'].split('@')[0];
+                    const mode = this.info['mode'];
+
+                    console.log(proto,mode);
+                    switch (mode){
+                        case "frpc":
+                            var param =this.getOutputParam(proto);
+                            console.log(param);
+                            this.info['in_proto_cfg']  = param.protoCfg;
+                            this.info['in_extend'] = param.extend;
+                            break
+                        case "frps":
+                        case "":
+                            var param =this.getInputParam(proto);
+                            console.log(param);
+                            this.info['in_proto_cfg']  = param.protoCfg;
+                            this.info['in_extend'] = param.extend;
+                            break
+                        default:
+
+                    }
+                }
+
+                if (name==='output'||name==="mode") {
+                    // 从 @ 处截取前面的字符
+                    const proto = this.info['output'].split('@')[0];
+                    const mode = this.info['mode'];
+                    console.log("output",proto,mode);
+                    switch (mode){
+                        case "frps":
+                            var param =this.getInputParam(proto);
+                            console.log(param);
+                            this.info['out_proto_cfg']  = param.protoCfg;
+                            this.info['out_extend'] = param.extend;
+                            break
+                        case "frpc":
+                        case "":
+                            var param =this.getOutputParam(proto);
+                            console.log(param);
+                            this.info['out_proto_cfg']  = param.protoCfg;
+                            this.info['out_extend'] = param.extend;
+                            break
+                        default:
+                    }
+                }
+            },
+
+            getInputParam(proto){
+                var protoCfg;
+                switch (proto){
+                    case "tcp":
+                    case "tcpmux":
+                    case "tcp_mux":
+                        protoCfg = '{"head_trim":""}';
+                        break
+                    case "udp":
+                        protoCfg = '{"timeout":"60"}';
+                        break
+                    case "quic":
+                        protoCfg =  '';
+                        break
+                    case "kcp":
+                    case "kcpmux":
+                    case"kcp_mux":
+                        protoCfg =  '{"write_delay":false,"mtu":1300,"sndwnd":2048,"rcvwnd":1024,"datashard":10,"parityshard":3,"dscp":46,"acknodelay":true,"nodelay":0,"interval":40,"resend":0,"nc":0,"sockbuf":16777217,"streambuf":4194304}';
+                        break
+                    default:
+                }
+
+                return {
+                    protoCfg:protoCfg,
+                    extend:'{"mux_conn":0}'
+                }
+            },
+            getOutputParam(proto){
+                var protoCfg,extend;
+                switch (proto){
+                    case "tcp":
+                        extend = '{"mux_conn":0}';
+                        protoCfg = '{"head_append":""}';
+                        break
+                    case "tcpmux":
+                    case "tcp_mux":
+                        extend = '{"mux_conn":10}';
+                        protoCfg = '{"head_append":""}';
+                        break
+                    case "udp":
+                        extend = '{"mux_conn":0}';
+                        protoCfg =  '{"timeout":"60"}';
+                        break
+                    case "quic":
+                        extend = '{"mux_conn":10}';
+                        protoCfg =  '';
+                        break
+                    case "kcp":
+                        extend = '{"mux_conn":0}';
+                        protoCfg =  '{"write_delay":false,"mtu":1300,"sndwnd":2048,"rcvwnd":1024,"datashard":10,"parityshard":3,"dscp":46,"acknodelay":true,"nodelay":0,"interval":40,"resend":0,"nc":0,"sockbuf":16777217,"streambuf":4194304}';
+                        break
+                    case "kcpmux":
+                    case "kcp_mux":
+                        extend = '{"mux_conn":10}';
+                        protoCfg =  '{"write_delay":false,"mtu":1300,"sndwnd":2048,"rcvwnd":1024,"datashard":10,"parityshard":3,"dscp":46,"acknodelay":true,"nodelay":0,"interval":40,"resend":0,"nc":0,"sockbuf":16777217,"streambuf":4194304}';
+                        break
+                    default:
+                }
+
+                return {
+                    protoCfg:protoCfg,
+                    extend:extend,
+                }
+            },
             goBack: function() {
                 this.$router.go(-1)
             },
