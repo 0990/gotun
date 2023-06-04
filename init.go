@@ -21,18 +21,22 @@ import (
 var assets embed.FS
 
 func Run(fileName string) error {
-	cfg, err := parseAppConfigFile(fileName)
+	appCfg, err := parseAppConfigFile(fileName)
 	if err != nil {
-		if os.IsNotExist(err) {
-			if err = createAppConfigFile(fileName); err == nil {
-				logrus.Infof("cfgfile not exist,create one:%s", fileName)
-				return nil
-			}
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("parseAppConfigFile fail:%w", err)
 		}
-		return fmt.Errorf("parseAppConfigFile fail:%w", err)
+
+		v, err := createAppConfigFile(fileName)
+		if err != nil {
+			return fmt.Errorf("createAppConfigFile fail:%w", err)
+		}
+
+		logrus.Infof("cfgfile not exist,create one:%s", fileName)
+		appCfg = v
 	}
 
-	level, err := logrus.ParseLevel(cfg.LogLevel)
+	level, err := logrus.ParseLevel(appCfg.LogLevel)
 	if err != nil {
 		return err
 	}
@@ -43,13 +47,13 @@ func Run(fileName string) error {
 	}
 
 	SafeGo(func() {
-		if cfg.PProfPort > 0 {
-			http.ListenAndServe(fmt.Sprintf("0.0.0.0:%d", cfg.PProfPort), nil)
+		if len(appCfg.PProfListen) > 0 {
+			http.ListenAndServe(appCfg.PProfListen, nil)
 		}
 	})
 
-	if cfg.EchoPort > 0 {
-		err := echoserver.StartEchoServer(fmt.Sprintf("0.0.0.0:%d", cfg.EchoPort))
+	if len(appCfg.EchoListen) > 0 {
+		err := echoserver.StartEchoServer(appCfg.EchoListen)
 		if err != nil {
 			return err
 		}
@@ -63,15 +67,17 @@ func Run(fileName string) error {
 
 	realm := "example.com"
 	secret := func(user, realm string) string {
-		if user == cfg.Admin.Username {
-			return MD5(cfg.Admin.Username + ":" + realm + ":" + cfg.Admin.Password)
+		if user == appCfg.WebUsername {
+			return MD5(appCfg.WebUsername + ":" + realm + ":" + appCfg.WebPassword)
 		}
 		return ""
 	}
 	digestAuth := auth.NewDigestAuthenticator(realm, secret)
 
 	// 核心2：启动CRUD服务
-	sword.Run(assets, int32(cfg.ListenPort), mgr, digestAuth)
+	sword.Run(assets, appCfg.WebListen, mgr, digestAuth)
+
+	Welcome(appCfg)
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, os.Kill, syscall.SIGTERM)

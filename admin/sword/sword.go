@@ -8,6 +8,6 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-func Run(assets embed.FS, port int32, manager *tun.Manager, digestAuth *auth.DigestAuth) {
-	route.Register(assets, port, manager, digestAuth)
+func Run(assets embed.FS, listen string, manager *tun.Manager, digestAuth *auth.DigestAuth) {
+	route.Register(assets, listen, manager, digestAuth)
 }

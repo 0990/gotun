@@ -6,7 +6,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var cfg = flag.String("config", "app.json", "config file")
+var cfg = flag.String("config", "app.yaml", "config file")
 
 func main() {
 	flag.Parse()
