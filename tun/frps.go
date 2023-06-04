@@ -16,6 +16,7 @@ type Frps struct {
 	cryptoHelper *CryptoHelper
 
 	workerStreams chan Stream
+	StatusX
 }
 
 func NewFrps(cfg Config) (*Frps, error) {
@@ -34,27 +35,33 @@ func NewFrps(cfg Config) (*Frps, error) {
 		return nil, err
 	}
 
-	return &Frps{
+	s := &Frps{
 		cfg:           cfg,
 		input:         input,
 		worker:        worker,
 		cryptoHelper:  c,
 		workerStreams: make(chan Stream, 1000),
-	}, nil
+	}
+	s.SetStatus("init")
+	return s, nil
 }
 
 func (s *Frps) Run() error {
+	s.SetStatus("input run...")
 	err := s.input.Run()
 	if err != nil {
+		s.SetStatus(fmt.Sprintf("input run:%s", err.Error()))
 		return err
 	}
 	s.input.SetOnNewStream(s.handleInputStream)
-
+	s.SetStatus("worker run...")
 	err = s.worker.Run()
 	if err != nil {
+		s.SetStatus(fmt.Sprintf("worker run:%s", err.Error()))
 		return err
 	}
 	s.worker.SetOnNewStream(s.handlerWorkerStream)
+	s.SetStatus("running")
 	return nil
 }
 

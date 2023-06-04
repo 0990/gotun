@@ -16,6 +16,7 @@ type Tunnel struct {
 	OutCryptKey  string `json:"out_crypt_key"`
 	OutExtend    string `json:"out_extend"`
 
+	Status    string `json:"status"`
 	CreatedAt string `json:"created_at"`
 }
 

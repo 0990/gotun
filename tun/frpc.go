@@ -22,6 +22,7 @@ type Frpc struct {
 
 	idleWorkerCount  int64
 	keepWorkerTicker *time.Ticker
+	StatusX
 }
 
 func NewFrpc(cfg Config) (*Frpc, error) {
@@ -40,31 +41,39 @@ func NewFrpc(cfg Config) (*Frpc, error) {
 		return nil, err
 	}
 
-	return &Frpc{
+	s := &Frpc{
 		cfg:          cfg,
 		worker:       worker,
 		output:       output,
 		cryptoHelper: c,
-	}, nil
+	}
+	s.SetStatus("init")
+	return s, nil
 }
 
 func (s *Frpc) Run() error {
-
+	s.SetStatus("worker run...")
 	err := s.worker.Run()
 	if err != nil {
+		s.SetStatus(fmt.Sprintf("worker run:%s", err.Error()))
 		return err
 	}
 
+	s.SetStatus("output run...")
 	err = s.output.Run()
 	if err != nil {
+		s.SetStatus(fmt.Sprintf("output run:%s", err.Error()))
 		return err
 	}
 
+	s.SetStatus("start worker...")
 	err = s.startWorker(FRP_WORKER_COUNT)
 	if err != nil {
+		s.SetStatus(fmt.Sprintf("start worker:%s", err.Error()))
 		return err
 	}
 	go s.keepWorkerPool()
+	s.SetStatus("running")
 	return nil
 }
 

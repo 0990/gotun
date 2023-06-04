@@ -6,6 +6,7 @@ type Service interface {
 	Run() error
 	Close() error
 	Cfg() Config
+	Status() string
 }
 
 func NewService(cfg Config) (Service, error) {

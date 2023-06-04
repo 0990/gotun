@@ -45,18 +45,31 @@ func List(mgr *tun.Manager) func(writer http.ResponseWriter, request *http.Reque
 
 		ss := mgr.AllService()
 
-		var cfgs []tun.Config
+		type ConfigX struct {
+			tun.Config
+			Status string
+		}
+
+		var cfgs []ConfigX
 		for _, v := range ss {
-			cfgs = append(cfgs, v.Cfg())
+			cfg := v.Cfg()
+			status := v.Status()
+			cfgs = append(cfgs, ConfigX{
+				Config: cfg,
+				Status: status,
+			})
+
 		}
 
 		sort.Slice(cfgs, func(i, j int) bool {
-			return cfgs[i].CreatedAt.Unix() > cfgs[j].CreatedAt.Unix()
+			return cfgs[i].CreatedAt.Unix() < cfgs[j].CreatedAt.Unix()
 		})
 
 		var records []model.Tunnel
 		for _, cfg := range cfgs {
-			records = append(records, Config2Model(cfg))
+			record := Config2Model(cfg.Config)
+			record.Status = cfg.Status
+			records = append(records, record)
 		}
 
 		if records == nil {
