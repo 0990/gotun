@@ -15,6 +15,7 @@ type StreamMaker interface {
 type Stream interface {
 	ID() int64
 	RemoteAddr() net.Addr
+	LocalAddr() net.Addr
 	io.ReadWriteCloser
 	SetReadDeadline(t time.Time) error
 }

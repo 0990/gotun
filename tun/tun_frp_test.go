@@ -2,15 +2,16 @@ package tun
 
 import (
 	"fmt"
-	"github.com/0990/gotun/echoserver"
+	echoserver2 "github.com/0990/gotun/server/echo"
 	"github.com/sirupsen/logrus"
 	"testing"
 	"time"
 )
 
 func TestFrp_Run(t *testing.T) {
+	logrus.SetLevel(logrus.DebugLevel)
 	targetAddr := "127.0.0.1:7007"
-	echoserver.StartTCPEchoServer(targetAddr)
+	echoserver2.StartTCPEchoServer(targetAddr)
 
 	relayClientAddr := "127.0.0.1:6000"
 	workerRemoteAddr := "127.0.0.1:6001"
@@ -46,12 +47,13 @@ func TestFrp_Run(t *testing.T) {
 
 	s.Run()
 	time.Sleep(time.Second * 2)
-	echo(t, relayClientAddr)
+	echoTCP(t, relayClientAddr)
 }
 
 func Test_Frp_KCPMuxTun(t *testing.T) {
+	logrus.SetLevel(logrus.DebugLevel)
 	targetAddr := "127.0.0.1:7007"
-	echoserver.StartTCPEchoServer(targetAddr)
+	echoserver2.StartTCPEchoServer(targetAddr)
 
 	relayClientAddr := "127.0.0.1:6000"
 	workerServerAddr := "127.0.0.1:6001"
@@ -94,14 +96,15 @@ func Test_Frp_KCPMuxTun(t *testing.T) {
 	c.Run()
 
 	time.Sleep(time.Second * 2)
-	echo(t, relayClientAddr)
+	echoTCP(t, relayClientAddr)
 }
 
+// 测试未通过 udp内网穿透模式暂不支持
 func Test_Frp_UDPTun(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
 	targetAddr := "127.0.0.1:7007"
-	echoserver.StartUDPEchoServer(targetAddr)
+	echoserver2.StartUDPEchoServer(targetAddr)
 
 	relayClientAddr := "127.0.0.1:6000"
 	workerServerAddr := "127.0.0.1:6001"

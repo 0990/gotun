@@ -3,17 +3,17 @@ module github.com/0990/gotun
 go 1.20
 
 require (
+	github.com/0990/socks5 v1.0.3
 	github.com/abbot/go-http-auth v0.4.0
+	github.com/fatedier/golib v0.2.0
 	github.com/go-sql-driver/mysql v1.7.0
-	github.com/golang/protobuf v1.5.2
 	github.com/hashicorp/yamux v0.1.1
 	github.com/lestrrat/go-file-rotatelogs v0.0.0-20180223000712-d3151e2a480f
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/quic-go/quic-go v0.33.0
-	github.com/sirupsen/logrus v1.9.0
+	github.com/sirupsen/logrus v1.9.3
 	github.com/xtaci/kcp-go/v5 v5.6.2
 	github.com/xtaci/smux v1.5.24
-	google.golang.org/protobuf v1.28.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -41,7 +41,7 @@ require (
 	golang.org/x/exp v0.0.0-20221205204356-47842c84f3db // indirect
 	golang.org/x/mod v0.6.0 // indirect
 	golang.org/x/net v0.4.0 // indirect
-	golang.org/x/sys v0.3.0 // indirect
+	golang.org/x/sys v0.8.0 // indirect
 	golang.org/x/tools v0.2.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 )

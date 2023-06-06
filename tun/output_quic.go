@@ -37,6 +37,10 @@ func (p *QUICStream) RemoteAddr() net.Addr {
 	return nil
 }
 
+func (p *QUICStream) LocalAddr() net.Addr {
+	return nil
+}
+
 func (p *QUICStream) SetReadDeadline(t time.Time) error {
 	return p.Stream.SetReadDeadline(t)
 }

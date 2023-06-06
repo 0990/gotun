@@ -11,6 +11,7 @@ const (
 	KCP
 	KcpMux
 	UDP
+	Socks5X = 6
 )
 
 func (p protocol) String() string {
@@ -27,6 +28,8 @@ func (p protocol) String() string {
 		return "kcp_mux"
 	case UDP:
 		return "udp"
+	case Socks5X:
+		return "socks5x"
 	default:
 		return "unknown"
 	}
@@ -46,6 +49,8 @@ func toProtocol(s string) (protocol, error) {
 		return KcpMux, nil
 	case "udp":
 		return UDP, nil
+	case "socks5x":
+		return Socks5X, nil
 	default:
 		return -1, errors.New("unknown protocol")
 	}

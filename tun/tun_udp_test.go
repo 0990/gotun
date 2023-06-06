@@ -2,7 +2,7 @@ package tun
 
 import (
 	"fmt"
-	"github.com/0990/gotun/echoserver"
+	"github.com/0990/gotun/server/echo"
 	"github.com/sirupsen/logrus"
 	"net"
 	"testing"
@@ -11,7 +11,7 @@ import (
 
 func Test_UDP(t *testing.T) {
 	targetAddr := "127.0.0.1:7007"
-	echoserver.StartUDPEchoServer(targetAddr)
+	echo.StartUDPEchoServer(targetAddr)
 
 	relayAddr := "127.0.0.1:6000"
 	s, err := NewServer(Config{
@@ -39,7 +39,7 @@ func Test_UDPTun(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
 	targetAddr := "127.0.0.1:7007"
-	echoserver.StartUDPEchoServer(targetAddr)
+	echo.StartUDPEchoServer(targetAddr)
 
 	relayClientAddr := "127.0.0.1:6000"
 	relayServerAddr := "127.0.0.1:6001"
@@ -83,7 +83,7 @@ func Test_UDPTunTCP(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
 	targetAddr := "127.0.0.1:7007"
-	echoserver.StartUDPEchoServer(targetAddr)
+	echo.StartUDPEchoServer(targetAddr)
 
 	relayClientAddr := "127.0.0.1:6000"
 	relayServerAddr := "127.0.0.1:6001"

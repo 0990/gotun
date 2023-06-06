@@ -2,11 +2,9 @@ package tun
 
 import (
 	"fmt"
-	"github.com/0990/gotun/tun/msg"
+	"github.com/0990/gotun/pkg/msg"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/protobuf/proto"
 	"io"
-	"time"
 )
 
 type Frps struct {
@@ -15,7 +13,7 @@ type Frps struct {
 	worker       input
 	cryptoHelper *CryptoHelper
 
-	workerStreams chan Stream
+	ctlMgr *frpsControllerManager
 	StatusX
 }
 
@@ -36,11 +34,11 @@ func NewFrps(cfg Config) (*Frps, error) {
 	}
 
 	s := &Frps{
-		cfg:           cfg,
-		input:         input,
-		worker:        worker,
-		cryptoHelper:  c,
-		workerStreams: make(chan Stream, 1000),
+		cfg:          cfg,
+		input:        input,
+		worker:       worker,
+		cryptoHelper: c,
+		ctlMgr:       newFrpsControllerManager(),
 	}
 	s.SetStatus("init")
 	return s, nil
@@ -60,7 +58,7 @@ func (s *Frps) Run() error {
 		s.SetStatus(fmt.Sprintf("worker run:%s", err.Error()))
 		return err
 	}
-	s.worker.SetOnNewStream(s.handlerWorkerStream)
+	s.worker.SetOnNewStream(s.HandlerWorkerStream)
 	s.SetStatus("running")
 	return nil
 }
@@ -69,48 +67,72 @@ func (s *Frps) Cfg() Config {
 	return s.cfg
 }
 
-func (s *Frps) handlerWorkerStream(stream Stream) {
-	s.workerStreams <- stream
-}
-
-func (s *Frps) getWorkerStream() (Stream, error) {
-	select {
-	case stream := <-s.workerStreams:
-		return stream, nil
-	default:
-		return nil, fmt.Errorf("no worker stream")
+func (s *Frps) HandlerWorkerStream(src Stream) {
+	err := s.handleWorkerStream(src)
+	if err != nil {
+		logrus.WithError(err).Error("handleWorkerStream")
 	}
 }
 
-func (s *Frps) leftStreamCount() int {
-	return len(s.workerStreams)
+func (s *Frps) handleWorkerStream(src Stream) error {
+	rw, err := s.cryptoHelper.DstCrypto(src)
+	if err != nil {
+		return err
+	}
+
+	rawMsg, err := msg.ReadMsg(rw)
+	if err != nil {
+		return err
+	}
+
+	switch rawMsg.(type) {
+	case *msg.Login:
+		err := msg.WriteMsg(rw, &msg.LoginResp{})
+		if err != nil {
+			return err
+		}
+
+		ctl := NewFrpsController(rw)
+		ctl.Run()
+		s.ctlMgr.Set(ctl)
+	case *msg.NewWorkConn:
+		ctl, ok := s.ctlMgr.Get()
+		if !ok {
+			return fmt.Errorf("no controller")
+		}
+		ctl.RegisterWorker(src)
+
+	default:
+
+	}
+	return nil
 }
 
 func (s *Frps) Close() error {
 	s.input.Close()
 	s.worker.Close()
-	close(s.workerStreams)
+	s.ctlMgr.Close()
 	return nil
 }
 
 func (s *Frps) handleInputStream(src Stream) {
 	defer src.Close()
 
-	dst, err := s.getWorkerStream()
+	ctl, ok := s.ctlMgr.Get()
+	if !ok {
+		logrus.Error("no controller")
+		return
+	}
+
+	dst, err := ctl.GetWorkConn()
 	if err != nil {
 		logrus.WithError(err).Error("openStream")
 		return
 	}
 	defer dst.Close()
 
-	err = s.readHello(dst)
-	if err != nil {
-		logrus.WithError(err).Error("readHello")
-		return
-	}
-
 	//增加头标识，用于通知对端此连接开始工作了
-	err = s.writeHead(dst)
+	err = s.sayStart(dst)
 	if err != nil {
 		logrus.WithError(err).Error("writeHead")
 		return
@@ -127,40 +149,13 @@ func (s *Frps) handleInputStream(src Stream) {
 	}
 }
 
-func (s *Frps) readHello(src Stream) error {
-	buf := make([]byte, len(FrpcHello))
-	src.SetReadDeadline(time.Now().Add(time.Second * 10))
-	_, err := io.ReadFull(src, buf)
+func (s *Frps) sayStart(dst Stream) error {
+	rw, err := s.cryptoHelper.DstReaderWriter(dst)
 	if err != nil {
 		return err
 	}
-	if string(buf) != string(FrpcHello) {
-		return fmt.Errorf("invalid hello")
-	}
-	return nil
-}
 
-func (s *Frps) writeHead(src Stream) error {
-	count := s.leftStreamCount()
-
-	var askWorkerCnt int32
-	if count < FRP_WORKER_COUNT {
-		askWorkerCnt = FRP_WORKER_COUNT
-	}
-
-	msg := msg.FRPHead{
-		AskWorkerCnt:  askWorkerCnt,
-		LeftWorkerCnt: int32(count),
-	}
-	data, err := proto.Marshal(&msg)
-	if err != nil {
-		return err
-	}
-	nr := len(data)
-	buf := make([]byte, 2, nr+2)
-	buf[0], buf[1] = byte(nr>>8), byte(nr)
-	buf = append(buf, data...)
-	_, err = src.Write(buf)
+	err = msg.WriteMsg(rw, &msg.StartWorkConn{})
 	if err != nil {
 		return err
 	}

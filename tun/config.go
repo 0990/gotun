@@ -50,6 +50,23 @@ type OutProtoTCPMux struct {
 	HeadAppend []byte `json:"head_append"` //头部数据填充
 }
 
+type InProtoSocks5X struct {
+	UserName   string `json:"username"`
+	Password   string `json:"password"`
+	TCPTimeout int32  `json:"tcp_timeout"`
+
+	UDPAdvertisedIP   string `json:"udp_advertised_ip"`
+	UDPAdvertisedPort int    `json:"udp_advertised_port"`
+}
+
+var defaultInSocks5XConfig = InProtoSocks5X{
+	UserName:          "",
+	Password:          "",
+	TCPTimeout:        120,
+	UDPAdvertisedIP:   "",
+	UDPAdvertisedPort: 0,
+}
+
 type QUICConfig struct {
 }
 

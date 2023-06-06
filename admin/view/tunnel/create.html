@@ -136,19 +136,22 @@
                     case"kcp_mux":
                         protoCfg =  '{"write_delay":false,"mtu":1300,"sndwnd":2048,"rcvwnd":1024,"datashard":10,"parityshard":3,"dscp":46,"acknodelay":true,"nodelay":0,"interval":40,"resend":0,"nc":0,"sockbuf":16777217,"streambuf":4194304}';
                         break
+                    case "socks5x":
+                        protoCfg = `{"username":"","password":"","tcp_timeout":120,"udp_advertised_ip":"","udp_advertised_port":0}`
+                        break
                     default:
                 }
 
                 return {
                     protoCfg:protoCfg,
-                    extend:'{"mux_conn":0}'
+                    extend:''
                 }
             },
             getOutputParam(proto){
                 var protoCfg,extend;
                 switch (proto){
                     case "tcp":
-                        extend = '{"mux_conn":0}';
+                        extend = '';
                         protoCfg = '{"head_append":""}';
                         break
                     case "tcpmux":
@@ -157,7 +160,7 @@
                         protoCfg = '{"head_append":""}';
                         break
                     case "udp":
-                        extend = '{"mux_conn":0}';
+                        extend = '';
                         protoCfg =  '{"timeout":"60"}';
                         break
                     case "quic":
@@ -165,7 +168,7 @@
                         protoCfg =  '';
                         break
                     case "kcp":
-                        extend = '{"mux_conn":0}';
+                        extend = '';
                         protoCfg =  '{"write_delay":false,"mtu":1300,"sndwnd":2048,"rcvwnd":1024,"datashard":10,"parityshard":3,"dscp":46,"acknodelay":true,"nodelay":0,"interval":40,"resend":0,"nc":0,"sockbuf":16777217,"streambuf":4194304}';
                         break
                     case "kcpmux":

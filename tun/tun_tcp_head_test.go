@@ -3,14 +3,14 @@ package tun
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/0990/gotun/echoserver"
+	"github.com/0990/gotun/server/echo"
 	"testing"
 	"time"
 )
 
 func Test_TcpTunHead(t *testing.T) {
 	targetAddr := "127.0.0.1:7007"
-	echoserver.StartTCPEchoServer(targetAddr)
+	echo.StartTCPEchoServer(targetAddr)
 
 	inHead := []byte("GET / HTTP/1.1\r\nHost:")
 	outHead := []byte("GET / HTTP/1.1\r\nHost:")
@@ -54,12 +54,12 @@ func Test_TcpTunHead(t *testing.T) {
 
 	s.Run()
 	time.Sleep(time.Second * 2)
-	echo(t, relayClientAddr)
+	echoTCP(t, relayClientAddr)
 }
 
 func Test_TcpMuxTunHead(t *testing.T) {
 	targetAddr := "127.0.0.1:7007"
-	echoserver.StartTCPEchoServer(targetAddr)
+	echo.StartTCPEchoServer(targetAddr)
 
 	inHead := []byte("ABCDE")
 	outHead := []byte("ABCDE")
@@ -107,7 +107,7 @@ func Test_TcpMuxTunHead(t *testing.T) {
 	c.Run()
 
 	time.Sleep(time.Second * 2)
-	echo(t, relayClientAddr)
+	echoTCP(t, relayClientAddr)
 }
 
 func muxConnExtend(count int) string {

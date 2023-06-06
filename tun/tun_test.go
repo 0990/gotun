@@ -2,7 +2,7 @@ package tun
 
 import (
 	"fmt"
-	"github.com/0990/gotun/echoserver"
+	"github.com/0990/gotun/server/echo"
 	"net"
 	"testing"
 	"time"
@@ -10,7 +10,7 @@ import (
 
 func Test_Tcp(t *testing.T) {
 	targetAddr := "127.0.0.1:7007"
-	echoserver.StartTCPEchoServer(targetAddr)
+	echo.StartTCPEchoServer(targetAddr)
 
 	relayAddr := "127.0.0.1:6000"
 	s, err := NewServer(Config{
@@ -28,12 +28,12 @@ func Test_Tcp(t *testing.T) {
 
 	s.Run()
 	time.Sleep(time.Second * 2)
-	echo(t, relayAddr)
+	echoTCP(t, relayAddr)
 }
 
 func Test_TcpTun(t *testing.T) {
 	targetAddr := "127.0.0.1:7007"
-	echoserver.StartTCPEchoServer(targetAddr)
+	echo.StartTCPEchoServer(targetAddr)
 
 	relayClientAddr := "127.0.0.1:6000"
 	relayServerAddr := "127.0.0.1:6001"
@@ -67,12 +67,12 @@ func Test_TcpTun(t *testing.T) {
 
 	s.Run()
 	time.Sleep(time.Second * 2)
-	echo(t, relayClientAddr)
+	echoTCP(t, relayClientAddr)
 }
 
 func Test_TcpMuxTun(t *testing.T) {
 	targetAddr := "127.0.0.1:7007"
-	echoserver.StartTCPEchoServer(targetAddr)
+	echo.StartTCPEchoServer(targetAddr)
 
 	relayClientAddr := "127.0.0.1:6000"
 	relayServerAddr := "127.0.0.1:6001"
@@ -110,12 +110,12 @@ func Test_TcpMuxTun(t *testing.T) {
 	c.Run()
 
 	time.Sleep(time.Second * 2)
-	echo(t, relayClientAddr)
+	echoTCP(t, relayClientAddr)
 }
 
 func Test_QUICTun(t *testing.T) {
 	targetAddr := "127.0.0.1:7007"
-	echoserver.StartTCPEchoServer(targetAddr)
+	echo.StartTCPEchoServer(targetAddr)
 
 	relayClientAddr := "127.0.0.1:6000"
 	relayServerAddr := "127.0.0.1:6001"
@@ -156,12 +156,12 @@ func Test_QUICTun(t *testing.T) {
 	c.Run()
 
 	time.Sleep(time.Second * 2)
-	echo(t, relayClientAddr)
+	echoTCP(t, relayClientAddr)
 }
 
 func Test_KCPTun(t *testing.T) {
 	targetAddr := "127.0.0.1:7007"
-	echoserver.StartTCPEchoServer(targetAddr)
+	echo.StartTCPEchoServer(targetAddr)
 
 	relayClientAddr := "127.0.0.1:6000"
 	relayServerAddr := "127.0.0.1:6001"
@@ -200,12 +200,12 @@ func Test_KCPTun(t *testing.T) {
 	c.Run()
 
 	time.Sleep(time.Second * 2)
-	echo(t, relayClientAddr)
+	echoTCP(t, relayClientAddr)
 }
 
 func Test_KCPMuxTun(t *testing.T) {
 	targetAddr := "127.0.0.1:7007"
-	echoserver.StartTCPEchoServer(targetAddr)
+	echo.StartTCPEchoServer(targetAddr)
 
 	relayClientAddr := "127.0.0.1:6000"
 	relayServerAddr := "127.0.0.1:6001"
@@ -246,10 +246,10 @@ func Test_KCPMuxTun(t *testing.T) {
 	c.Run()
 
 	time.Sleep(time.Second * 2)
-	echo(t, relayClientAddr)
+	echoTCP(t, relayClientAddr)
 }
 
-func echo(t *testing.T, clientAddr string) error {
+func echoTCP(t *testing.T, clientAddr string) error {
 	conn, err := net.Dial("tcp", clientAddr)
 	if err != nil {
 		t.Fatal(err)

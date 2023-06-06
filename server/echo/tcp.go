@@ -1,4 +1,4 @@
-package echoserver
+package echo
 
 import (
 	"github.com/sirupsen/logrus"

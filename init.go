@@ -6,7 +6,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/0990/gotun/admin/sword"
-	"github.com/0990/gotun/echoserver"
+	"github.com/0990/gotun/server/echo"
+	"github.com/0990/gotun/server/socks5x"
 	"github.com/0990/gotun/tun"
 	auth "github.com/abbot/go-http-auth"
 	"github.com/sirupsen/logrus"
@@ -53,7 +54,18 @@ func Run(fileName string) error {
 	})
 
 	if len(appCfg.EchoListen) > 0 {
-		err := echoserver.StartEchoServer(appCfg.EchoListen)
+		err := echo.StartEchoServer(appCfg.EchoListen)
+		if err != nil {
+			return err
+		}
+	}
+
+	if appCfg.Socks5XServer.ListenPort > 0 {
+		s, err := socks5x.NewServer(appCfg.Socks5XServer.ListenPort, appCfg.Socks5XServer.TCPTimeout, appCfg.Socks5XServer.UDPTimout)
+		if err != nil {
+			return err
+		}
+		err = s.Run()
 		if err != nil {
 			return err
 		}

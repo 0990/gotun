@@ -14,6 +14,14 @@ type AppConfig struct {
 	LogLevel    string `yaml:"log_level"`
 	EchoListen  string `yaml:"echo_listen"`
 	PProfListen string `yaml:"pprof_port"`
+
+	Socks5XServer Socks5XServerConfig `yaml:"socks5x_server"`
+}
+
+type Socks5XServerConfig struct {
+	ListenPort int `yaml:"listen_port"` //tcp,udp监听端口，仅当TCPListen或UDPListen无值时有效，监听地址为 0.0.0.0:ListenPort
+	UDPTimout  int `yaml:"udp_timeout"`
+	TCPTimeout int `yaml:"tcp_timeout"`
 }
 
 func parseAppConfigFile(fileName string) (*AppConfig, error) {
@@ -76,6 +84,8 @@ func addComments(node *yaml.Node) {
 			key.HeadComment = "echo服务监听地址,用于测试，客户端向此端口发送什么就回什么，可为空，为空则不启动echo服务"
 		case "pprof_port":
 			key.HeadComment = "pprof监听地址,可为空"
+		case "socks5x_server":
+			key.HeadComment = "socks5x服务配置,可为空，为空则不启动socks5x服务"
 		}
 	}
 }

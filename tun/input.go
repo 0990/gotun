@@ -29,6 +29,8 @@ func newInput(input string, config string) (input, error) {
 		return NewInputKCP(addr, config)
 	case KcpMux:
 		return NewInputKCPMux(addr, config)
+	case Socks5X:
+		return NewInputSocks5X(addr, config)
 	default:
 		return nil, errors.New("unknown protocol")
 	}

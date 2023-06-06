@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/0990/gotun/syncx"
+	"github.com/0990/gotun/pkg/syncx"
 	"github.com/sirupsen/logrus"
 	"io"
 	"net"
@@ -48,6 +48,10 @@ func (w *UDPWorker) RemoteAddr() net.Addr {
 	return w.srcAddr
 }
 
+func (w *UDPWorker) LocalAddr() net.Addr {
+	return w.srcAddr
+}
+
 func (w *UDPWorker) SetReadDeadline(t time.Time) error {
 	w.readDeadline = t
 	return nil
@@ -74,7 +78,7 @@ func (w *UDPWorker) Close() error {
 }
 
 func (w *UDPWorker) Read(p []byte) (n int, err error) {
-	var timeout time.Duration = time.Minute * 100
+	var timeout time.Duration = w.timeout
 	if !w.readDeadline.IsZero() {
 		timeout = time.Until(w.readDeadline)
 	}

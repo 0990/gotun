@@ -1,7 +1,0 @@
-syntax = "proto3";
-package msg;
-
-message FRPHead{
-  int32 askWorkerCnt = 2;
-  int32 leftWorkerCnt = 1;//还剩多少个worker
-}

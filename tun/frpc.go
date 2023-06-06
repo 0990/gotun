@@ -1,18 +1,14 @@
 package tun
 
 import (
+	"errors"
 	"fmt"
-	"github.com/0990/gotun/tun/msg"
+	"github.com/0990/gotun/pkg/msg"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/protobuf/proto"
 	"io"
-	"sync/atomic"
-	"time"
 )
 
-var FrpcHello = []byte("frpc")
-
-const FRP_WORKER_COUNT = 10
+const FrpWorkerCount = 10
 
 type Frpc struct {
 	cfg          Config
@@ -20,8 +16,7 @@ type Frpc struct {
 	output       output
 	cryptoHelper *CryptoHelper
 
-	idleWorkerCount  int64
-	keepWorkerTicker *time.Ticker
+	ctl *frpcController
 	StatusX
 }
 
@@ -47,6 +42,9 @@ func NewFrpc(cfg Config) (*Frpc, error) {
 		output:       output,
 		cryptoHelper: c,
 	}
+
+	ctl := newFrpcController(worker.GetStream, s.startWorker, c.SrcCrypto)
+	s.ctl = ctl
 	s.SetStatus("init")
 	return s, nil
 }
@@ -66,13 +64,8 @@ func (s *Frpc) Run() error {
 		return err
 	}
 
-	s.SetStatus("start worker...")
-	err = s.startWorker(FRP_WORKER_COUNT)
-	if err != nil {
-		s.SetStatus(fmt.Sprintf("start worker:%s", err.Error()))
-		return err
-	}
-	go s.keepWorkerPool()
+	s.SetStatus("ctx run...")
+	s.ctl.Run(s.SetStatus)
 	s.SetStatus("running")
 	return nil
 }
@@ -80,9 +73,7 @@ func (s *Frpc) Run() error {
 func (s *Frpc) Close() error {
 	s.worker.Close()
 	s.output.Close()
-	if s.keepWorkerTicker != nil {
-		s.keepWorkerTicker.Stop()
-	}
+	s.ctl.Close()
 	return nil
 }
 func (s *Frpc) Cfg() Config {
@@ -92,7 +83,7 @@ func (s *Frpc) Cfg() Config {
 func (s *Frpc) handleWorkerStream(src Stream) {
 	defer src.Close()
 
-	err := s.prepareWork(src)
+	err := s.sayHelloAndWait(src)
 	if err != nil {
 		logrus.WithError(err).Error("prepareWork")
 		return
@@ -116,19 +107,26 @@ func (s *Frpc) handleWorkerStream(src Stream) {
 	}
 }
 
-func (s *Frpc) prepareWork(src Stream) error {
-	atomic.AddInt64(&s.idleWorkerCount, 1)
-	defer atomic.AddInt64(&s.idleWorkerCount, -1)
-
-	//udp模式下，没有发送数据，对端并不会创建stream，所以这里需要发送一个数据包
-	_, err := src.Write(FrpcHello)
+func (s *Frpc) sayHelloAndWait(src Stream) error {
+	rw, err := s.cryptoHelper.SrcReaderWriter(src)
 	if err != nil {
 		return err
 	}
 
-	err = s.handleHead(src)
+	//udp模式下，没有发送数据，对端并不会创建stream，所以这里需要发送一个数据包
+	err = msg.WriteMsg(rw, &msg.NewWorkConn{})
 	if err != nil {
 		return err
+	}
+
+	rawMsg, err := msg.ReadMsg(rw)
+	if err != nil {
+		return err
+	}
+
+	_, ok := rawMsg.(*msg.StartWorkConn)
+	if !ok {
+		return errors.New("not StartWorkConn")
 	}
 
 	return nil
@@ -143,62 +141,4 @@ func (s *Frpc) startWorker(count int32) error {
 		go s.handleWorkerStream(stream)
 	}
 	return nil
-}
-
-func (s *Frpc) handleHead(src Stream) error {
-	head, err := s.readHead(src)
-	if err != nil {
-		return err
-	}
-
-	if head.AskWorkerCnt > 0 {
-		go s.startWorker(head.AskWorkerCnt)
-	}
-	return nil
-}
-
-func (s *Frpc) readHead(src Stream) (*msg.FRPHead, error) {
-	head := make([]byte, 2)
-	src.SetReadDeadline(time.Now().Add(time.Minute * 2))
-	_, err := io.ReadFull(src, head)
-	if err != nil {
-		return nil, err
-	}
-
-	size := (int(head[0])<<8 + int(head[1])) & 65535
-
-	data := make([]byte, size)
-	src.SetReadDeadline(time.Now().Add(time.Second * 10))
-	_, err = io.ReadFull(src, data)
-	if err != nil {
-		return nil, err
-	}
-
-	var msg msg.FRPHead
-	err = proto.Unmarshal(data, &msg)
-	if err != nil {
-		return nil, err
-	}
-	return &msg, nil
-}
-
-func (s *Frpc) GetIdleWorkerCount() int64 {
-	return atomic.LoadInt64(&s.idleWorkerCount)
-}
-
-func (s *Frpc) keepWorkerPool() {
-	ticker := time.NewTicker(time.Second * 10)
-	for {
-		select {
-		case _, ok := <-ticker.C:
-			if !ok {
-				return
-			}
-			count := s.GetIdleWorkerCount()
-			if count > FRP_WORKER_COUNT {
-				return
-			}
-			go s.startWorker(FRP_WORKER_COUNT)
-		}
-	}
 }

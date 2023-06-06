@@ -3,7 +3,7 @@ package crypto
 import (
 	"bytes"
 	"fmt"
-	"github.com/0990/gotun/util"
+	"github.com/0990/gotun/pkg/util"
 	"reflect"
 	"testing"
 )
