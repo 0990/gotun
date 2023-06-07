@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"gopkg.in/yaml.v3"
 	"os"
+	"path"
 )
 
 type AppConfig struct {
@@ -77,6 +78,9 @@ func createAppConfigFile(fileName string) (*AppConfig, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	os.MkdirAll(path.Dir(fileName), os.ModePerm)
+
 	err = os.WriteFile(fileName, data, 0666)
 	if err != nil {
 		return nil, err
