@@ -37,6 +37,7 @@ func (c *frpcController) run(setStatus func(status string)) {
 		if atomic.LoadInt32(&c.exit) == 1 {
 			return
 		}
+
 		conn, err := c.createConn()
 		if err != nil {
 			time.Sleep(time.Second * 5)
@@ -44,6 +45,7 @@ func (c *frpcController) run(setStatus func(status string)) {
 			setStatus(fmt.Sprintf("frpc controller login failed:%s", err.Error()))
 			continue
 		}
+
 		rw, err := c.login(conn)
 		if err != nil {
 			time.Sleep(time.Second * 5)
@@ -51,11 +53,13 @@ func (c *frpcController) run(setStatus func(status string)) {
 			setStatus(fmt.Sprintf("frpc controller login failed:%s", err.Error()))
 			continue
 		}
+		logrus.Info("frpc controller login success")
 		c.rw = rw
 		go c.keepHeartbeat(rw)
 		setStatus("running")
 		err = c.onRead(rw)
 		if err != nil {
+			time.Sleep(time.Second * 5)
 			logrus.WithError(err).Error("frpc controller onRead failed")
 		}
 	}
@@ -85,12 +89,14 @@ func (c *frpcController) login(conn Stream) (io.ReadWriteCloser, error) {
 		return nil, err
 	}
 
-	conn.SetReadDeadline(time.Now().Add(time.Second * 10))
+	conn.SetReadDeadline(time.Now().Add(time.Second * 5))
 
 	m, err := msg.ReadMsg(rw)
 	if err != nil {
 		return nil, err
 	}
+
+	conn.SetReadDeadline(time.Time{})
 
 	resp, ok := m.(*msg.LoginResp)
 	if !ok {

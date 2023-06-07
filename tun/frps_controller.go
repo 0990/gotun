@@ -104,7 +104,7 @@ func (f *frpsController) doWriteLoop() {
 			}
 			err := msg.WriteMsg(f.ctl, m)
 			if err != nil {
-				logrus.Errorf("frpsController write msg err:%s", err.Error())
+				logrus.Errorf("frps controller write msg err:%s", err.Error())
 				return
 			}
 		}
@@ -126,7 +126,7 @@ func (f *frpsController) doReadLoop() {
 	for {
 		m, err := msg.ReadMsg(f.ctl)
 		if err != nil {
-			logrus.Errorf("frpsController read msg err:%s", err.Error())
+			logrus.Errorf("frps controller read msg err:%s", err.Error())
 			return
 		}
 		f.readCh <- m

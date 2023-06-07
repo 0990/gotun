@@ -9,6 +9,7 @@ import (
 	"github.com/0990/gotun/server/echo"
 	"github.com/0990/gotun/server/socks5x"
 	"github.com/0990/gotun/tun"
+	"github.com/0990/httpproxy"
 	auth "github.com/abbot/go-http-auth"
 	"github.com/sirupsen/logrus"
 	"net/http"
@@ -53,22 +54,9 @@ func Run(fileName string) error {
 		}
 	})
 
-	if len(appCfg.EchoListen) > 0 {
-		err := echo.StartEchoServer(appCfg.EchoListen)
-		if err != nil {
-			return err
-		}
-	}
-
-	if appCfg.Socks5XServer.ListenPort > 0 {
-		s, err := socks5x.NewServer(appCfg.Socks5XServer.ListenPort, appCfg.Socks5XServer.TCPTimeout, appCfg.Socks5XServer.UDPTimout)
-		if err != nil {
-			return err
-		}
-		err = s.Run()
-		if err != nil {
-			return err
-		}
+	err = startBuildInServer(appCfg.BuildIn)
+	if err != nil {
+		return fmt.Errorf("startBuildInServer fail:%w", err)
 	}
 
 	mgr := tun.NewManager()
@@ -97,6 +85,42 @@ func Run(fileName string) error {
 	fmt.Printf("receive signal %v,quit... \n", signal)
 
 	closeLogger()
+	return nil
+}
+
+func startBuildInServer(in BuiltIn) error {
+	if !in.Enable {
+		return nil
+	}
+
+	if len(in.EchoListen) > 0 {
+		err := echo.StartEchoServer(in.EchoListen)
+		if err != nil {
+			return err
+		}
+	}
+
+	if len(in.HttpProxyListen) > 0 {
+		s := httpproxy.NewServer(httpproxy.Config{
+			BindAddr: in.HttpProxyListen,
+			Hosts:    []string{"*"},
+			Verbose:  false,
+		})
+
+		go s.ListenAndServe()
+	}
+
+	if in.Socks5XServer.ListenPort > 0 {
+		s, err := socks5x.NewServer(in.Socks5XServer.ListenPort, in.Socks5XServer.TCPTimeout, in.Socks5XServer.UDPTimout)
+		if err != nil {
+			return err
+		}
+		err = s.Run()
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

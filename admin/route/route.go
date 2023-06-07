@@ -55,10 +55,10 @@ func Register(assets embed.FS, listen string, mgr *tun.Manager, adminAuth *auth.
 	// ----Route-begin----
 
 	// Route tag tunnel
-	h.HandleFunc("/api/tunnel/list", tunnel.List(mgr))
-	h.HandleFunc("/api/tunnel/delete", tunnel.Delete(mgr))
-	h.HandleFunc("/api/tunnel/create", tunnel.Create(mgr))
-	h.HandleFunc("/api/tunnel/edit", tunnel.Edit(mgr))
+	h.HandleFunc("/api/tunnel/list", adminAuth.JustCheck(tunnel.List(mgr)))
+	h.HandleFunc("/api/tunnel/delete", adminAuth.JustCheck(tunnel.Delete(mgr)))
+	h.HandleFunc("/api/tunnel/create", adminAuth.JustCheck(tunnel.Create(mgr)))
+	h.HandleFunc("/api/tunnel/edit", adminAuth.JustCheck(tunnel.Edit(mgr)))
 	// ----Route-end----
 
 	go func() {

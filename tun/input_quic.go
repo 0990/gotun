@@ -12,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"math/big"
 	"net"
+	"sync/atomic"
 	"time"
 )
 
@@ -21,6 +22,8 @@ type inputQUIC struct {
 	addr     string
 	cfg      QUICConfig
 	listener quic.Listener
+
+	close int32
 }
 
 func NewInputQUIC(addr string, extra string) (*inputQUIC, error) {
@@ -83,6 +86,10 @@ func (p *inputQUIC) handleSession(session quic.Connection) {
 			return
 		}
 
+		if atomic.LoadInt32(&p.close) == 1 {
+			return
+		}
+
 		s := &QUICStream{stream}
 		go func(p1 Stream) {
 			p.inputBase.OnNewStream(p1)
@@ -91,6 +98,7 @@ func (p *inputQUIC) handleSession(session quic.Connection) {
 }
 
 func (p *inputQUIC) Close() error {
+	atomic.StoreInt32(&p.close, 1)
 	return p.listener.Close()
 }
 

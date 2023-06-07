@@ -8,7 +8,7 @@ tcp/udp转发器，可构建加密安全通道
 * web界面管理
 
 ## 使用
-点此下载二进制文件，启动即可（会自动生成配置app.yaml）
+点此下载二进制文件，启动即可（会自动生成配置app.yaml）,最简配置:
 ```yaml
 # web监听地址
 web_listen: 0.0.0.0:8080
@@ -18,12 +18,28 @@ web_username: admin
 web_password: admin
 # 日志等级:debug/info/warn/error
 log_level: info
-# echo服务监听地址,用于测试，客户端向此端口发送什么就回什么，可为空，为空则不启动echo服务
-echo_listen: 0.0.0.0:8081
 # pprof监听地址,可为空
 pprof_port: ""
 ```
 访问[127.0.0.1:8080](http://127.0.0.1:8080),输入默认账号密码admin/admin登录<br>
+
+## 内置服务
+为了方便测试和部署，内置了一些服务，可通过配置文件启用(设置enable为true即可）
+```yaml
+# 内置服务配置
+build-in:
+    # 是否启用内置服务,总开关，false情况下不启用(会忽略下面的配置)
+    enable: false
+    # echo服务监听地址,用于测试，客户端向此端口发送什么就回什么，为空则不启动
+    echo_listen: 0.0.0.0:8081
+    # http代理服务监听地址,为空则不启动
+    http_proxy_listen: 0.0.0.0:3128
+    # socks5x服务配置,为空则不启动
+    socks5x_server:
+        listen_port: 1080
+        udp_timeout: 120
+        tcp_timeout: 120
+```
 ## tcp/udp等转发服务
 ## 需求
 默认echo服务的地址是127.0.0.1:8081<br>
@@ -39,11 +55,11 @@ pprof_port: ""
     "in_proto_cfg": "{\"head_trim\":\"\"}",
     "in_decrypt_mode": "",
     "in_decrypt_key": "",
-    "in_extend": "{\"mux_conn\":0}",
+    "in_extend": "",
     "out_proto_cfg": "{\"head_append\":\"\"}",
     "out_crypt_mode": "",
     "out_crypt_key": "",
-    "out_extend": "{\"mux_conn\":0}"
+    "out_extend": ""
 }
 ```
 注意，为了测试方便，output指向的默认配置自带的echo服务的地址
@@ -69,7 +85,7 @@ pprof_port: ""
   "in_proto_cfg": "{\"head_trim\":\"\"}",
   "in_decrypt_mode": "",
   "in_decrypt_key": "",
-  "in_extend": "{\"mux_conn\":0}",
+  "in_extend": "",
   "out_proto_cfg": "{\"head_append\":\"\"}",
   "out_crypt_mode": "gcm",
   "out_crypt_key": "goodweather",
@@ -86,12 +102,11 @@ pprof_port: ""
   "in_proto_cfg": "{\"head_trim\":\"\"}",
   "in_decrypt_mode": "",
   "in_decrypt_key": "",
-  "in_extend": "{\"mux_conn\":0}",
+  "in_extend": "",
   "out_proto_cfg": "{\"head_append\":\"\"}",
   "out_crypt_mode": "gcm",
   "out_crypt_key": "goodweather",
-  "out_extend": "{\"mux_conn\":0}",
-  "create_at": "2023-06-04T16:30:13.4126077+08:00"
+  "out_extend": ""
 }
 ```
 要点：
@@ -126,8 +141,7 @@ pprof_port: ""
   "out_proto_cfg": "{\"head_append\":\"\"}",
   "out_crypt_mode": "",
   "out_crypt_key": "",
-  "out_extend": "{\"mux_conn\":0}",
-  "create_at": "2023-06-04T16:46:00.0074843+08:00"
+  "out_extend": ""
 }
 ```
 一个作为服务端，放置在8888公网中：
@@ -144,8 +158,7 @@ pprof_port: ""
   "out_proto_cfg": "{\"head_trim\":\"\"}",
   "out_crypt_mode": "gcm",
   "out_crypt_key": "goodweather",
-  "out_extend": "{\"mux_conn\":0}",
-  "create_at": "2023-06-04T16:48:05.5282116+08:00"
+  "out_extend": ""
 }
 ```
 要点：

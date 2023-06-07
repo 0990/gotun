@@ -7,6 +7,7 @@ import (
 	"github.com/xtaci/smux"
 	"log"
 	"net"
+	"sync/atomic"
 	"time"
 )
 
@@ -17,6 +18,7 @@ type inputKCPMux struct {
 	cfg  KCPConfig
 
 	listener *kcp.Listener
+	close    int32
 }
 
 func NewInputKCPMux(addr string, extra string) (*inputKCPMux, error) {
@@ -62,6 +64,7 @@ func (p *inputKCPMux) Run() error {
 }
 
 func (p *inputKCPMux) Close() error {
+	atomic.StoreInt32(&p.close, 1)
 	return p.listener.Close()
 }
 
@@ -111,6 +114,10 @@ func (p *inputKCPMux) handleConn(conn net.Conn) {
 	for {
 		stream, err := mux.AcceptStream()
 		if err != nil {
+			return
+		}
+
+		if atomic.LoadInt32(&p.close) == 1 {
 			return
 		}
 

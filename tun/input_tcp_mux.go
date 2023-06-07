@@ -5,6 +5,7 @@ import (
 	"github.com/hashicorp/yamux"
 	"github.com/sirupsen/logrus"
 	"net"
+	"sync/atomic"
 	"time"
 )
 
@@ -14,6 +15,10 @@ type inputTcpMux struct {
 	addr     string
 	cfg      InProtoTCPMux
 	listener net.Listener
+
+	uuid string
+
+	close int32
 }
 
 func NewInputTcpMux(addr string, config string) (*inputTcpMux, error) {
@@ -29,6 +34,7 @@ func NewInputTcpMux(addr string, config string) (*inputTcpMux, error) {
 	return &inputTcpMux{
 		addr: addr,
 		cfg:  cfg,
+		uuid: time.Now().String(),
 	}, nil
 }
 
@@ -86,6 +92,8 @@ func (p *inputTcpMux) OnNewConn(conn net.Conn) error {
 }
 
 func (p *inputTcpMux) handleConnYamux(conn net.Conn) {
+	defer conn.Close()
+
 	session, err := yamux.Server(conn, nil)
 	if err != nil {
 		return
@@ -98,6 +106,10 @@ func (p *inputTcpMux) handleConnYamux(conn net.Conn) {
 			return
 		}
 
+		if atomic.LoadInt32(&p.close) == 1 {
+			return
+		}
+
 		s := &TCPYamuxStream{stream}
 		go func(p1 Stream) {
 			p.inputBase.OnNewStream(p1)
@@ -106,5 +118,6 @@ func (p *inputTcpMux) handleConnYamux(conn net.Conn) {
 }
 
 func (p *inputTcpMux) Close() error {
+	atomic.StoreInt32(&p.close, 1)
 	return p.listener.Close()
 }

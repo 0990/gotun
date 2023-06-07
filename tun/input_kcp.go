@@ -15,6 +15,7 @@ type inputKCP struct {
 	addr     string
 	cfg      KCPConfig
 	listener *kcp.Listener
+	close    int32
 }
 
 func NewInputKCP(addr string, extra string) (*inputKCP, error) {

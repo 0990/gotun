@@ -127,9 +127,9 @@ func (p *Output) GetStream() (Stream, error) {
 func (p *Output) waitCreateStreamMaker() (StreamMaker, error) {
 
 	for {
-		logrus.Warn("creating conn....")
+		logrus.Debug("creating conn....")
 		if conn, err := p.makeStreamMaker(context.Background(), p.addr, p.config); err == nil {
-			logrus.Warn("creating conn ok")
+			logrus.Debug("creating conn ok")
 			return conn, nil
 		} else {
 

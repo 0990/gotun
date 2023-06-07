@@ -2,6 +2,7 @@ package echo
 
 import (
 	"github.com/sirupsen/logrus"
+	"io"
 	"net"
 )
 
@@ -29,7 +30,11 @@ func StartTCPEchoServer(addr string) error {
 					buf := make([]byte, 65535)
 					n, err := conn.Read(buf)
 					if err != nil {
-						log.WithError(err).Error("read from tcp")
+						if err != io.EOF {
+							log.WithError(err).Error("read from tcp")
+						} else {
+							log.WithError(err).Info("read from tcp")
+						}
 						return
 					}
 
