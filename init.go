@@ -5,6 +5,7 @@ import (
 	"embed"
 	"encoding/hex"
 	"fmt"
+	"github.com/0990/gotun/admin/route"
 	"github.com/0990/gotun/admin/sword"
 	"github.com/0990/gotun/server/echo"
 	"github.com/0990/gotun/server/socks5x"
@@ -73,9 +74,10 @@ func Run(fileName string, tunDir string) error {
 		return ""
 	}
 	digestAuth := auth.NewDigestAuthenticator(realm, secret)
+	authMgr := route.NewAuthManager(digestAuth, appCfg.WebLoginFailLimitInHour)
 
 	// 核心2：启动CRUD服务
-	sword.Run(assets, appCfg.WebListen, mgr, digestAuth)
+	sword.Run(assets, appCfg.WebListen, mgr, authMgr)
 
 	Welcome(appCfg)
 

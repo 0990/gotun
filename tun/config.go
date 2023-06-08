@@ -34,19 +34,19 @@ type Extend struct {
 }
 
 type InProtoTCP struct {
-	HeadTrim string `json:"head_trim"` //头部字段匹配删除
+	Head string `json:"head"` //头部字段匹配删除
 }
 
 type OutProtoTCP struct {
-	HeadAppend string `json:"head_append"` //头部数据填充
+	Head string `json:"head"` //头部数据填充
 }
 
 type InProtoTCPMux struct {
-	HeadTrim string `json:"head_trim"` //头部字段匹配删除
+	Head string `json:"head"` //头部字段匹配删除
 }
 
 type OutProtoTCPMux struct {
-	HeadAppend string `json:"head_append"` //头部数据填充
+	Head string `json:"head"` //头部数据填充
 }
 
 type InProtoSocks5X struct {

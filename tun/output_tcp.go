@@ -28,7 +28,7 @@ func dialTCP(addr string, config string) (Stream, error) {
 		return nil, err
 	}
 
-	err = tcpHeadAppend(conn, cfg.HeadAppend)
+	err = tcpHeadAppend(conn, cfg.Head)
 	if err != nil {
 		return nil, err
 	}

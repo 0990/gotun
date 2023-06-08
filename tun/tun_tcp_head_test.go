@@ -117,7 +117,7 @@ func muxConnExtend(count int) string {
 }
 
 func prepareHeadInOutCfg(inHead []byte, outHead []byte) (string, string, error) {
-	cfg := InProtoTCP{HeadTrim: inHead}
+	cfg := InProtoTCP{Head: inHead}
 	in, err := json.Marshal(cfg)
 	if err != nil {
 		return "", "", err

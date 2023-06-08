@@ -13,7 +13,6 @@ import (
 	"github.com/0990/gotun/admin/controller/tunnel"
 	"github.com/0990/gotun/admin/response"
 	"github.com/0990/gotun/tun"
-	auth "github.com/abbot/go-http-auth"
 	"io/fs"
 	"log"
 	"net/http"
@@ -29,13 +28,13 @@ func (u *gZipWriter) Write(p []byte) (int, error) {
 	return u.gz.Write(p)
 }
 
-func Register(assets embed.FS, listen string, mgr *tun.Manager, adminAuth *auth.DigestAuth) {
+func Register(assets embed.FS, listen string, mgr *tun.Manager, authMgr *AuthManager) {
 	h := http.NewServeMux()
 	// Static file
 	h.Handle("/go_sword_public/", http.StripPrefix("/go_sword_public/",
 		http.FileServer(http.FS(assets))))
 	// Default index.html
-	h.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	h.HandleFunc("/", authMgr.JustCheck(func(w http.ResponseWriter, r *http.Request) {
 		//Static file route
 		fsys, _ := fs.Sub(assets, "admin/resource/dist")
 		handle := http.FileServer(http.FS(fsys))
@@ -49,16 +48,16 @@ func Register(assets embed.FS, listen string, mgr *tun.Manager, adminAuth *auth.
 		}
 		defer gz.Close()
 		handle.ServeHTTP(newWriter, r)
-	})
+	}))
 	// Render Vue html component
-	h.HandleFunc("/render", renderWithAssets(assets))
+	h.HandleFunc("/render", authMgr.JustCheck(renderWithAssets(assets)))
 	// ----Route-begin----
 
 	// Route tag tunnel
-	h.HandleFunc("/api/tunnel/list", adminAuth.JustCheck(tunnel.List(mgr)))
-	h.HandleFunc("/api/tunnel/delete", adminAuth.JustCheck(tunnel.Delete(mgr)))
-	h.HandleFunc("/api/tunnel/create", adminAuth.JustCheck(tunnel.Create(mgr)))
-	h.HandleFunc("/api/tunnel/edit", adminAuth.JustCheck(tunnel.Edit(mgr)))
+	h.HandleFunc("/api/tunnel/list", authMgr.JustCheck(tunnel.List(mgr)))
+	h.HandleFunc("/api/tunnel/delete", authMgr.JustCheck(tunnel.Delete(mgr)))
+	h.HandleFunc("/api/tunnel/create", authMgr.JustCheck(tunnel.Create(mgr)))
+	h.HandleFunc("/api/tunnel/edit", authMgr.JustCheck(tunnel.Edit(mgr)))
 	// ----Route-end----
 
 	go func() {

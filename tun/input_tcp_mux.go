@@ -84,7 +84,7 @@ func (p *inputTcpMux) handleConn(conn net.Conn) {
 }
 
 func (p *inputTcpMux) OnNewConn(conn net.Conn) error {
-	err := tcpTrimHead(conn, p.cfg.HeadTrim)
+	err := tcpTrimHead(conn, p.cfg.Head)
 	if err != nil {
 		return err
 	}

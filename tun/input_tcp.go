@@ -85,7 +85,7 @@ func (p *inputTCP) Close() error {
 }
 
 func (p *inputTCP) OnNewConn(conn net.Conn) error {
-	err := tcpTrimHead(conn, p.cfg.HeadTrim)
+	err := tcpTrimHead(conn, p.cfg.Head)
 	if err != nil {
 		return err
 	}

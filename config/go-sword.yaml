@@ -1,9 +1,0 @@
-db: # 数据库相关配置
-  user: root
-  password: 110112
-  database: test
-  host: 127.0.0.1
-  port: 3307
-root_path: admin   # Go-sword会在项目根目录创建该目录，并且释放generate按钮生成的所有文件到该目录
-tool_port: '8081'    # Go-sword服务启动的端口
-server_port: '8082'  # Go-sword后端CRUD服务的端口

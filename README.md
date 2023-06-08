@@ -16,6 +16,8 @@ web_listen: 0.0.0.0:8080
 web_username: admin
 # web登录密码
 web_password: admin
+# 每小时登录失败限制次数
+web_login_fail_limit_in_hour: 10
 # 日志等级:debug/info/warn/error
 log_level: info
 # pprof监听地址,可为空
@@ -52,11 +54,11 @@ build-in:
     "input": "tcp@0.0.0.0:8888",
     "output": "tcp@127.0.0.1:8081",
     "mode": "",
-    "in_proto_cfg": "{\"head_trim\":\"\"}",
+    "in_proto_cfg": "{\"head\":\"\"}",
     "in_decrypt_mode": "",
     "in_decrypt_key": "",
     "in_extend": "",
-    "out_proto_cfg": "{\"head_append\":\"\"}",
+    "out_proto_cfg": "{\"head\":\"\"}",
     "out_crypt_mode": "",
     "out_crypt_key": "",
     "out_extend": ""
@@ -82,11 +84,11 @@ build-in:
   "input": "tcp@0.0.0.0:8888",
   "output": "tcp_mux@127.0.0.1:8889",
   "mode": "",
-  "in_proto_cfg": "{\"head_trim\":\"\"}",
+  "in_proto_cfg": "{\"head\":\"\"}",
   "in_decrypt_mode": "",
   "in_decrypt_key": "",
   "in_extend": "",
-  "out_proto_cfg": "{\"head_append\":\"\"}",
+  "out_proto_cfg": "{\"head\":\"\"}",
   "out_crypt_mode": "gcm",
   "out_crypt_key": "goodweather",
   "out_extend": "{\"mux_conn\":10}"
@@ -99,11 +101,11 @@ build-in:
   "input": "tcp_mux@0.0.0.0:8889",
   "output": "tcp@127.0.0.1:8081",
   "mode": "",
-  "in_proto_cfg": "{\"head_trim\":\"\"}",
+  "in_proto_cfg": "{\"head\":\"\"}",
   "in_decrypt_mode": "",
   "in_decrypt_key": "",
   "in_extend": "",
-  "out_proto_cfg": "{\"head_append\":\"\"}",
+  "out_proto_cfg": "{\"head\":\"\"}",
   "out_crypt_mode": "gcm",
   "out_crypt_key": "goodweather",
   "out_extend": ""
@@ -134,11 +136,11 @@ build-in:
   "input": "tcpmux@127.0.0.1:8889",
   "output": "tcp@127.0.0.1:8081",
   "mode": "frpc",
-  "in_proto_cfg": "{\"head_append\":\"\"}",
+  "in_proto_cfg": "{\"head\":\"\"}",
   "in_decrypt_mode": "gcm",
   "in_decrypt_key": "goodweather",
   "in_extend": "{\"mux_conn\":10}",
-  "out_proto_cfg": "{\"head_append\":\"\"}",
+  "out_proto_cfg": "{\"head\":\"\"}",
   "out_crypt_mode": "",
   "out_crypt_key": "",
   "out_extend": ""
@@ -151,11 +153,11 @@ build-in:
   "input": "tcp@0.0.0.0:8888",
   "output": "tcp_mux@127.0.0.1:8889",
   "mode": "frps",
-  "in_proto_cfg": "{\"head_trim\":\"\"}",
+  "in_proto_cfg": "{\"head\":\"\"}",
   "in_decrypt_mode": "",
   "in_decrypt_key": "",
   "in_extend": "{\"mux_conn\":0}",
-  "out_proto_cfg": "{\"head_trim\":\"\"}",
+  "out_proto_cfg": "{\"head\":\"\"}",
   "out_crypt_mode": "gcm",
   "out_crypt_key": "goodweather",
   "out_extend": ""

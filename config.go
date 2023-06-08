@@ -8,9 +8,10 @@ import (
 )
 
 type AppConfig struct {
-	WebListen   string `yaml:"web_listen"`   //监听地址
-	WebUsername string `yaml:"web_username"` //账号
-	WebPassword string `yaml:"web_password"` //密码
+	WebListen               string `yaml:"web_listen"`                   //监听地址
+	WebUsername             string `yaml:"web_username"`                 //账号
+	WebPassword             string `yaml:"web_password"`                 //密码
+	WebLoginFailLimitInHour int    `yaml:"web_login_fail_limit_in_hour"` //每小时最大失败次数
 
 	LogLevel    string `yaml:"log_level"`
 	PProfListen string `yaml:"pprof_port"`
@@ -57,12 +58,13 @@ func createAppConfigFile(fileName string) (*AppConfig, error) {
 	}
 
 	cfg := AppConfig{
-		WebListen:   "0.0.0.0:8080",
-		WebUsername: "admin",
-		WebPassword: "admin",
-		LogLevel:    "info",
-		PProfListen: "",
-		BuildIn:     buildIn,
+		WebListen:               "0.0.0.0:8080",
+		WebUsername:             "admin",
+		WebPassword:             "admin",
+		WebLoginFailLimitInHour: 10,
+		LogLevel:                "info",
+		PProfListen:             "",
+		BuildIn:                 buildIn,
 	}
 
 	node := &yaml.Node{
@@ -99,6 +101,8 @@ func addComments(node *yaml.Node) {
 			key.HeadComment = "web登录账号"
 		case "web_password":
 			key.HeadComment = "web登录密码"
+		case "web_login_fail_limit_in_hour":
+			key.HeadComment = "每小时登录失败限制次数"
 		case "log_level":
 			key.HeadComment = "日志等级:debug/info/warn/error"
 		case "pprof_port":

@@ -52,7 +52,7 @@ func dialTCPYamuxBuilder(ctx context.Context, addr string, config string) (Strea
 		return nil, err
 	}
 
-	err = tcpHeadAppend(conn, cfg.HeadAppend)
+	err = tcpHeadAppend(conn, cfg.Head)
 	if err != nil {
 		return nil, err
 	}
