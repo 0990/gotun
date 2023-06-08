@@ -90,7 +90,11 @@ func (p *inputQUIC) handleSession(session quic.Connection) {
 			return
 		}
 
-		s := &QUICStream{stream}
+		s := &QUICStream{
+			Stream:     stream,
+			localAddr:  session.LocalAddr(),
+			remoteAddr: session.RemoteAddr(),
+		}
 		go func(p1 Stream) {
 			p.inputBase.OnNewStream(p1)
 		}(s)

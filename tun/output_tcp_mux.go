@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/hashicorp/yamux"
+	"github.com/sirupsen/logrus"
 	"net"
 	"time"
 )
@@ -59,6 +60,12 @@ func dialTCPYamuxBuilder(ctx context.Context, addr string, config string) (Strea
 	if err != nil {
 		return nil, err
 	}
+	logrus.WithFields(logrus.Fields{
+		"target":     addr,
+		"localAddr":  conn.LocalAddr(),
+		"remoteAddr": conn.RemoteAddr(),
+	}).Debug("dialTCPYamuxBuilder")
+
 	return &TCPYamuxSession{session: session}, nil
 }
 

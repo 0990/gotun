@@ -22,7 +22,7 @@ import (
 //go:embed admin/view
 var assets embed.FS
 
-func Run(fileName string) error {
+func Run(fileName string, tunDir string) error {
 	appCfg, err := parseAppConfigFile(fileName)
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -59,7 +59,7 @@ func Run(fileName string) error {
 		return fmt.Errorf("startBuildInServer fail:%w", err)
 	}
 
-	mgr := tun.NewManager()
+	mgr := tun.NewManager(tunDir)
 	err = mgr.Run()
 	if err != nil {
 		return err

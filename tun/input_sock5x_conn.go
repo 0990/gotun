@@ -16,7 +16,7 @@ type Socks5XConn struct {
 }
 
 func (c *Socks5XConn) ID() int64 {
-	return int64(1)
+	return int64(-1)
 }
 
 type CustomCopy interface {
@@ -42,6 +42,7 @@ func (c *Socks5XConn) CustomCopy(in, out Stream) error {
 		if err != nil {
 			return nil, 0, "", err
 		}
+		out.SetReadDeadline(time.Time{})
 
 		resp, ok := m.(*msg.Socks5XResp)
 		if !ok {

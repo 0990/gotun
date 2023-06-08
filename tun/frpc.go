@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/0990/gotun/pkg/msg"
 	"github.com/sirupsen/logrus"
-	"io"
 )
 
 const FrpWorkerCount = 10
@@ -99,12 +98,7 @@ func (s *Frpc) handleWorkerStream(src Stream) {
 	logrus.Debug("stream opened", "in:", src.RemoteAddr(), "out:", fmt.Sprint(dst.RemoteAddr(), "(", dst.ID(), ")"))
 	defer logrus.Debug("stream closed", "in:", src.RemoteAddr(), "out:", fmt.Sprint(dst.RemoteAddr(), "(", dst.ID(), ")"))
 
-	err = s.cryptoHelper.Copy(dst, src)
-	if err != nil {
-		if err != io.EOF {
-			logrus.WithError(err).Error("copy")
-		}
-	}
+	s.cryptoHelper.Copy(dst, src)
 }
 
 func (s *Frpc) sayHelloAndWait(src Stream) error {

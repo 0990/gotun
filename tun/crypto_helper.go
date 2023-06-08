@@ -4,6 +4,7 @@ import (
 	"crypto/cipher"
 	"github.com/0990/gotun/pkg/crypto"
 	"github.com/0990/gotun/pkg/util"
+	"github.com/sirupsen/logrus"
 	"io"
 	"time"
 )
@@ -41,7 +42,16 @@ func NewCryptoHelper(config Config) (*CryptoHelper, error) {
 	}, nil
 }
 
-func (c *CryptoHelper) Copy(dst, src Stream) error {
+func (c *CryptoHelper) Copy(dst, src Stream) {
+	err := c.copy(dst, src)
+	if err != nil {
+		if err != io.EOF && err != ErrTimeout {
+			logrus.WithError(err).Error("copy")
+		}
+	}
+}
+
+func (c *CryptoHelper) copy(dst, src Stream) error {
 	s, err := crypto.NewReaderWriter(src, c.srcMode, c.srcAead)
 	if err != nil {
 		return err

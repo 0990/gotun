@@ -8,8 +8,7 @@ import (
 	"time"
 )
 
-const CONFIG_SUFFIX = ".tun"
-const CONFIG_DIR = "config"
+const TUN_CONFIG_SUFFIX = ".tun"
 
 type Config struct {
 	Name string `json:"name"`
@@ -35,19 +34,19 @@ type Extend struct {
 }
 
 type InProtoTCP struct {
-	HeadTrim []byte `json:"head_trim"` //头部字段匹配删除
+	HeadTrim string `json:"head_trim"` //头部字段匹配删除
 }
 
 type OutProtoTCP struct {
-	HeadAppend []byte `json:"head_append"` //头部数据填充
+	HeadAppend string `json:"head_append"` //头部数据填充
 }
 
 type InProtoTCPMux struct {
-	HeadTrim []byte `json:"head_trim"` //头部字段匹配删除
+	HeadTrim string `json:"head_trim"` //头部字段匹配删除
 }
 
 type OutProtoTCPMux struct {
-	HeadAppend []byte `json:"head_append"` //头部数据填充
+	HeadAppend string `json:"head_append"` //头部数据填充
 }
 
 type InProtoSocks5X struct {
@@ -108,14 +107,14 @@ type UDPConfig struct {
 	Timeout int `json:"timeout"`
 }
 
-func createServiceFile(cfg Config) error {
+func createServiceFile(dir string, cfg Config) error {
 	cfgData, err := json.Marshal(cfg)
 	if err != nil {
 		return err
 	}
 
-	filename := CONFIG_DIR + "/" + cfg.Name + CONFIG_SUFFIX
-	os.Mkdir(CONFIG_DIR, os.ModePerm)
+	filename := dir + "/" + cfg.Name + TUN_CONFIG_SUFFIX
+	os.Mkdir(dir, os.ModePerm)
 
 	if isFileExist(filename) {
 		return errors.New("tun already exist")
@@ -134,8 +133,8 @@ func createServiceFile(cfg Config) error {
 	return nil
 }
 
-func deleteServiceFile(name string) error {
-	filename := CONFIG_DIR + "/" + name + CONFIG_SUFFIX
+func deleteServiceFile(dir string, name string) error {
+	filename := dir + "/" + name + TUN_CONFIG_SUFFIX
 	err := os.Remove(filename)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -146,8 +145,7 @@ func deleteServiceFile(name string) error {
 	return nil
 }
 
-func loadAllServiceFile() ([]Config, error) {
-	dir := CONFIG_DIR
+func loadAllServiceFile(dir string) ([]Config, error) {
 	rd, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -164,11 +162,11 @@ func loadAllServiceFile() ([]Config, error) {
 		name := v.Name()
 
 		suffix := path.Ext(name)
-		if suffix != CONFIG_SUFFIX {
+		if suffix != TUN_CONFIG_SUFFIX {
 			continue
 		}
 
-		data, err := os.ReadFile(CONFIG_DIR + "/" + v.Name())
+		data, err := os.ReadFile(dir + "/" + v.Name())
 		if err != nil {
 			return nil, err
 		}

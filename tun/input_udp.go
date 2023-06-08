@@ -52,14 +52,27 @@ func (p *inputUDP) Close() error {
 func (p *inputUDP) serve() {
 	relayer := p.conn
 	timeout := time.Duration(p.cfg.Timeout) * time.Second
-
+	var tempDelay time.Duration
 	var workers WorkerMap
 	for {
 		buf := make([]byte, socketBufSize)
 		n, srcAddr, err := relayer.ReadFrom(buf)
 		if err != nil {
 			logrus.WithError(err).Error("relayer.ReadFrom")
-			continue
+			if ne, ok := err.(*net.OpError); ok && ne.Temporary() {
+				if tempDelay == 0 {
+					tempDelay = 5 * time.Millisecond
+				} else {
+					tempDelay *= 2
+				}
+				if max := 1 * time.Second; tempDelay > max {
+					tempDelay = max
+				}
+				logrus.Errorf("http: Accept error: %v; retrying in %v", err, tempDelay)
+				time.Sleep(tempDelay)
+				continue
+			}
+			return
 		}
 
 		id := srcAddr.String()
@@ -79,6 +92,7 @@ func (p *inputUDP) serve() {
 		w, load := workers.LoadOrStore(id, worker)
 		if !load {
 			go func() {
+				logrus.Debug("New UDPWorker")
 				p.inputBase.OnNewStream(w)
 			}()
 		}

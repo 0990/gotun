@@ -11,7 +11,7 @@ type TCPConn struct {
 }
 
 func (c *TCPConn) ID() int64 {
-	return int64(1)
+	return int64(-1)
 }
 
 func dialTCP(addr string, config string) (Stream, error) {
@@ -36,7 +36,8 @@ func dialTCP(addr string, config string) (Stream, error) {
 	return &TCPConn{Conn: conn}, nil
 }
 
-func tcpHeadAppend(conn net.Conn, head []byte) error {
+func tcpHeadAppend(conn net.Conn, str string) error {
+	head := []byte(str)
 	if len(head) == 0 {
 		return nil
 	}

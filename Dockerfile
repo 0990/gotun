@@ -1,4 +1,4 @@
-FROM golang:1.20.1 AS builder
+FROM golang:1.20.5 AS builder
 COPY . gotun
 WORKDIR gotun
 
@@ -10,4 +10,4 @@ WORKDIR /0990
 WORKDIR bin
 COPY --from=builder /bin/gotun .
 WORKDIR /0990
-CMD ["bin/gotun","-config","config/app.yaml"]
+CMD ["bin/gotun","-config","config/app.yaml","-tun_dir","config/tunnel"]

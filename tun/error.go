@@ -1,6 +1,11 @@
 package tun
 
-import "net"
+import (
+	"errors"
+	"net"
+)
+
+var ErrTimeout = errors.New("ErrTimeout")
 
 func isNetTimeoutErr(err error) bool {
 	if err, ok := err.(net.Error); ok && err.Timeout() {

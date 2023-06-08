@@ -3,7 +3,6 @@ package tun
 import (
 	"fmt"
 	"github.com/sirupsen/logrus"
-	"io"
 )
 
 type Server struct {
@@ -80,13 +79,22 @@ func (s *Server) handleInputStream(src Stream) {
 	}
 	defer dst.Close()
 
-	logrus.Debug("stream opened", "in:", src.RemoteAddr(), "out:", fmt.Sprint(dst.RemoteAddr(), "(", dst.ID(), ")"))
-	defer logrus.Debug("stream closed", "in:", src.RemoteAddr(), "out:", fmt.Sprint(dst.RemoteAddr(), "(", dst.ID(), ")"))
+	srcLocalAddr := src.LocalAddr()
+	srcRemoteAddr := src.RemoteAddr()
+	dstLocalAddr := dst.LocalAddr()
+	dstRemoteAddr := dst.RemoteAddr()
 
-	err = s.cryptoHelper.Copy(dst, src)
-	if err != nil {
-		if err != io.EOF {
-			logrus.WithError(err).Error("copy")
-		}
-	}
+	log := logrus.WithFields(logrus.Fields{
+		"inLocal":   srcLocalAddr,
+		"inRemote":  srcRemoteAddr,
+		"inID":      src.ID(),
+		"outLocal":  dstLocalAddr,
+		"outRemote": dstRemoteAddr,
+		"outID":     dst.ID(),
+	})
+
+	log.Debug("stream opened")
+	defer log.Debug("stream closed")
+
+	s.cryptoHelper.Copy(dst, src)
 }

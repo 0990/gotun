@@ -12,7 +12,7 @@ type KCPSession struct {
 }
 
 func (c *KCPSession) ID() int64 {
-	return int64(1)
+	return int64(-1)
 }
 
 func dialKCP(addr string, config string) (Stream, error) {

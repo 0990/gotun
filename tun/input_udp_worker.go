@@ -41,7 +41,7 @@ type UDPWorker struct {
 }
 
 func (w *UDPWorker) ID() int64 {
-	return 0
+	return -1
 }
 
 func (w *UDPWorker) RemoteAddr() net.Addr {
@@ -49,7 +49,7 @@ func (w *UDPWorker) RemoteAddr() net.Addr {
 }
 
 func (w *UDPWorker) LocalAddr() net.Addr {
-	return w.srcAddr
+	return w.relayer.LocalAddr()
 }
 
 func (w *UDPWorker) SetReadDeadline(t time.Time) error {
@@ -99,7 +99,8 @@ READ:
 			}
 			w.reader = reader
 		case <-timer.C:
-			return 0, errors.New("timeout")
+			logrus.WithField("timeout", int32(timeout/time.Second)).Debug("UDPWorker Read timeout")
+			return 0, ErrTimeout
 		}
 	}
 

@@ -12,7 +12,7 @@ type UDPConn struct {
 }
 
 func (c *UDPConn) ID() int64 {
-	return 0
+	return -1
 }
 
 func (c *UDPConn) Read(b []byte) (int, error) {

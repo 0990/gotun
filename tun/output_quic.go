@@ -14,7 +14,11 @@ type QUICConn struct {
 
 func (c *QUICConn) OpenStream() (Stream, error) {
 	stream, err := c.Connection.OpenStream()
-	return &QUICStream{Stream: stream}, err
+	return &QUICStream{
+		Stream:     stream,
+		localAddr:  c.LocalAddr(),
+		remoteAddr: c.RemoteAddr(),
+	}, err
 }
 
 func (c *QUICConn) IsClosed() bool {
@@ -27,6 +31,8 @@ func (c *QUICConn) Close() error {
 
 type QUICStream struct {
 	quic.Stream
+
+	localAddr, remoteAddr net.Addr
 }
 
 func (p *QUICStream) ID() int64 {
@@ -34,11 +40,11 @@ func (p *QUICStream) ID() int64 {
 }
 
 func (p *QUICStream) RemoteAddr() net.Addr {
-	return nil
+	return p.remoteAddr
 }
 
 func (p *QUICStream) LocalAddr() net.Addr {
-	return nil
+	return p.localAddr
 }
 
 func (p *QUICStream) SetReadDeadline(t time.Time) error {

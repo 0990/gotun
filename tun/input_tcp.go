@@ -92,7 +92,9 @@ func (p *inputTCP) OnNewConn(conn net.Conn) error {
 	return nil
 }
 
-func tcpTrimHead(conn net.Conn, trim []byte) error {
+func tcpTrimHead(conn net.Conn, str string) error {
+
+	trim := []byte(str)
 	if len(trim) == 0 {
 		return nil
 	}
@@ -104,6 +106,8 @@ func tcpTrimHead(conn net.Conn, trim []byte) error {
 	if err != nil {
 		return err
 	}
+
+	conn.SetReadDeadline(time.Time{})
 
 	if n != len(trim) {
 		return errors.New("read head trim failed")

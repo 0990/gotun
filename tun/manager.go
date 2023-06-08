@@ -9,17 +9,19 @@ import (
 type Manager struct {
 	services map[string]Service
 	lock     sync.RWMutex
+	tunDir   string
 }
 
-func NewManager() *Manager {
+func NewManager(tunDir string) *Manager {
 	return &Manager{
 		services: make(map[string]Service),
 		lock:     sync.RWMutex{},
+		tunDir:   tunDir,
 	}
 }
 
 func (m *Manager) Run() error {
-	cfgs, err := loadAllServiceFile()
+	cfgs, err := loadAllServiceFile(m.tunDir)
 	if err != nil {
 		return err
 	}
@@ -42,7 +44,7 @@ func (m *Manager) GetService(name string) (Service, bool) {
 }
 
 func (m *Manager) RemoveService(name string) error {
-	err := deleteServiceFile(name)
+	err := deleteServiceFile(m.tunDir, name)
 	if err != nil {
 		return err
 	}
@@ -86,7 +88,7 @@ func (m *Manager) AddService(config Config, createFile bool) error {
 	}()
 
 	if createFile {
-		err := createServiceFile(config)
+		err := createServiceFile(m.tunDir, config)
 		if err != nil {
 			return err
 		}
