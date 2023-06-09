@@ -119,5 +119,8 @@ func (p *inputTcpMux) handleConnYamux(conn net.Conn) {
 
 func (p *inputTcpMux) Close() error {
 	atomic.StoreInt32(&p.close, 1)
+	if p.listener == nil {
+		return nil
+	}
 	return p.listener.Close()
 }

@@ -44,6 +44,9 @@ func (p *inputUDP) Run() error {
 }
 
 func (p *inputUDP) Close() error {
+	if p.conn == nil {
+		return nil
+	}
 	return p.conn.Close()
 }
 

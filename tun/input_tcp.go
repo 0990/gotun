@@ -81,6 +81,9 @@ func (p *inputTCP) handleConn(conn net.Conn) {
 }
 
 func (p *inputTCP) Close() error {
+	if p.listener == nil {
+		return nil
+	}
 	return p.listener.Close()
 }
 
