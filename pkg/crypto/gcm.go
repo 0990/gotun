@@ -6,8 +6,9 @@ import (
 	"math/rand"
 )
 
-// const payloadSizeMask = 0x3FFF // 16*1024 - 1
-const payloadSizeMask = 65535
+// TODO 设置为多少合适，或者writer使用动态buff?
+// 为什么是65*1024，当为64*1024时,由于上层copybuff使用了64*1024的缓冲区，这里加密后长度会大于64*1024，导致copybuff出错
+const payloadSizeMask = 65 * 1024
 
 type gcm struct {
 	io.ReadWriter

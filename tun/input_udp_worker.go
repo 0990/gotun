@@ -3,7 +3,6 @@ package tun
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"github.com/0990/gotun/pkg/syncx"
 	"github.com/sirupsen/logrus"
 	"io"
@@ -125,6 +124,5 @@ READ:
 
 func (w *UDPWorker) Write(p []byte) (n int, err error) {
 	n, err = w.relayer.WriteTo(p, w.srcAddr)
-	fmt.Println("UDPWorker Write", w.relayer.LocalAddr(), w.srcAddr, "长度", n, ":", len(p), err, string(p))
 	return n, err
 }
