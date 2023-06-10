@@ -113,7 +113,7 @@ func createServiceFile(dir string, cfg Config) error {
 		return err
 	}
 
-	filename := dir + "/" + cfg.Name + TUN_CONFIG_SUFFIX
+	filename := serviceFile(dir, cfg.Name)
 	os.Mkdir(dir, os.ModePerm)
 
 	if isFileExist(filename) {
@@ -134,7 +134,7 @@ func createServiceFile(dir string, cfg Config) error {
 }
 
 func deleteServiceFile(dir string, name string) error {
-	filename := dir + "/" + name + TUN_CONFIG_SUFFIX
+	filename := serviceFile(dir, name)
 	err := os.Remove(filename)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -143,6 +143,10 @@ func deleteServiceFile(dir string, name string) error {
 		return err
 	}
 	return nil
+}
+
+func serviceFile(dir string, name string) string {
+	return dir + "/" + name + TUN_CONFIG_SUFFIX
 }
 
 func loadAllServiceFile(dir string) ([]Config, error) {

@@ -2,6 +2,7 @@ package socks5client
 
 import (
 	"fmt"
+	"time"
 )
 
 func CheckServer(addr string) {
@@ -12,7 +13,7 @@ func CheckServer(addr string) {
 		fmt.Printf("check tcp success,response(ipinfo.io):%s \n", response)
 	}
 
-	response, err = CheckUDP(addr)
+	_, response, err = CheckUDP(addr, time.Second*2)
 	if err != nil {
 		fmt.Printf("check udp failed:%s \n", err.Error())
 	} else {

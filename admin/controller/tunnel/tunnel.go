@@ -2,11 +2,17 @@ package tunnel
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/0990/gotun/server/echo"
+	"github.com/0990/gotun/server/httpproxy"
+	"github.com/0990/gotun/server/socks5client"
 	"github.com/0990/gotun/tun"
 	"io"
 	"math"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"time"
@@ -128,15 +134,7 @@ func Create(mgr *tun.Manager) func(writer http.ResponseWriter, request *http.Req
 			panic(err.Error())
 		}
 
-		cfg, err := Model2Config(&data)
-		if err != nil {
-			panic(err.Error())
-		}
-
-		now := time.Now()
-		cfg.CreatedAt = now
-
-		err = mgr.AddService(*cfg, true)
+		err = addTunByModel(mgr, data)
 		if err != nil {
 			panic(err.Error())
 		}
@@ -156,6 +154,22 @@ func Create(mgr *tun.Manager) func(writer http.ResponseWriter, request *http.Req
 			panic(err.Error())
 		}
 	}
+}
+
+func addTunByModel(mgr *tun.Manager, m model.Tunnel) error {
+	cfg, err := Model2Config(&m)
+	if err != nil {
+		return err
+	}
+
+	now := time.Now()
+	cfg.CreatedAt = now
+
+	err = mgr.AddService(*cfg, true)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func Model2Config(ls *model.Tunnel) (*tun.Config, error) {
@@ -233,9 +247,7 @@ func Edit(mgr *tun.Manager) func(writer http.ResponseWriter, request *http.Reque
 			panic(err.Error())
 		}
 
-		now := time.Now()
-		cfg.CreatedAt = now
-		err = mgr.AddService(*cfg, true)
+		err = addTunByModel(mgr, data)
 		if err != nil {
 			panic(err.Error())
 		}
@@ -293,6 +305,178 @@ func Delete(mgr *tun.Manager) func(writer http.ResponseWriter, request *http.Req
 		ret := response.Ret{
 			Code: http.StatusOK,
 			Msg:  "success",
+		}
+
+		d, err := json.Marshal(&ret)
+		if err != nil {
+			panic(err.Error())
+		}
+
+		_, err = writer.Write(d)
+		if err != nil {
+			panic(err.Error())
+		}
+	}
+}
+
+func Import(mgr *tun.Manager) func(writer http.ResponseWriter, request *http.Request) {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		defer func() {
+			if err := recover(); err != nil {
+				msg, _ := json.Marshal(response.Ret{
+					Code: http.StatusInternalServerError,
+					Msg:  fmt.Sprintf("%v", err),
+				})
+				writer.Write(msg)
+			}
+		}()
+
+		body, err := io.ReadAll(request.Body)
+		if err != nil {
+			panic(err.Error())
+		}
+
+		cfg := &model.Tunnel{}
+		err = json.Unmarshal(body, cfg)
+		if err != nil {
+			panic(err.Error())
+		}
+
+		err = addTunByModel(mgr, *cfg)
+		if err != nil {
+			panic(err.Error())
+		}
+
+		ret := response.Ret{
+			Code: http.StatusOK,
+			Msg:  "success",
+		}
+
+		d, err := json.Marshal(&ret)
+		if err != nil {
+			panic(err.Error())
+		}
+
+		_, err = writer.Write(d)
+		if err != nil {
+			panic(err.Error())
+		}
+	}
+}
+
+func Export(mgr *tun.Manager) func(w http.ResponseWriter, request *http.Request) {
+	return func(w http.ResponseWriter, request *http.Request) {
+		defer func() {
+			if err := recover(); err != nil {
+				msg, _ := json.Marshal(response.Ret{
+					Code: http.StatusInternalServerError,
+					Msg:  fmt.Sprintf("%v", err),
+				})
+				w.Write(msg)
+			}
+		}()
+
+		name := request.FormValue("name")
+
+		_, exist := mgr.GetService(name)
+		if !exist {
+			panic(errors.New("tun not exist"))
+		}
+
+		path := mgr.ServiceFile(name)
+
+		filename := filepath.Base(path)
+
+		file, err := os.Open(path)
+		if err != nil {
+			panic(err.Error())
+		}
+		defer file.Close()
+
+		fileHeader := make([]byte, 512)
+		file.Read(fileHeader)
+
+		fileStat, _ := file.Stat()
+
+		w.Header().Set("Content-Disposition", "attachment; filename=\""+filename+"\"")
+		w.Header().Set("Content-Type", http.DetectContentType(fileHeader))
+		w.Header().Set("Content-Length", strconv.FormatInt(fileStat.Size(), 10))
+
+		file.Seek(0, 0)
+		io.Copy(w, file)
+	}
+}
+
+func CheckServer(mgr *tun.Manager) func(w http.ResponseWriter, request *http.Request) {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		defer func() {
+			if err := recover(); err != nil {
+				msg, _ := json.Marshal(response.Ret{
+					Code: http.StatusInternalServerError,
+					Msg:  fmt.Sprintf("%v", err),
+				})
+				writer.Write(msg)
+			}
+		}()
+
+		request.ParseForm()
+
+		serverType := request.FormValue("serverType")
+		targetAddr := request.FormValue("targetAddr")
+
+		var result string
+		switch serverType {
+		case "echo":
+			req := "hello"
+			response, err := echo.CheckTCP(targetAddr, req, time.Second*2)
+			if err != nil {
+				result += fmt.Sprintf("tcp failed:%s \n", err.Error())
+			} else {
+				if response != req {
+					result += fmt.Sprintf("tcp failed,req:%s,resp:%s \n", req, response)
+				} else {
+					result += fmt.Sprintf("tcp passed,req:%s,resp:%s \n", req, response)
+				}
+			}
+
+			response, err = echo.CheckUDP(targetAddr, req, time.Second*2)
+			if err != nil {
+				result += fmt.Sprintf("udp failed:%s \n", err.Error())
+			} else {
+				if response != req {
+					result += fmt.Sprintf("udp failed,req:%s,resp:%s \n", req, response)
+				} else {
+					result += fmt.Sprintf("udp passed,req:%s,resp:%s \n", req, response)
+				}
+			}
+		case "socks5":
+			response, err := socks5client.CheckTCP(targetAddr)
+			if err != nil {
+				result += fmt.Sprintf("tcp failed:%s \n", err.Error())
+			} else {
+				result += fmt.Sprintf("tcp passed,response(ipinfo.io):%s \n", response)
+			}
+
+			advertisedUDPAddr, response, err := socks5client.CheckUDP(targetAddr, time.Second*2)
+			if err != nil {
+				result += fmt.Sprintf("udp failed,addr:%s,err:%s", advertisedUDPAddr, err.Error())
+			} else {
+				result += fmt.Sprintf("udp passed,addr:%s,response(8.8.8.8):%s", advertisedUDPAddr, response)
+			}
+		case "httpproxy":
+			response, err := httpproxy.Check(targetAddr, time.Second*2)
+			if err != nil {
+				result += fmt.Sprintf("failed:%s", err.Error())
+			} else {
+				result += fmt.Sprintf("passed,response(ipinfo.io):%s", response)
+			}
+		default:
+			panic(errors.New("server type not support"))
+		}
+
+		ret := response.Ret{
+			Code: http.StatusOK,
+			Msg:  result,
 		}
 
 		d, err := json.Marshal(&ret)

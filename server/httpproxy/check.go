@@ -1,29 +1,24 @@
-package socks5client
+package httpproxy
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/0990/socks5"
 	"io"
-	"net"
 	"net/http"
+	"net/url"
+	"strings"
+	"time"
 )
 
-func CheckTCP(addr string) (response string, err error) {
-	sc := socks5.NewSocks5Client(socks5.ClientCfg{
-		ServerAddr: addr,
-		UserName:   "",
-		Password:   "",
-		UDPTimout:  60,
-		TCPTimeout: 60,
-	})
-
+func Check(proxyAddr string, timeout time.Duration) (string, error) {
+	proxyURL, err := parseURLWithDefaultScheme(proxyAddr, "http")
+	if err != nil {
+		return "", err
+	}
 	hc := &http.Client{
+		Timeout: timeout,
 		Transport: &http.Transport{
-			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				return sc.Dial(network, addr)
-			},
+			Proxy: http.ProxyURL(proxyURL),
 		},
 	}
 	resp, err := hc.Get("http://ipinfo.io/")
@@ -52,4 +47,11 @@ func CheckTCP(addr string) (response string, err error) {
 	}
 
 	return r.IP, nil
+}
+
+func parseURLWithDefaultScheme(rawURL string, defaultScheme string) (*url.URL, error) {
+	if !strings.Contains(rawURL, "://") {
+		rawURL = fmt.Sprintf("%s://%s", defaultScheme, rawURL)
+	}
+	return url.Parse(rawURL)
 }

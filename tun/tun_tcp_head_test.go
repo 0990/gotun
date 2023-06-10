@@ -12,8 +12,8 @@ func Test_TcpTunHead(t *testing.T) {
 	targetAddr := "127.0.0.1:7007"
 	echo.StartTCPEchoServer(targetAddr)
 
-	inHead := []byte("GET / HTTP/1.1\r\nHost:")
-	outHead := []byte("GET / HTTP/1.1\r\nHost:")
+	inHead := "GET / HTTP/1.1\r\nHost:"
+	outHead := "GET / HTTP/1.1\r\nHost:"
 	in, out, err := prepareHeadInOutCfg(inHead, outHead)
 	if err != nil {
 		t.Fatal(err)
@@ -61,8 +61,8 @@ func Test_TcpMuxTunHead(t *testing.T) {
 	targetAddr := "127.0.0.1:7007"
 	echo.StartTCPEchoServer(targetAddr)
 
-	inHead := []byte("ABCDE")
-	outHead := []byte("ABCDE")
+	inHead := "ABCDE"
+	outHead := "ABCDE"
 	in, out, err := prepareHeadInOutCfg(inHead, outHead)
 	if err != nil {
 		t.Fatal(err)
@@ -116,14 +116,15 @@ func muxConnExtend(count int) string {
 	return string(data)
 }
 
-func prepareHeadInOutCfg(inHead []byte, outHead []byte) (string, string, error) {
+func prepareHeadInOutCfg(inHead string, outHead string) (string, string, error) {
+
 	cfg := InProtoTCP{Head: inHead}
 	in, err := json.Marshal(cfg)
 	if err != nil {
 		return "", "", err
 	}
 
-	outCfg := OutProtoTCP{HeadAppend: outHead}
+	outCfg := OutProtoTCP{Head: outHead}
 	out, err := json.Marshal(outCfg)
 	if err != nil {
 		return "", "", err

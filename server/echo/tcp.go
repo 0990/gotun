@@ -4,6 +4,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"io"
 	"net"
+	"time"
 )
 
 func StartTCPEchoServer(addr string) error {
@@ -46,4 +47,26 @@ func StartTCPEchoServer(addr string) error {
 		}
 	}()
 	return nil
+}
+
+func CheckTCP(targetAddr string, req string, timeout time.Duration) (string, error) {
+	conn, err := net.DialTimeout("tcp", targetAddr, timeout)
+	if err != nil {
+		return "", err
+	}
+	defer conn.Close()
+
+	_, err = conn.Write([]byte(req))
+	if err != nil {
+		return "", err
+	}
+
+	conn.SetReadDeadline(time.Now().Add(timeout))
+	buf := make([]byte, 65535)
+	n, err := conn.Read(buf)
+	if err != nil {
+		return "", err
+	}
+
+	return string(buf[0:n]), nil
 }

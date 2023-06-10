@@ -6,14 +6,23 @@
         </i-breadcrumb>
         <i-content :style="{padding: '24px', minHeight: '280px', background: '#fff'}">
             <i-row>
-
+                <i-col span="12" :style="{textAlign:'left'}">
                     <i-button type="info" @click="invokeCreate">New</i-button>
-
+                    <i-button type="info" @click="invokeImport">Import</i-button>
+                    <input type="file" id="input" multiple accept=".tun">
+                </i-col>
+                <i-col span="12" :style="{textAlign:'right'}">
+                    <i-button type="default" @click="invokeEchoCheck">echo检测</i-button>
+                    <i-button type="default" @click="invokeSocks5Check">socks5检测</i-button>
+                    <i-button type="default" @click="invokeHttpProxyCheck">httpproxy检测</i-button>
+                    <input type="text" id="target_addr" value="127.0.0.1:1080">
+                </i-col>
             </i-row>
             <br>
             <i-table :columns="col_list" :data="main_data"  @on-selection-change="table_selection_change">
                 <template slot-scope="{row}" slot="detail_button">
                     <i-button type="info" size="small" @click="invokeView(row)">View</i-button>
+                    <i-button type="info" size="small" @click="invokeExport(row)">Export</i-button>
                     <i-button type="info" size="small" @click="invokeEdit(row)">Edit</i-button>
                     <i-button type="defaut" size="small" @click="invokeDelete(row)">Delete</i-button>
                 </template>
@@ -123,16 +132,59 @@ created_at:'string',
             invokeChangePage: function(page) {
                 this.$router.push({query:{page:page}})
             },
-            invokeSearch: function() {
-                this.routePage = 1;
-                this.tableData();
+            invokeEchoCheck: function() {
+                this.invokeCheckServer("echo");
             },
+            invokeSocks5Check: function() {
+                this.invokeCheckServer("socks5");
+            },
+            invokeHttpProxyCheck: function() {
+                this.invokeCheckServer("httpproxy");
+            },
+            invokeCheckServer: function(serverType) {
+                const targetAddr = document.getElementById('target_addr').value;
+
+                var paramStr = '?serverType='+serverType+'&targetAddr='+targetAddr;
+                this.axios
+                    .post('/api/tunnel/check_server'+paramStr)
+                    .then(response=>{
+                        alert(response.data.msg);
+                    })
+            },
+
             invokeDetail: function(row) {
                 // console.info(this.$route)
                 this.$router.push({path:'/tunnel/detail',query:{id:row.id}})
             },
             invokeEdit: function(row) {
                 this.$router.push({path:'/tunnel/edit',query:{data:row}})
+            },
+            invokeExport: function(row) {
+                url = "/api/tunnel/export?name="+row.name;
+                window.open(url)
+            },
+            invokeImport: function(){
+                self = this;
+                const files = document.getElementById('input').files;
+
+                for (let i = 0, numFiles = files.length; i < numFiles; i++) {
+                    const file = files[i];
+                    var reader = new FileReader();
+                    reader.onload = function (event) {
+                        // event.target.result就是读取的内容
+                        console.log(event.target.result);
+                        var json = JSON.parse(event.target.result);
+                        self.axios.post('/api/tunnel/import',event.target.result).then(response=>{
+                            if(response.data.code !== 200) {
+                                alert(response.data.msg)
+                                return
+                            }
+                        })
+                    };
+                    reader.readAsText(file);
+                }
+
+                this.tableData();
             },
             invokeCreate: function() {
                 this.$router.push({path:'/tunnel/create'})

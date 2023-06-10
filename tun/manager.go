@@ -104,3 +104,7 @@ func (m *Manager) AllService() map[string]Service {
 
 	return m.services
 }
+
+func (m *Manager) ServiceFile(name string) string {
+	return serviceFile(m.tunDir, name)
+}
