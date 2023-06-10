@@ -1,5 +1,6 @@
 module github.com/0990/gotun
 
+// +qoddi goVersion go1.20.5
 go 1.20
 
 require (
