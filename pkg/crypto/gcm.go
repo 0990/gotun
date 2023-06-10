@@ -2,6 +2,7 @@ package crypto
 
 import (
 	"crypto/cipher"
+	"errors"
 	"io"
 	"math/rand"
 )
@@ -143,7 +144,10 @@ func (r *reader) read() (int, error) {
 		return 0, err
 	}
 
-	size := (int(buf[0])<<8 + int(buf[1])) & payloadSizeMask
+	size := (int(buf[0])<<8 + int(buf[1]))
+	if size > payloadSizeMask {
+		return 0, errors.New("payload size too large")
+	}
 	buf = r.buf[:size+r.Overhead()]
 	_, err = io.ReadFull(r.Reader, buf)
 	if err != nil {
