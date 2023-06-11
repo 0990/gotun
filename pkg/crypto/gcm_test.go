@@ -51,7 +51,7 @@ func Test_UnencryptConn(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	buf := make([]byte, 100)
+	buf := make([]byte, 3)
 	n, _ := c.Read(buf)
 
 	fmt.Println(buf[0:n])

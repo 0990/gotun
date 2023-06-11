@@ -2,14 +2,13 @@ package crypto
 
 import (
 	"crypto/cipher"
+	"crypto/rand"
 	"errors"
+	"github.com/0990/gotun/pkg/pool"
 	"io"
-	"math/rand"
 )
 
-// TODO 设置为多少合适，或者writer使用动态buff?
-// 为什么是65*1024，当为64*1024时,由于上层copybuff使用了64*1024的缓冲区，这里加密后长度会大于64*1024，导致copybuff出错
-const payloadSizeMask = 65 * 1024
+const payloadSizeMax = 64 * 1024
 
 type gcm struct {
 	io.ReadWriter
@@ -41,14 +40,12 @@ type writer struct {
 	io.Writer
 	cipher.AEAD
 	nonce []byte
-	buf   []byte
 }
 
 func NewWriter(w io.Writer, aead cipher.AEAD) *writer {
 	return &writer{
 		Writer: w,
 		AEAD:   aead,
-		buf:    make([]byte, 2+aead.Overhead()+payloadSizeMask+aead.Overhead()),
 		nonce:  make([]byte, aead.NonceSize()),
 	}
 }
@@ -72,9 +69,10 @@ func (w *writer) write(b []byte) (n int64, err error) {
 	//create new nonce
 	rand.Read(w.nonce)
 
-	buf := w.buf
+	size := len(b)
+	buf := pool.GetBuf(size + 2 + w.Overhead() + w.NonceSize() + w.Overhead())
 	sizeBuf := buf[w.NonceSize():]
-	payloadBuf := buf[2+w.Overhead()+w.NonceSize() : 2+w.Overhead()+w.NonceSize()+payloadSizeMask]
+	payloadBuf := buf[2+w.Overhead()+w.NonceSize() : 2+w.Overhead()+w.NonceSize()+size]
 	nr := len(b)
 
 	n += int64(nr)
@@ -100,7 +98,6 @@ type reader struct {
 	io.Reader
 	cipher.AEAD
 	nonce    []byte
-	buf      []byte
 	leftover []byte
 }
 
@@ -109,7 +106,6 @@ func NewReader(r io.Reader, aead cipher.AEAD) *reader {
 		Reader: r,
 		AEAD:   aead,
 		nonce:  make([]byte, aead.NonceSize()),
-		buf:    make([]byte, payloadSizeMask+aead.Overhead()),
 	}
 }
 
@@ -121,41 +117,46 @@ func (r *reader) Read(b []byte) (int, error) {
 		return n, nil
 	}
 
-	n, err := r.read()
-	m := copy(b, r.buf[:n])
-	if m < n {
-		r.leftover = r.buf[m:n]
+	data, err := r.read()
+	m := copy(b, data)
+	if m < len(data) {
+		r.leftover = data[m:]
 	}
 	return m, err
 }
 
-func (r *reader) read() (int, error) {
+func (r *reader) read() ([]byte, error) {
+	//读头部nonce
 	_, err := io.ReadFull(r.Reader, r.nonce)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	buf := r.buf[:2+r.Overhead()]
+	buf := pool.GetBuf(2 + r.Overhead())
 	_, err = io.ReadFull(r.Reader, buf)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	_, err = r.Open(buf[:0], r.nonce, buf, nil)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	size := (int(buf[0])<<8 + int(buf[1]))
-	if size > payloadSizeMask {
-		return 0, errors.New("payload size too large")
+	if size > payloadSizeMax {
+		return nil, errors.New("payload size too large")
 	}
-	buf = r.buf[:size+r.Overhead()]
+
+	pool.PutBuf(buf)
+
+	//读加密的payload
+	buf = pool.GetBuf(size + r.Overhead())
 	_, err = io.ReadFull(r.Reader, buf)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	_, err = r.Open(buf[:0], r.nonce, buf, nil)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return size, nil
+	return buf[:size], nil
 }

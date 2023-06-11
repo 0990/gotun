@@ -22,8 +22,8 @@
             <i-table :columns="col_list" :data="main_data"  @on-selection-change="table_selection_change">
                 <template slot-scope="{row}" slot="detail_button">
                     <i-button type="info" size="small" @click="invokeView(row)">View</i-button>
-                    <i-button type="info" size="small" @click="invokeExport(row)">Export</i-button>
                     <i-button type="info" size="small" @click="invokeEdit(row)">Edit</i-button>
+                    <i-button type="info" size="small" @click="invokeExport(row)">Export</i-button>
                     <i-button type="defaut" size="small" @click="invokeDelete(row)">Delete</i-button>
                 </template>
             </i-table>
