@@ -179,12 +179,11 @@ created_at:'string',
                                 alert(response.data.msg)
                                 return
                             }
+                            self.tableData();
                         })
                     };
                     reader.readAsText(file);
                 }
-
-                this.tableData();
             },
             invokeCreate: function() {
                 this.$router.push({path:'/tunnel/create'})

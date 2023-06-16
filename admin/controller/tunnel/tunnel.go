@@ -64,11 +64,10 @@ func List(mgr *tun.Manager) func(writer http.ResponseWriter, request *http.Reque
 				Config: cfg,
 				Status: status,
 			})
-
 		}
 
 		sort.Slice(cfgs, func(i, j int) bool {
-			return cfgs[i].CreatedAt.Unix() < cfgs[j].CreatedAt.Unix()
+			return cfgs[i].CreatedAt.Unix() > cfgs[j].CreatedAt.Unix()
 		})
 
 		var records []model.Tunnel
