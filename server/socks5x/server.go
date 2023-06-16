@@ -7,7 +7,6 @@ import (
 	"github.com/0990/socks5"
 	"github.com/sirupsen/logrus"
 	"net"
-	"strings"
 	"time"
 )
 
@@ -68,29 +67,29 @@ func (s *Server) handleConnError(conn *net.TCPConn) error {
 	targetAddr := req.TargetAddr
 	dst, err := net.DialTimeout("tcp", targetAddr, time.Second*3)
 	if err != nil {
-		errStr := err.Error()
-		var rep byte = socks5.RepHostUnreachable
-		if strings.Contains(errStr, "refused") {
-			rep = socks5.RepConnectionRefused
-		} else if strings.Contains(errStr, "network is unreachable") {
-			rep = socks5.RepNetworkUnreachable
-		}
+		//errStr := err.Error()
+		//var rep byte = socks5.RepHostUnreachable
+		//if strings.Contains(errStr, "refused") {
+		//	rep = socks5.RepConnectionRefused
+		//} else if strings.Contains(errStr, "network is unreachable") {
+		//	rep = socks5.RepNetworkUnreachable
+		//}
 
-		msg.WriteMsg(conn, &msg.Socks5XResp{
-			Rep: rep,
-		})
+		//msg.WriteMsg(conn, &msg.Socks5XResp{
+		//	Rep: rep,
+		//})
 		logrus.WithError(err).Debugf("connect to %v failed", targetAddr)
 		return nil
 	}
 	defer dst.Close()
 
-	err = msg.WriteMsg(conn, &msg.Socks5XResp{
-		Rep: socks5.RepSuccess,
-	})
-
-	if err != nil {
-		return err
-	}
+	//err = msg.WriteMsg(conn, &msg.Socks5XResp{
+	//	Rep: socks5.RepSuccess,
+	//})
+	//
+	//if err != nil {
+	//	return err
+	//}
 
 	timeout := time.Duration(s.tcpTimeout) * time.Second
 
