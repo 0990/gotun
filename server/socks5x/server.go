@@ -6,6 +6,7 @@ import (
 	"github.com/0990/gotun/pkg/util"
 	"github.com/0990/socks5"
 	"github.com/sirupsen/logrus"
+	"io"
 	"net"
 	"time"
 )
@@ -47,7 +48,9 @@ func (s *Server) Run() error {
 func (s *Server) handleConn(conn *net.TCPConn) {
 	err := s.handleConnError(conn)
 	if err != nil {
-		logrus.WithError(err).Error("handleConnError")
+		if err != io.EOF {
+			logrus.WithError(err).Error("handleConnError")
+		}
 	}
 }
 
