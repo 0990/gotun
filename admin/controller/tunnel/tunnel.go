@@ -211,7 +211,7 @@ func ParseTime2String(t time.Time) string {
 	if t.IsZero() {
 		return ""
 	}
-	return t.Format("2006-01-02 15:04:05")
+	return t.Format(time.RFC3339)
 }
 
 func Edit(mgr *tun.Manager) func(writer http.ResponseWriter, request *http.Request) {
@@ -424,51 +424,59 @@ func CheckServer(mgr *tun.Manager) func(w http.ResponseWriter, request *http.Req
 		serverType := request.FormValue("serverType")
 		targetAddr := request.FormValue("targetAddr")
 
+		now := time.Now()
+
 		var result string
 		switch serverType {
 		case "echo":
 			req := "hello"
 			response, err := echo.CheckTCP(targetAddr, req, time.Second*2)
+			elapseMS := time.Since(now).Milliseconds()
 			if err != nil {
-				result += fmt.Sprintf("tcp failed:%s \n", err.Error())
+				result += fmt.Sprintf("tcp failed:%s,elapse:%dms \n", err.Error(), elapseMS)
 			} else {
 				if response != req {
-					result += fmt.Sprintf("tcp failed,req:%s,resp:%s \n", req, response)
+					result += fmt.Sprintf("tcp failed,RTT:%dms,req:%s,resp:%s \n", elapseMS, req, response)
 				} else {
-					result += fmt.Sprintf("tcp passed,req:%s,resp:%s \n", req, response)
+					result += fmt.Sprintf("tcp passed,RTT:%dms,req:%s,resp:%s \n", elapseMS, req, response)
 				}
 			}
 
+			now = time.Now()
 			response, err = echo.CheckUDP(targetAddr, req, time.Second*2)
+			elapseMS = time.Since(now).Milliseconds()
+
 			if err != nil {
-				result += fmt.Sprintf("udp failed:%s \n", err.Error())
+				result += fmt.Sprintf("udp failed:%s,elapse:%dms\n", err.Error(), elapseMS)
 			} else {
 				if response != req {
-					result += fmt.Sprintf("udp failed,req:%s,resp:%s \n", req, response)
+					result += fmt.Sprintf("udp failed,RTT:%dms,req:%s,resp:%s \n", elapseMS, req, response)
 				} else {
-					result += fmt.Sprintf("udp passed,req:%s,resp:%s \n", req, response)
+					result += fmt.Sprintf("udp passed,RTT:%dms,req:%s,resp:%s \n", elapseMS, req, response)
 				}
 			}
 		case "socks5":
 			response, err := socks5client.CheckTCP(targetAddr)
+			elapseMS := time.Since(now).Milliseconds()
 			if err != nil {
-				result += fmt.Sprintf("tcp failed:%s \n", err.Error())
+				result += fmt.Sprintf("tcp failed:%s,elapse:%dms \n", err.Error(), elapseMS)
 			} else {
-				result += fmt.Sprintf("tcp passed,response(ipinfo.io):%s \n", response)
+				result += fmt.Sprintf("tcp passed,RTT:%dms,response(ipinfo.io):%s \n", elapseMS, response)
 			}
 
 			advertisedUDPAddr, response, err := socks5client.CheckUDP(targetAddr, time.Second*2)
 			if err != nil {
-				result += fmt.Sprintf("udp failed,addr:%s,err:%s", advertisedUDPAddr, err.Error())
+				result += fmt.Sprintf("udp failed,elapse:%dms,addr:%s,err:%s", elapseMS, advertisedUDPAddr, err.Error())
 			} else {
-				result += fmt.Sprintf("udp passed,addr:%s,response(8.8.8.8):%s", advertisedUDPAddr, response)
+				result += fmt.Sprintf("udp passed,RTT:%dms,addr:%s,response(8.8.8.8):%s", elapseMS, advertisedUDPAddr, response)
 			}
 		case "httpproxy":
 			response, err := httpproxy.Check(targetAddr, time.Second*2)
+			elapseMS := time.Since(now).Milliseconds()
 			if err != nil {
-				result += fmt.Sprintf("failed:%s", err.Error())
+				result += fmt.Sprintf("failed:%s,elapse:%dms", err.Error(), elapseMS)
 			} else {
-				result += fmt.Sprintf("passed,response(ipinfo.io):%s", response)
+				result += fmt.Sprintf("passed,RTT:%dms,response(ipinfo.io):%s", elapseMS, response)
 			}
 		default:
 			panic(errors.New("server type not support"))
