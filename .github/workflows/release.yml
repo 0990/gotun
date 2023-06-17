@@ -3,9 +3,8 @@
 name: Publish Go Releases
 
 on:
-  push:
-    tags:
-      - '*'
+  release:
+    types: [created]
 
 jobs:
   release:
