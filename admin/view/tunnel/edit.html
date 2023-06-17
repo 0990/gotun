@@ -28,19 +28,18 @@
                 info:{
                     name:'',
                     mode:'',
-                    input:'tcp@127.0.0.1:1080',
+                    input:'',
                     in_proto_cfg:'',
                     in_decrypt_mode:'',
                     in_decrypt_key:'',
                     in_extend:'',
 
-                    output:'tcp@x.x.x.x:xx',
+                    output:'',
                     out_proto_cfg:'',
 
-                    out_crypt_mode:'gcm',
-                    out_crypt_key:'goodweather',
+                    out_crypt_mode:'',
+                    out_crypt_key:'',
                     out_extend:'{"mux_conn":10}',
-
                 },
                  fields_type:{
                      name:'string',
@@ -65,7 +64,7 @@
         methods: {
             initApiDetail: function() {
                 this.axios
-                    .post('/api/tunnel/detail',{name:parseInt(this.name)})
+                    .post('/api/tunnel/detail',{uuid:parseInt(this.uuid)})
                     .then(response=>{
                         if(response.data.code !== 200) {
                             alert(response.data.msg)
@@ -88,7 +87,7 @@
                             alert(response.data.msg)
                             return
                         }
-                        Object.assign(this.info ,response.data.data)
+                        this.$router.go(-1)
                     })
             },
             verifyFieldType: function () {
@@ -108,6 +107,10 @@
         },
         created: function() {
             this.info = this.data;
+            delete this.info['status'];
+            delete this.info['_index'];
+            delete this.info['_rowKey'];
+            delete this.info['created_at'];
         }
     }
 </script>

@@ -6,7 +6,7 @@ import (
 )
 
 func CheckServer(addr string) {
-	response, err := CheckTCP(addr)
+	response, err := CheckTCP(addr, time.Second*2)
 	if err != nil {
 		fmt.Printf("check tcp failed:%s \n", err.Error())
 	} else {

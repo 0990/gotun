@@ -1,6 +1,7 @@
 package model
 
 type Tunnel struct {
+	UUID string `json:"uuid"`
 	Name string `json:"name"`
 	Mode string `json:"mode""` //工作模式 nil|frpc|frps frpc模式下 Input为worker,配置是输出模式;frps模式下 output为worker,配置是输入模式
 

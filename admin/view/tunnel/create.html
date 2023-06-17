@@ -198,7 +198,7 @@
                             alert(response.data.msg)
                             return
                         }
-                        Object.assign(this.info ,response.data.data)
+                        this.$router.go(-1)
                     })
             },
             verifyFieldType: function () {

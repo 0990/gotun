@@ -6,6 +6,7 @@ import (
 	"crypto/md5"
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"io"
 	"net"
 	"time"
@@ -75,4 +76,8 @@ func CopyWithTimeout(dst net.Conn, src net.Conn, timeout time.Duration) error {
 		}
 	}
 	return nil
+}
+
+func NewUUID() string {
+	return uuid.New().String()
 }

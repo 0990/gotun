@@ -8,9 +8,10 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"time"
 )
 
-func CheckTCP(addr string) (response string, err error) {
+func CheckTCP(addr string, timeout time.Duration) (response string, err error) {
 	sc := socks5.NewSocks5Client(socks5.ClientCfg{
 		ServerAddr: addr,
 		UserName:   "",
@@ -20,6 +21,7 @@ func CheckTCP(addr string) (response string, err error) {
 	})
 
 	hc := &http.Client{
+		Timeout: timeout,
 		Transport: &http.Transport{
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				return sc.Dial(network, addr)

@@ -2,6 +2,7 @@ package tun
 
 import (
 	"errors"
+	"github.com/0990/gotun/pkg/util"
 	"github.com/sirupsen/logrus"
 	"sync"
 )
@@ -64,13 +65,38 @@ func (m *Manager) RemoveService(name string) error {
 	return nil
 }
 
+func (m *Manager) RemoveServiceByUUID(uuid string) error {
+	s, ok := m.GetServiceByUUID(uuid)
+	if !ok {
+		return errors.New("uuid not exist")
+	}
+
+	return m.RemoveService(s.Cfg().Name)
+}
+
+func (m *Manager) GetServiceByUUID(uuid string) (Service, bool) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	for _, v := range m.services {
+		if v.Cfg().UUID == uuid {
+			return v, true
+		}
+	}
+	return nil, false
+}
+
 func (m *Manager) AddService(config Config, createFile bool) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
+	if config.UUID == "" {
+		config.UUID = util.NewUUID()
+	}
+
 	_, ok := m.services[config.Name]
 	if ok {
-		return errors.New("tun already exist")
+		return errors.New("name already exist")
 	}
 
 	s, err := NewService(config)

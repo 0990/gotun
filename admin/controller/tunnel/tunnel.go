@@ -173,6 +173,7 @@ func addTunByModel(mgr *tun.Manager, m model.Tunnel) error {
 
 func Model2Config(ls *model.Tunnel) (*tun.Config, error) {
 	return &tun.Config{
+		UUID:          ls.UUID,
 		Name:          ls.Name,
 		Input:         ls.Input,
 		Output:        ls.Output,
@@ -190,6 +191,7 @@ func Model2Config(ls *model.Tunnel) (*tun.Config, error) {
 
 func Config2Model(ls tun.Config) model.Tunnel {
 	return model.Tunnel{
+		UUID:          ls.UUID,
 		Name:          ls.Name,
 		Input:         ls.Input,
 		Output:        ls.Output,
@@ -241,7 +243,7 @@ func Edit(mgr *tun.Manager) func(writer http.ResponseWriter, request *http.Reque
 			panic(err.Error())
 		}
 
-		err = mgr.RemoveService(cfg.Name)
+		err = mgr.RemoveServiceByUUID(cfg.UUID)
 		if err != nil {
 			panic(err.Error())
 		}
@@ -455,7 +457,7 @@ func CheckServer(mgr *tun.Manager) func(w http.ResponseWriter, request *http.Req
 				}
 			}
 		case "socks5":
-			response, err := socks5client.CheckTCP(targetAddr)
+			response, err := socks5client.CheckTCP(targetAddr, time.Second*2)
 			elapseMS := time.Since(now).Milliseconds()
 			if err != nil {
 				result += fmt.Sprintf("tcp failed:%s,elapse:%dms \n", err.Error(), elapseMS)
@@ -463,7 +465,9 @@ func CheckServer(mgr *tun.Manager) func(w http.ResponseWriter, request *http.Req
 				result += fmt.Sprintf("tcp passed,RTT:%dms,response(ipinfo.io):%s \n", elapseMS, response)
 			}
 
+			now = time.Now()
 			advertisedUDPAddr, response, err := socks5client.CheckUDP(targetAddr, time.Second*2)
+			elapseMS = time.Since(now).Milliseconds()
 			if err != nil {
 				result += fmt.Sprintf("udp failed,elapse:%dms,addr:%s,err:%s", elapseMS, advertisedUDPAddr, err.Error())
 			} else {
