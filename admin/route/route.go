@@ -28,7 +28,7 @@ func (u *gZipWriter) Write(p []byte) (int, error) {
 	return u.gz.Write(p)
 }
 
-func Register(assets embed.FS, listen string, mgr *tun.Manager, authMgr *AuthManager) {
+func Register(assets embed.FS, listen string, mgr *tun.Manager, authMgr *AuthManager, version string) {
 	h := http.NewServeMux()
 	// Static file
 	h.Handle("/go_sword_public/", http.StripPrefix("/go_sword_public/",
@@ -54,7 +54,7 @@ func Register(assets embed.FS, listen string, mgr *tun.Manager, authMgr *AuthMan
 	// ----Route-begin----
 
 	// Route tag tunnel
-	h.HandleFunc("/api/tunnel/list", authMgr.JustCheck(tunnel.List(mgr)))
+	h.HandleFunc("/api/tunnel/list", authMgr.JustCheck(tunnel.List(mgr, version)))
 	h.HandleFunc("/api/tunnel/delete", authMgr.JustCheck(tunnel.Delete(mgr)))
 	h.HandleFunc("/api/tunnel/create", authMgr.JustCheck(tunnel.Create(mgr)))
 	h.HandleFunc("/api/tunnel/edit", authMgr.JustCheck(tunnel.Edit(mgr)))

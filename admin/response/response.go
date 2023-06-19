@@ -8,6 +8,7 @@ type Ret struct {
 
 type List struct {
 	List       interface{} `json:"list"`
+	Version    string      `json:"version"`
 	Pagination Pagination  `json:"pagination"`
 }
 

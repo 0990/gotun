@@ -77,7 +77,7 @@ func Run(fileName string, tunDir string) error {
 	authMgr := route.NewAuthManager(digestAuth, appCfg.WebLoginFailLimitInHour)
 
 	// 核心2：启动CRUD服务
-	sword.Run(assets, appCfg.WebListen, mgr, authMgr)
+	sword.Run(assets, appCfg.WebListen, mgr, authMgr, Version)
 
 	Welcome(appCfg)
 

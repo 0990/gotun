@@ -14,9 +14,14 @@ var cfg = flag.String("config", "app.yaml", "config file")
 var tunDir = flag.String("tun_dir", "tunnel", "tun dir")
 var checkSocks5 = flag.String("check_socks5", "", "socks5 check addr")
 var checkHttpProxy = flag.String("check_httpproxy", "", "httpproxy check addr")
+var version = flag.Bool("version", false, "show version")
 
 func main() {
 	flag.Parse()
+	if *version {
+		fmt.Println(gotun.Version)
+		return
+	}
 
 	if *checkSocks5 != "" {
 		socks5client.CheckServer(*checkSocks5)

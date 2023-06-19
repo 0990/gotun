@@ -7,7 +7,6 @@
         <i-content :style="{padding: '24px', minHeight: '280px', background: '#fff'}">
             <i-row>
                 <i-col span="12" :style="{textAlign:'left'}">
-                    <i-button type="info" @click="invokeFlushList">刷新</i-button>
                     <i-button type="info" @click="invokeCreate">创建</i-button>
                     <i-button type="info" @click="invokeImport">导入</i-button>
                     <input type="file" id="input" multiple accept=".tun">
@@ -17,6 +16,7 @@
                     <i-button type="default" @click="invokeSocks5Check">socks5检测</i-button>
                     <i-button type="default" @click="invokeHttpProxyCheck">httpproxy检测</i-button>
                     <input type="text" id="target_addr" value="127.0.0.1:1080">
+                    <i-button type="default" @click="invokeFlushList">刷新列表</i-button>
                 </i-col>
             </i-row>
             <br>
@@ -25,7 +25,7 @@
                     <i-button type="info" size="small" @click="invokeView(row)">查看</i-button>
                     <i-button type="info" size="small" @click="invokeEdit(row)">编辑</i-button>
                     <i-button type="info" size="small" @click="invokeExport(row)">导出</i-button>
-                    <i-button type="defaut" size="small" @click="invokeDelete(row)">删除</i-button>
+                    <i-button type="default" size="small" @click="invokeDelete(row)">删除</i-button>
                 </template>
             </i-table>
             <i-page :styles="{margin:'20px'}" :total="pageTotal" :page-size="pageSize" show-elevator show-total  @on-change="invokeChangePage" ></i-page>
@@ -125,6 +125,7 @@ created_at:'string',
                             alert(response.data.msg)
                             return
                         }
+                        document.getElementById('appName').textContent="gotun:"+response.data.data.version;
                         this.main_data = response.data.data.list,
                         this.pageTotal = response.data.data.pagination.total_nums,
                         this.pageSize = response.data.data.pagination.page_size

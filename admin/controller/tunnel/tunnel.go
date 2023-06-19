@@ -21,7 +21,7 @@ import (
 	"github.com/0990/gotun/admin/response"
 )
 
-func List(mgr *tun.Manager) func(writer http.ResponseWriter, request *http.Request) {
+func List(mgr *tun.Manager, version string) func(writer http.ResponseWriter, request *http.Request) {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		defer func() {
 			if err := recover(); err != nil {
@@ -88,7 +88,8 @@ func List(mgr *tun.Manager) func(writer http.ResponseWriter, request *http.Reque
 		ret := response.Ret{
 			Code: http.StatusOK,
 			Data: response.List{
-				List: &records,
+				List:    &records,
+				Version: version,
 				Pagination: response.Pagination{
 					PageSize:    pageSize,
 					TotalNums:   totalNums,
