@@ -43,15 +43,7 @@
 * 服务端需要开启内置的socks5x服务，output需要指向此服务
 
 ## 测试
-客户端机器上执行
-```bash
-curl --proxy socks5://127.0.0.1:1080 ipinfo.io
-```
-或者 使用gotun检测命令,出现"check tcp success",代表成功
-```bash
-gotun --check_socks5 127.0.0.1:1080
-````
-
+客户端web端右上角，输入框填入127.0.0.1:1080，点击"socks5检测"按钮,出现"tcp passed",代表成功
 
 ## socks5 udp
 ### 需求
@@ -100,7 +92,4 @@ gotun --check_socks5 127.0.0.1:1080
 * udp_advertised_port设置为“udp客户端”的input端口,这里是1081
 
 ### 测试
-使用gotun检测命令,出现"check udp success",代表成功
-```bash
-gotun --check_socks5 127.0.0.1:1080
-````
+客户端web端右上角，输入框填入127.0.0.1:1080，点击"socks5检测"按钮,出现"udp passed",代表成功
