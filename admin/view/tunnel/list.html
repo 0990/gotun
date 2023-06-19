@@ -125,7 +125,7 @@ created_at:'string',
                             alert(response.data.msg)
                             return
                         }
-                        document.getElementById('appName').textContent="gotun:"+response.data.data.version;
+                        document.getElementById('appName').textContent="gotun "+response.data.data.version;
                         this.main_data = response.data.data.list,
                         this.pageTotal = response.data.data.pagination.total_nums,
                         this.pageSize = response.data.data.pagination.page_size
