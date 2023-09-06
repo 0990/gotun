@@ -458,21 +458,27 @@ func CheckServer(mgr *tun.Manager) func(w http.ResponseWriter, request *http.Req
 				}
 			}
 		case "socks5":
-			response, err := socks5client.CheckTCP(targetAddr, time.Second*2)
+			clientCfg, testWebUrl, err := socks5client.ParseUrl(targetAddr)
+			if err != nil {
+				result += fmt.Sprintf("parse socks5 addr failed:%s \n", err.Error())
+				break
+			}
+
+			response, err := socks5client.CheckTCP(clientCfg, testWebUrl, time.Second*2)
 			elapseMS := time.Since(now).Milliseconds()
 			if err != nil {
 				result += fmt.Sprintf("tcp failed:%s,elapse:%dms \n", err.Error(), elapseMS)
 			} else {
-				result += fmt.Sprintf("tcp passed,RTT:%dms,response(ipinfo.io):%s \n", elapseMS, response)
+				result += fmt.Sprintf("tcp passed,elapse:%dms,%s\n", elapseMS, response)
 			}
 
 			now = time.Now()
-			advertisedUDPAddr, response, err := socks5client.CheckUDP(targetAddr, time.Second*2)
+			advertisedUDPAddr, response, err := socks5client.CheckUDP(clientCfg, time.Second*5)
 			elapseMS = time.Since(now).Milliseconds()
 			if err != nil {
-				result += fmt.Sprintf("udp failed,elapse:%dms,addr:%s,err:%s", elapseMS, advertisedUDPAddr, err.Error())
+				result += fmt.Sprintf("udp failed,elapse:%dms,\nadvertised_addr:%s,err:%s", elapseMS, advertisedUDPAddr, err.Error())
 			} else {
-				result += fmt.Sprintf("udp passed,RTT:%dms,addr:%s,response(8.8.8.8):%s", elapseMS, advertisedUDPAddr, response)
+				result += fmt.Sprintf("udp passed,elapse:%dms,\nadvertised_addr:%s,rsp(8.8.8.8):%s", elapseMS, advertisedUDPAddr, response)
 			}
 		case "httpproxy":
 			response, err := httpproxy.Check(targetAddr, time.Second*2)

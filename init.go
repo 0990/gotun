@@ -1,9 +1,7 @@
 package gotun
 
 import (
-	"crypto/md5"
 	"embed"
-	"encoding/hex"
 	"fmt"
 	"github.com/0990/gotun/admin/route"
 	"github.com/0990/gotun/admin/sword"
@@ -11,7 +9,6 @@ import (
 	"github.com/0990/gotun/server/socks5x"
 	"github.com/0990/gotun/tun"
 	"github.com/0990/httpproxy"
-	auth "github.com/abbot/go-http-auth"
 	"github.com/sirupsen/logrus"
 	"net/http"
 	"os"
@@ -66,15 +63,7 @@ func Run(fileName string, tunDir string) error {
 		return err
 	}
 
-	realm := "example.com"
-	secret := func(user, realm string) string {
-		if user == appCfg.WebUsername {
-			return MD5(appCfg.WebUsername + ":" + realm + ":" + appCfg.WebPassword)
-		}
-		return ""
-	}
-	digestAuth := auth.NewDigestAuthenticator(realm, secret)
-	authMgr := route.NewAuthManager(digestAuth, appCfg.WebLoginFailLimitInHour)
+	authMgr := route.NewAuthManager(appCfg.WebUsername, appCfg.WebPassword, appCfg.WebLoginFailLimitInHour)
 
 	// 核心2：启动CRUD服务
 	sword.Run(assets, appCfg.WebListen, mgr, authMgr, Version)
@@ -124,14 +113,4 @@ func startBuildInServer(in BuiltIn) error {
 	}
 
 	return nil
-}
-
-func MD5Bytes(s []byte) string {
-	ret := md5.Sum(s)
-	return hex.EncodeToString(ret[:])
-}
-
-// 计算字符串MD5值
-func MD5(s string) string {
-	return MD5Bytes([]byte(s))
 }

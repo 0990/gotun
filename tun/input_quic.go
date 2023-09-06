@@ -21,7 +21,7 @@ type inputQUIC struct {
 
 	addr     string
 	cfg      QUICConfig
-	listener quic.Listener
+	listener *quic.Listener
 
 	close int32
 }

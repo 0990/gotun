@@ -7,14 +7,8 @@ import (
 	"time"
 )
 
-func CheckUDP(addr string, timeout time.Duration) (advertisedAddr string, response string, err error) {
-	sc := socks5.NewSocks5Client(socks5.ClientCfg{
-		ServerAddr: addr,
-		UserName:   "",
-		Password:   "",
-		UDPTimout:  60,
-		TCPTimeout: 60,
-	})
+func CheckUDP(clientCfg socks5.ClientCfg, timeout time.Duration) (advertisedAddr string, response string, err error) {
+	sc := socks5.NewSocks5Client(clientCfg)
 
 	sc.SetHandShakeCallback(func(cmd byte, reply *socks5.Reply) {
 		if cmd == socks5.CmdUDP {

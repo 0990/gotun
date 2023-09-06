@@ -56,7 +56,7 @@ func dialQUICBuilder(ctx context.Context, addr string, config string) (StreamMak
 		InsecureSkipVerify: true,
 		NextProtos:         []string{"quic-stunnel"},
 	}
-	session, err := quic.DialAddrContext(ctx, addr, tlsConf, nil)
+	session, err := quic.DialAddr(ctx, addr, tlsConf, nil)
 	if err != nil {
 		return nil, err
 	}

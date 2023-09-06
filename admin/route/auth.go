@@ -3,6 +3,7 @@ package route
 import (
 	"encoding/json"
 	"github.com/0990/gotun/pkg/syncx"
+	"github.com/0990/gotun/pkg/util"
 	auth "github.com/abbot/go-http-auth"
 	"github.com/sirupsen/logrus"
 	"net"
@@ -16,12 +17,24 @@ type AuthManager struct {
 	failedAttempts syncx.Map[string, int]
 	resetTimers    syncx.Map[string, *time.Timer]
 
-	digestAuth *auth.DigestAuth
+	digestAuth *auth.DigestAuth //nil表示不需要验证
 
 	maxFailedAttempts int
 }
 
-func NewAuthManager(digestAuth *auth.DigestAuth, maxFailedAttempts int) *AuthManager {
+func NewAuthManager(username string, password string, maxFailedAttempts int) *AuthManager {
+	var digestAuth *auth.DigestAuth
+	if username != "" && password != "" {
+		realm := "example.com"
+		secret := func(user, realm string) string {
+			if user == username {
+				return util.MD5(username + ":" + realm + ":" + password)
+			}
+			return ""
+		}
+		digestAuth = auth.NewDigestAuthenticator(realm, secret)
+	}
+
 	return &AuthManager{
 		digestAuth:        digestAuth,
 		maxFailedAttempts: maxFailedAttempts + 1,
@@ -35,6 +48,11 @@ func (l *AuthManager) JustCheck(wrapped http.HandlerFunc) http.HandlerFunc {
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
+		if l.digestAuth == nil {
+			wrapped(w, r)
+			return
+		}
+
 		ip := getIP(r)
 
 		attempts, _ := l.failedAttempts.LoadOrStore(ip, 0)

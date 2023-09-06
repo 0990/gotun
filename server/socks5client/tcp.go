@@ -11,14 +11,10 @@ import (
 	"time"
 )
 
-func CheckTCP(addr string, timeout time.Duration) (response string, err error) {
-	sc := socks5.NewSocks5Client(socks5.ClientCfg{
-		ServerAddr: addr,
-		UserName:   "",
-		Password:   "",
-		UDPTimout:  60,
-		TCPTimeout: 60,
-	})
+const defaultTestWebUrl = "http://ipinfo.io"
+
+func CheckTCP(clientCfg socks5.ClientCfg, testWebUrl string, timeout time.Duration) (response string, err error) {
+	sc := socks5.NewSocks5Client(clientCfg)
 
 	hc := &http.Client{
 		Timeout: timeout,
@@ -28,7 +24,12 @@ func CheckTCP(addr string, timeout time.Duration) (response string, err error) {
 			},
 		},
 	}
-	resp, err := hc.Get("http://ipinfo.io/")
+
+	if testWebUrl == "" {
+		testWebUrl = defaultTestWebUrl
+	}
+
+	resp, err := hc.Get(testWebUrl)
 	if err != nil {
 		return "", err
 	}
@@ -36,6 +37,10 @@ func CheckTCP(addr string, timeout time.Duration) (response string, err error) {
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("status code:%d", resp.StatusCode)
+	}
+
+	if testWebUrl != defaultTestWebUrl {
+		return fmt.Sprintf("rsp(%s):ok", testWebUrl), nil
 	}
 
 	b, err := io.ReadAll(resp.Body)
@@ -53,5 +58,5 @@ func CheckTCP(addr string, timeout time.Duration) (response string, err error) {
 		return "", err
 	}
 
-	return r.IP, nil
+	return fmt.Sprintf("rsp(ipinfo.io):%s", r.IP), nil
 }
