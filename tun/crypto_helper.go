@@ -2,6 +2,7 @@ package tun
 
 import (
 	"crypto/cipher"
+	"errors"
 	"github.com/0990/gotun/pkg/crypto"
 	"github.com/0990/gotun/pkg/util"
 	"github.com/sirupsen/logrus"
@@ -43,15 +44,34 @@ func NewCryptoHelper(config Config) (*CryptoHelper, error) {
 }
 
 func (c *CryptoHelper) Copy(dst, src Stream) {
-	err := c.copy(dst, src)
+	srcLocalAddr := src.LocalAddr()
+	srcRemoteAddr := src.RemoteAddr()
+	dstLocalAddr := dst.LocalAddr()
+	dstRemoteAddr := dst.RemoteAddr()
+
+	id := util.RandomString(4)
+	log := logrus.WithFields(logrus.Fields{
+		"inLocal":   srcLocalAddr,
+		"inRemote":  srcRemoteAddr,
+		"in":        src.ID(),
+		"outLocal":  dstLocalAddr,
+		"outRemote": dstRemoteAddr,
+		"out":       dst.ID(),
+		"id":        id,
+	})
+
+	log.Debug("stream opened")
+	defer log.Debug("stream closed")
+
+	err := c.copy(dst, src, id)
 	if err != nil {
-		if err != io.EOF && err != ErrTimeout {
-			logrus.WithError(err).Error("copy")
+		if !errors.Is(err, io.EOF) && !errors.Is(err, ErrTimeout) {
+			log.WithError(err).Error("failed to copy")
 		}
 	}
 }
 
-func (c *CryptoHelper) copy(dst, src Stream) error {
+func (c *CryptoHelper) copy(dst, src Stream, id string) error {
 	s, err := crypto.NewReaderWriter(src, c.srcMode, c.srcAead)
 	if err != nil {
 		return err
@@ -72,7 +92,7 @@ func (c *CryptoHelper) copy(dst, src Stream) error {
 			Stream: dst,
 		}
 
-		err := h.CustomCopy(in, out)
+		err := h.CustomCopy(in, out, id)
 		if err != nil {
 			return err
 		}

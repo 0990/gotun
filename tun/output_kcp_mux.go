@@ -3,6 +3,7 @@ package tun
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/xtaci/smux"
 	"log"
 	"time"
@@ -59,8 +60,8 @@ type KCPsmuxStream struct {
 	*smux.Stream
 }
 
-func (p *KCPsmuxStream) ID() int64 {
-	return int64(p.Stream.ID())
+func (p *KCPsmuxStream) ID() string {
+	return fmt.Sprintf("kcpsmuxstream-%d", p.Stream.ID())
 }
 
 func (p *KCPsmuxStream) SetReadDeadline(t time.Time) error {

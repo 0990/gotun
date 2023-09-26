@@ -137,9 +137,6 @@ func (s *Frps) handleInputStream(src Stream) {
 		return
 	}
 
-	logrus.Debug("stream opened", "in:", src.RemoteAddr(), "out:", fmt.Sprint(dst.RemoteAddr(), "(", dst.ID(), ")"))
-	defer logrus.Debug("stream closed", "in:", src.RemoteAddr(), "out:", fmt.Sprint(dst.RemoteAddr(), "(", dst.ID(), ")"))
-
 	s.cryptoHelper.Copy(dst, src)
 }
 

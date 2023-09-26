@@ -3,6 +3,7 @@ package tun
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/hashicorp/yamux"
 	"github.com/sirupsen/logrus"
 	"net"
@@ -30,8 +31,8 @@ type TCPYamuxStream struct {
 	*yamux.Stream
 }
 
-func (c *TCPYamuxStream) ID() int64 {
-	return int64(c.StreamID())
+func (c *TCPYamuxStream) ID() string {
+	return fmt.Sprintf("yamuxstream-%d", c.StreamID())
 }
 
 func (c *TCPYamuxStream) SetReadDeadline(t time.Time) error {

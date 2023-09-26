@@ -11,8 +11,8 @@ type KCPSession struct {
 	*kcp.UDPSession
 }
 
-func (c *KCPSession) ID() int64 {
-	return int64(-1)
+func (c *KCPSession) ID() string {
+	return "kcpsession"
 }
 
 func dialKCP(addr string, config string) (Stream, error) {

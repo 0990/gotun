@@ -3,6 +3,7 @@ package tun
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"github.com/quic-go/quic-go"
 	"net"
 	"time"
@@ -35,8 +36,8 @@ type QUICStream struct {
 	localAddr, remoteAddr net.Addr
 }
 
-func (p *QUICStream) ID() int64 {
-	return int64(p.Stream.StreamID())
+func (p *QUICStream) ID() string {
+	return fmt.Sprintf("quicstream-%d", p.Stream.StreamID())
 }
 
 func (p *QUICStream) RemoteAddr() net.Addr {

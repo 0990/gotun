@@ -95,9 +95,6 @@ func (s *Frpc) handleWorkerStream(src Stream) {
 	}
 	defer dst.Close()
 
-	logrus.Debug("stream opened", "in:", src.RemoteAddr(), "out:", fmt.Sprint(dst.RemoteAddr(), "(", dst.ID(), ")"))
-	defer logrus.Debug("stream closed", "in:", src.RemoteAddr(), "out:", fmt.Sprint(dst.RemoteAddr(), "(", dst.ID(), ")"))
-
 	s.cryptoHelper.Copy(dst, src)
 }
 

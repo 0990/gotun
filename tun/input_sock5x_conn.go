@@ -3,6 +3,7 @@ package tun
 import (
 	"github.com/0990/gotun/pkg/msg"
 	"github.com/0990/socks5"
+	"github.com/sirupsen/logrus"
 	"net"
 )
 
@@ -12,15 +13,15 @@ type Socks5XConn struct {
 	cfg InProtoSocks5X
 }
 
-func (c *Socks5XConn) ID() int64 {
-	return int64(-1)
+func (c *Socks5XConn) ID() string {
+	return "socks5xconn"
 }
 
 type CustomCopy interface {
-	CustomCopy(in, out Stream) error
+	CustomCopy(in, out Stream, id string) error
 }
 
-func (c *Socks5XConn) CustomCopy(in, out Stream) error {
+func (c *Socks5XConn) CustomCopy(in, out Stream, id string) error {
 	s5 := socks5.NewConn(in, socks5.ConnCfg{
 		UserName:          c.cfg.UserName,
 		Password:          c.cfg.Password,
@@ -30,6 +31,11 @@ func (c *Socks5XConn) CustomCopy(in, out Stream) error {
 	})
 
 	s5.SetCustomDialTarget(func(addr string) (socks5.Stream, byte, string, error) {
+		logrus.WithFields(logrus.Fields{
+			"target": addr,
+			"id":     id,
+		}).Debug("dial target")
+
 		err := msg.WriteMsg(out, &msg.Socks5XReq{
 			TargetAddr: addr,
 		})

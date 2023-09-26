@@ -95,7 +95,6 @@ func (p *inputUDP) serve() {
 		w, load := workers.LoadOrStore(id, worker)
 		if !load {
 			go func() {
-				logrus.Debug("New UDPWorker")
 				p.inputBase.OnNewStream(w)
 			}()
 		}

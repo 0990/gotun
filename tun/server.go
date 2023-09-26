@@ -79,22 +79,5 @@ func (s *Server) handleInputStream(src Stream) {
 	}
 	defer dst.Close()
 
-	srcLocalAddr := src.LocalAddr()
-	srcRemoteAddr := src.RemoteAddr()
-	dstLocalAddr := dst.LocalAddr()
-	dstRemoteAddr := dst.RemoteAddr()
-
-	log := logrus.WithFields(logrus.Fields{
-		"inLocal":   srcLocalAddr,
-		"inRemote":  srcRemoteAddr,
-		"inID":      src.ID(),
-		"outLocal":  dstLocalAddr,
-		"outRemote": dstRemoteAddr,
-		"outID":     dst.ID(),
-	})
-
-	log.Debug("stream opened")
-	defer log.Debug("stream closed")
-
 	s.cryptoHelper.Copy(dst, src)
 }

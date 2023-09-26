@@ -13,7 +13,7 @@ type StreamMaker interface {
 }
 
 type Stream interface {
-	ID() int64
+	ID() string
 	RemoteAddr() net.Addr
 	LocalAddr() net.Addr
 	io.ReadWriteCloser

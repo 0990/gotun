@@ -10,8 +10,8 @@ type TCPConn struct {
 	net.Conn
 }
 
-func (c *TCPConn) ID() int64 {
-	return int64(-1)
+func (c *TCPConn) ID() string {
+	return "tcp"
 }
 
 func dialTCP(addr string, config string) (Stream, error) {

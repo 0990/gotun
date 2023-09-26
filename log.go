@@ -9,8 +9,12 @@ import (
 	"github.com/sirupsen/logrus"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
+	"runtime"
 	"runtime/debug"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -21,7 +25,7 @@ var (
 	ErrCloesd = errors.New("ErrCloesd")
 )
 
-func InitLog(path string, name string, useJSON bool, rotate bool, maxSize int, level logrus.Level) (close func(), err error) {
+func InitLog(logpath string, name string, useJSON bool, rotate bool, maxSize int, level logrus.Level) (close func(), err error) {
 
 	//logrus.SetOutput(os.Stdout)
 	//if runtime.GOOS == "windows" {
@@ -29,23 +33,28 @@ func InitLog(path string, name string, useJSON bool, rotate bool, maxSize int, l
 	//} else {
 	//	logrus.SetFormatter(&log.TextFormatter{DisableColors: false, FullTimestamp: true})
 	//}
+	logrus.SetReportCaller(true)
 	logrus.SetLevel(level)
 	//log.SetFormatter(new(log.JSONFormatter))
 	text := new(logrus.TextFormatter)
 	text.FullTimestamp = true
 	text.DisableColors = true
+	text.CallerPrettyfier = func(frame *runtime.Frame) (function string, file string) {
+		//处理文件名
+		fileName := path.Base(frame.File)
+		fileName += ":" + strconv.Itoa(frame.Line)
+		s := strings.Split(frame.Function, ".")
+		funcname := s[len(s)-1]
+		return funcname + " " + fileName, ""
+	}
 	logrus.SetFormatter(text)
 
-	hook, close, err := NewFileLogHook(path, name, useJSON, rotate, maxSize)
+	hook, close, err := NewFileLogHook(logpath, name, useJSON, rotate, maxSize)
 	if err != nil {
 		return nil, err
 	}
 
 	logrus.AddHook(hook)
-	//logrus.SetOutput(&WriteNull{})
-
-	//process.OutInfo = &WriteInfo{}
-	//process.OutError = &WriteError{}
 
 	return close, nil
 }

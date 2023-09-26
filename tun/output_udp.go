@@ -11,8 +11,8 @@ type UDPConn struct {
 	reader io.Reader
 }
 
-func (c *UDPConn) ID() int64 {
-	return -1
+func (c *UDPConn) ID() string {
+	return "udpconn"
 }
 
 func (c *UDPConn) Read(b []byte) (int, error) {

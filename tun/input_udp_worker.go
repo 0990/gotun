@@ -39,8 +39,8 @@ type UDPWorker struct {
 	readDeadline time.Time
 }
 
-func (w *UDPWorker) ID() int64 {
-	return -1
+func (w *UDPWorker) ID() string {
+	return "udpworker"
 }
 
 func (w *UDPWorker) RemoteAddr() net.Addr {

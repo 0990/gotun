@@ -3,6 +3,7 @@ package tun
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/sirupsen/logrus"
 	"io"
 	"net"
@@ -71,7 +72,10 @@ func (p *inputTCP) serve() {
 func (p *inputTCP) handleConn(conn net.Conn) {
 	err := p.OnNewConn(conn)
 	if err != nil {
-		logrus.WithError(err).Error("OnNewConn")
+		logrus.WithFields(logrus.Fields{
+			"remote": conn.RemoteAddr(),
+			"local":  conn.LocalAddr(),
+		}).WithError(err).Error("OnNewConn")
 		conn.Close()
 		return
 	}
@@ -117,7 +121,7 @@ func tcpTrimHead(conn net.Conn, str string) error {
 	}
 
 	if string(data) != string(trim) {
-		return errors.New("head trim not match")
+		return fmt.Errorf("head trim not match:%s", string(data))
 	}
 
 	return nil
