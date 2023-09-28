@@ -2,6 +2,8 @@ package tun
 
 import (
 	"encoding/json"
+	"github.com/0990/gotun/core"
+	"github.com/0990/gotun/pkg/pool"
 	"github.com/sirupsen/logrus"
 	"io"
 	"net"
@@ -58,7 +60,7 @@ func (p *inputUDP) serve() {
 	var tempDelay time.Duration
 	var workers WorkerMap
 	for {
-		buf := make([]byte, socketBufSize)
+		buf := pool.GetBuf(core.MaxSegmentSize)
 		n, srcAddr, err := relayer.ReadFrom(buf)
 		if err != nil {
 			logrus.WithError(err).Error("relayer.ReadFrom")

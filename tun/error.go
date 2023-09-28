@@ -15,6 +15,9 @@ func isNetTimeoutErr(err error) bool {
 }
 
 func isNetCloseErr(err error) bool {
+	if err.Error() == "stream closed" {
+		return true
+	}
 	if err, ok := err.(*net.OpError); ok && err.Err.Error() == "use of closed network connection" {
 		return true
 	}

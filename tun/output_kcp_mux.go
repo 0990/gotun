@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/0990/gotun/core"
 	"github.com/xtaci/smux"
 	"log"
 	"time"
 )
 
-func dialKCPBuilder(ctx context.Context, addr string, config string) (StreamMaker, error) {
+func dialKCPBuilder(ctx context.Context, addr string, config string) (core.IStreamMaker, error) {
 	var cfg KCPConfig
 	if config != "" {
 		err := json.Unmarshal([]byte(config), &cfg)
@@ -43,7 +44,7 @@ type KCPsmuxSession struct {
 	session *smux.Session
 }
 
-func (p *KCPsmuxSession) OpenStream() (Stream, error) {
+func (p *KCPsmuxSession) OpenStream() (core.IStream, error) {
 	steam, err := p.session.OpenStream()
 	return &KCPsmuxStream{Stream: steam}, err
 }

@@ -2,8 +2,8 @@ package socks5x
 
 import (
 	"errors"
+	"github.com/0990/gotun/core"
 	"github.com/0990/gotun/pkg/msg"
-	"github.com/0990/gotun/pkg/util"
 	"github.com/0990/socks5"
 	"github.com/sirupsen/logrus"
 	"io"
@@ -95,7 +95,6 @@ func (s *Server) handleConnError(conn *net.TCPConn) error {
 	//}
 
 	timeout := time.Duration(s.tcpTimeout) * time.Second
-
-	util.CopyEach(dst, conn, timeout)
+	core.Pipe(&TCPConn{Conn: dst}, &TCPConn{Conn: conn}, timeout)
 	return nil
 }

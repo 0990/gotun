@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/0990/gotun/core"
 	"github.com/hashicorp/yamux"
 	"github.com/sirupsen/logrus"
 	"net"
@@ -14,7 +15,7 @@ type TCPYamuxSession struct {
 	session *yamux.Session
 }
 
-func (p *TCPYamuxSession) OpenStream() (Stream, error) {
+func (p *TCPYamuxSession) OpenStream() (core.IStream, error) {
 	steam, err := p.session.OpenStream()
 	return &TCPYamuxStream{Stream: steam}, err
 }
@@ -39,7 +40,7 @@ func (c *TCPYamuxStream) SetReadDeadline(t time.Time) error {
 	return c.Stream.SetReadDeadline(t)
 }
 
-func dialTCPYamuxBuilder(ctx context.Context, addr string, config string) (StreamMaker, error) {
+func dialTCPYamuxBuilder(ctx context.Context, addr string, config string) (core.IStreamMaker, error) {
 	var cfg OutProtoTCPMux
 	if config != "" {
 		err := json.Unmarshal([]byte(config), &cfg)

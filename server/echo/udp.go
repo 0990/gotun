@@ -2,6 +2,7 @@ package echo
 
 import (
 	"fmt"
+	"github.com/0990/gotun/core"
 	"github.com/sirupsen/logrus"
 	"net"
 	"time"
@@ -19,7 +20,7 @@ func StartUDPEchoServer(address string) error {
 
 	go func() {
 		for {
-			var data [65535]byte
+			var data [core.MaxSegmentSize]byte
 			n, addr, err := listen.ReadFromUDP(data[:])
 			if err != nil {
 				fmt.Println(err)
@@ -54,7 +55,7 @@ func CheckUDP(targetAddr string, req string, timeout time.Duration) (string, err
 	}
 
 	conn.SetReadDeadline(time.Now().Add(timeout))
-	buf := make([]byte, 65535)
+	buf := make([]byte, core.MaxSegmentSize)
 	n, err := conn.Read(buf)
 	if err != nil {
 		return "", err

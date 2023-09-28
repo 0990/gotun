@@ -2,6 +2,7 @@ package tun
 
 import (
 	"fmt"
+	"github.com/0990/gotun/core"
 	"github.com/0990/gotun/pkg/msg"
 	"github.com/sirupsen/logrus"
 	"io"
@@ -44,11 +45,11 @@ type frpsController struct {
 	ctl     io.ReadWriteCloser
 	sendCh  chan (msg.Message)
 	readCh  chan (msg.Message)
-	workers chan Stream
+	workers chan core.IStream
 }
 
 func NewFrpsController(ctrl io.ReadWriteCloser) *frpsController {
-	return &frpsController{ctl: ctrl, workers: make(chan Stream, 100), sendCh: make(chan msg.Message, 100), readCh: make(chan msg.Message, 100)}
+	return &frpsController{ctl: ctrl, workers: make(chan core.IStream, 100), sendCh: make(chan msg.Message, 100), readCh: make(chan msg.Message, 100)}
 }
 
 func (f *frpsController) Run() {
@@ -65,7 +66,7 @@ func (f *frpsController) Close() {
 	close(f.readCh)
 }
 
-func (f *frpsController) RegisterWorker(worker Stream) error {
+func (f *frpsController) RegisterWorker(worker core.IStream) error {
 	select {
 	case f.workers <- worker:
 		logrus.Debug("register worker")
@@ -75,7 +76,7 @@ func (f *frpsController) RegisterWorker(worker Stream) error {
 	}
 }
 
-func (f *frpsController) GetWorkConn() (worker Stream, err error) {
+func (f *frpsController) GetWorkConn() (worker core.IStream, err error) {
 	if len(f.workers) < FrpWorkerCount/2 {
 		err := f.Write(&msg.ReqWorkConn{Count: FrpWorkerCount})
 		if err != nil {

@@ -3,6 +3,7 @@ package tun
 import (
 	"context"
 	"errors"
+	"github.com/0990/gotun/core"
 	"github.com/sirupsen/logrus"
 	"sync/atomic"
 	"time"
@@ -11,7 +12,7 @@ import (
 type output interface {
 	Run() error
 	Close() error
-	GetStream() (Stream, error)
+	GetStream() (core.IStream, error)
 }
 
 func NewOutput(output string, config string, extendStr string) (output, error) {
@@ -25,8 +26,8 @@ func NewOutput(output string, config string, extendStr string) (output, error) {
 		return nil, err
 	}
 
-	var makeStream func(addr string, config string) (Stream, error)
-	var makeStreamMaker func(ctx context.Context, addr string, config string) (StreamMaker, error)
+	var makeStream func(addr string, config string) (core.IStream, error)
+	var makeStreamMaker func(ctx context.Context, addr string, config string) (core.IStreamMaker, error)
 
 	switch proto {
 	case TCP:
@@ -60,14 +61,14 @@ func NewOutput(output string, config string, extendStr string) (output, error) {
 }
 
 type Output struct {
-	makeStreamMaker func(ctx context.Context, addr string, config string) (StreamMaker, error)
-	makeStream      func(addr string, config string) (Stream, error)
+	makeStreamMaker func(ctx context.Context, addr string, config string) (core.IStreamMaker, error)
+	makeStream      func(addr string, config string) (core.IStream, error)
 
 	addr   string
 	config string
 
 	poolNum    int //此值>0时，会预先生成muxConnNum个连接，用于后续的多路复用，<=0时，每次都会新建连接
-	makerPools []StreamMaker
+	makerPools []core.IStreamMaker
 	poolIdx    int
 
 	close int32
@@ -87,7 +88,7 @@ func (p *Output) CheckCfg() error {
 }
 
 func (p *Output) Run() error {
-	makers := make([]StreamMaker, p.poolNum)
+	makers := make([]core.IStreamMaker, p.poolNum)
 	for k := range makers {
 		m, err := p.waitCreateStreamMaker()
 		if err != nil {
@@ -100,7 +101,7 @@ func (p *Output) Run() error {
 }
 
 // 默认通过makeStream临时创建，不存在makeStream时，则一定从streamMaker池中取streamMaker来创建stream(多路复用情况下)
-func (p *Output) GetStream() (Stream, error) {
+func (p *Output) GetStream() (core.IStream, error) {
 	if p.makeStream != nil {
 		return p.makeStream(p.addr, p.config)
 	}
@@ -124,7 +125,7 @@ func (p *Output) GetStream() (Stream, error) {
 	return p.makerPools[idx].OpenStream()
 }
 
-func (p *Output) waitCreateStreamMaker() (StreamMaker, error) {
+func (p *Output) waitCreateStreamMaker() (core.IStreamMaker, error) {
 
 	for {
 		logrus.Debug("creating conn....")

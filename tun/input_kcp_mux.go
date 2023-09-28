@@ -2,6 +2,7 @@ package tun
 
 import (
 	"encoding/json"
+	"github.com/0990/gotun/core"
 	"github.com/sirupsen/logrus"
 	"github.com/xtaci/kcp-go/v5"
 	"github.com/xtaci/smux"
@@ -123,7 +124,7 @@ func (p *inputKCPMux) handleConn(conn net.Conn) {
 
 		s := &KCPsmuxStream{Stream: stream}
 
-		go func(p1 Stream) {
+		go func(p1 core.IStream) {
 			p.inputBase.OnNewStream(p1)
 		}(s)
 	}

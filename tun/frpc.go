@@ -3,6 +3,7 @@ package tun
 import (
 	"errors"
 	"fmt"
+	"github.com/0990/gotun/core"
 	"github.com/0990/gotun/pkg/msg"
 	"github.com/sirupsen/logrus"
 )
@@ -79,7 +80,7 @@ func (s *Frpc) Cfg() Config {
 	return s.cfg
 }
 
-func (s *Frpc) handleWorkerStream(src Stream) {
+func (s *Frpc) handleWorkerStream(src core.IStream) {
 	defer src.Close()
 
 	err := s.sayHelloAndWait(src)
@@ -95,10 +96,10 @@ func (s *Frpc) handleWorkerStream(src Stream) {
 	}
 	defer dst.Close()
 
-	s.cryptoHelper.Copy(dst, src)
+	s.cryptoHelper.Pipe(dst, src)
 }
 
-func (s *Frpc) sayHelloAndWait(src Stream) error {
+func (s *Frpc) sayHelloAndWait(src core.IStream) error {
 	rw, err := s.cryptoHelper.SrcReaderWriter(src)
 	if err != nil {
 		return err

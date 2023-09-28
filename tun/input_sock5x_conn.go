@@ -1,6 +1,7 @@
 package tun
 
 import (
+	"github.com/0990/gotun/core"
 	"github.com/0990/gotun/pkg/msg"
 	"github.com/0990/socks5"
 	"github.com/sirupsen/logrus"
@@ -18,10 +19,10 @@ func (c *Socks5XConn) ID() string {
 }
 
 type CustomCopy interface {
-	CustomCopy(in, out Stream, id string) error
+	CustomCopy(in, out core.IStream, id string) error
 }
 
-func (c *Socks5XConn) CustomCopy(in, out Stream, id string) error {
+func (c *Socks5XConn) CustomCopy(in, out core.IStream, id string) error {
 	s5 := socks5.NewConn(in, socks5.ConnCfg{
 		UserName:          c.cfg.UserName,
 		Password:          c.cfg.Password,
@@ -44,6 +45,7 @@ func (c *Socks5XConn) CustomCopy(in, out Stream, id string) error {
 			return nil, 0, "", err
 		}
 
+		//TODO msg.Socks5XResp could give more connect information to the client, but add a round trip,comment it for now
 		//out.SetReadDeadline(time.Now().Add(time.Second * 5))
 		//m, err := msg.ReadMsg(out)
 		//if err != nil {

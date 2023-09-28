@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
+	"github.com/0990/gotun/core"
 	"github.com/quic-go/quic-go"
 	"github.com/sirupsen/logrus"
 	"math/big"
@@ -95,7 +96,7 @@ func (p *inputQUIC) handleSession(session quic.Connection) {
 			localAddr:  session.LocalAddr(),
 			remoteAddr: session.RemoteAddr(),
 		}
-		go func(p1 Stream) {
+		go func(p1 core.IStream) {
 			p.inputBase.OnNewStream(p1)
 		}(s)
 	}

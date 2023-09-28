@@ -2,6 +2,7 @@ package tun
 
 import (
 	"fmt"
+	"github.com/0990/gotun/core"
 	"github.com/sirupsen/logrus"
 )
 
@@ -69,7 +70,7 @@ func (s *Server) Cfg() Config {
 	return s.cfg
 }
 
-func (s *Server) handleInputStream(src Stream) {
+func (s *Server) handleInputStream(src core.IStream) {
 	defer src.Close()
 
 	dst, err := s.output.GetStream()
@@ -79,5 +80,5 @@ func (s *Server) handleInputStream(src Stream) {
 	}
 	defer dst.Close()
 
-	s.cryptoHelper.Copy(dst, src)
+	s.cryptoHelper.Pipe(dst, src)
 }

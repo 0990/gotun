@@ -2,6 +2,7 @@ package tun
 
 import (
 	"encoding/json"
+	"github.com/0990/gotun/core"
 	"github.com/hashicorp/yamux"
 	"github.com/sirupsen/logrus"
 	"net"
@@ -114,7 +115,7 @@ func (p *inputTcpMux) handleConnYamux(conn net.Conn) {
 		}
 
 		s := &TCPYamuxStream{stream}
-		go func(p1 Stream) {
+		go func(p1 core.IStream) {
 			p.inputBase.OnNewStream(p1)
 		}(s)
 	}

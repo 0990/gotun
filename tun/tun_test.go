@@ -2,6 +2,7 @@ package tun
 
 import (
 	"fmt"
+	"github.com/0990/gotun/core"
 	"github.com/0990/gotun/server/echo"
 	"net"
 	"testing"
@@ -280,7 +281,7 @@ func checkEchoReplyTCP(conn net.Conn) error {
 	var data []byte
 	for {
 		conn.SetReadDeadline(time.Now().Add(time.Second * 2))
-		buf := make([]byte, 65535)
+		buf := make([]byte, core.MaxSegmentSize)
 		n, err := conn.Read(buf)
 		if err != nil {
 			break

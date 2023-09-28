@@ -4,11 +4,10 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"errors"
+	"github.com/0990/gotun/core"
 	"github.com/0990/gotun/pkg/pool"
 	"io"
 )
-
-const payloadSizeMax = 64 * 1024
 
 type gcm struct {
 	io.ReadWriter
@@ -56,6 +55,9 @@ func (w *writer) RandomNonce() {
 
 // 加密后写入rw，但返回的是b的长度，而不是加密后的长度（为了兼容io.Writer接口）
 func (w *writer) Write(b []byte) (int, error) {
+	if len(b) > core.MaxSegmentSize {
+		return 0, errors.New("payload size too large")
+	}
 	n, err := w.write(b)
 	return int(n), err
 }
@@ -142,7 +144,7 @@ func (r *reader) read() ([]byte, error) {
 	}
 
 	size := (int(buf[0])<<8 + int(buf[1]))
-	if size > payloadSizeMax {
+	if size > core.MaxSegmentSize {
 		return nil, errors.New("payload size too large")
 	}
 

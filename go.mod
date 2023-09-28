@@ -4,7 +4,7 @@ module github.com/0990/gotun
 go 1.20
 
 require (
-	github.com/0990/socks5 v1.0.4
+	github.com/0990/socks5 v1.0.6
 	github.com/abbot/go-http-auth v0.4.0
 	github.com/fatedier/golib v0.2.0
 	github.com/go-sql-driver/mysql v1.7.0

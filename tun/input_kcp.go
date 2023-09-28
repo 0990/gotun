@@ -2,6 +2,7 @@ package tun
 
 import (
 	"encoding/json"
+	"github.com/0990/gotun/core"
 	"github.com/sirupsen/logrus"
 	"github.com/xtaci/kcp-go/v5"
 	"log"
@@ -99,7 +100,7 @@ func (p *inputKCP) serve() {
 
 func (p *inputKCP) handleConn(session *kcp.UDPSession) {
 	s := &KCPSession{UDPSession: session}
-	go func(p1 Stream) {
+	go func(p1 core.IStream) {
 		p.inputBase.OnNewStream(p1)
 	}(s)
 }

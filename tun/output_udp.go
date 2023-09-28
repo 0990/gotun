@@ -2,6 +2,7 @@ package tun
 
 import (
 	"bytes"
+	"github.com/0990/gotun/core"
 	"io"
 	"net"
 )
@@ -17,7 +18,7 @@ func (c *UDPConn) ID() string {
 
 func (c *UDPConn) Read(b []byte) (int, error) {
 	if c.reader == nil {
-		buf := make([]byte, 65535)
+		buf := make([]byte, core.MaxSegmentSize)
 		n, err := c.UDPConn.Read(buf)
 		if err != nil {
 			return n, err
@@ -43,7 +44,7 @@ func (c *UDPConn) Read(b []byte) (int, error) {
 	return c.Read(b)
 }
 
-func dialUDP(addr string, config string) (Stream, error) {
+func dialUDP(addr string, config string) (core.IStream, error) {
 	raddr, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
 		return nil, err

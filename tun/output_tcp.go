@@ -2,6 +2,7 @@ package tun
 
 import (
 	"encoding/json"
+	"github.com/0990/gotun/core"
 	"io"
 	"net"
 )
@@ -14,7 +15,7 @@ func (c *TCPConn) ID() string {
 	return "tcp"
 }
 
-func dialTCP(addr string, config string) (Stream, error) {
+func dialTCP(addr string, config string) (core.IStream, error) {
 	var cfg OutProtoTCP
 	if config != "" {
 		err := json.Unmarshal([]byte(config), &cfg)

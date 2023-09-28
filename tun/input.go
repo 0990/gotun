@@ -2,13 +2,14 @@ package tun
 
 import (
 	"errors"
+	"github.com/0990/gotun/core"
 	"net"
 )
 
 type input interface {
 	Run() error
 	Close() error
-	SetOnNewStream(func(stream Stream))
+	SetOnNewStream(func(stream core.IStream))
 }
 
 func newInput(input string, config string) (input, error) {
@@ -37,14 +38,14 @@ func newInput(input string, config string) (input, error) {
 }
 
 type inputBase struct {
-	newStream func(stream Stream)
+	newStream func(stream core.IStream)
 	newConn   func(conn net.Conn)
 }
 
 func (i *inputBase) SetOnNewConn(f func(conn net.Conn)) {
 	i.newConn = f
 }
-func (i *inputBase) SetOnNewStream(f func(stream Stream)) {
+func (i *inputBase) SetOnNewStream(f func(stream core.IStream)) {
 	i.newStream = f
 }
 
@@ -56,7 +57,7 @@ func (i *inputBase) Run() error {
 	return nil
 }
 
-func (i *inputBase) OnNewStream(stream Stream) {
+func (i *inputBase) OnNewStream(stream core.IStream) {
 	if i.newStream != nil {
 		i.newStream(stream)
 	}

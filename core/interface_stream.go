@@ -1,4 +1,4 @@
-package tun
+package core
 
 import (
 	"io"
@@ -6,13 +6,13 @@ import (
 	"time"
 )
 
-type StreamMaker interface {
-	OpenStream() (Stream, error)
+type IStreamMaker interface {
+	OpenStream() (IStream, error)
 	IsClosed() bool
 	Close() error
 }
 
-type Stream interface {
+type IStream interface {
 	ID() string
 	RemoteAddr() net.Addr
 	LocalAddr() net.Addr

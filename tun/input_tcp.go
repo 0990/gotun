@@ -72,10 +72,12 @@ func (p *inputTCP) serve() {
 func (p *inputTCP) handleConn(conn net.Conn) {
 	err := p.OnNewConn(conn)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"remote": conn.RemoteAddr(),
-			"local":  conn.LocalAddr(),
-		}).WithError(err).Error("OnNewConn")
+		if !errors.Is(err, io.EOF) {
+			logrus.WithFields(logrus.Fields{
+				"remote": conn.RemoteAddr(),
+				"local":  conn.LocalAddr(),
+			}).WithError(err).Debug("OnNewConn error,close conn")
+		}
 		conn.Close()
 		return
 	}

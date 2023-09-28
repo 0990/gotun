@@ -3,6 +3,7 @@ package tun
 import (
 	"errors"
 	"fmt"
+	"github.com/0990/gotun/core"
 	"github.com/0990/gotun/pkg/msg"
 	"github.com/sirupsen/logrus"
 	"io"
@@ -11,15 +12,15 @@ import (
 )
 
 type frpcController struct {
-	createConn         func() (Stream, error)
+	createConn         func() (core.IStream, error)
 	rw                 io.ReadWriteCloser
-	cryptoReaderWriter func(rw Stream) (Stream, error)
+	cryptoReaderWriter func(rw core.IStream) (core.IStream, error)
 	onReqWorkerConn    func(count int32) error
 
 	exit int32
 }
 
-func newFrpcController(createConn func() (Stream, error), onReqWorkerConn func(count int32) error, cryptoReaderWriter func(rw Stream) (Stream, error)) *frpcController {
+func newFrpcController(createConn func() (core.IStream, error), onReqWorkerConn func(count int32) error, cryptoReaderWriter func(rw core.IStream) (core.IStream, error)) *frpcController {
 	return &frpcController{
 		createConn:         createConn,
 		onReqWorkerConn:    onReqWorkerConn,
@@ -75,7 +76,7 @@ func (c *frpcController) Close() error {
 	return nil
 }
 
-func (c *frpcController) login(conn Stream) (io.ReadWriteCloser, error) {
+func (c *frpcController) login(conn core.IStream) (io.ReadWriteCloser, error) {
 	rw, err := c.cryptoReaderWriter(conn)
 	if err != nil {
 		return nil, err

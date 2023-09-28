@@ -1,6 +1,7 @@
 package echo
 
 import (
+	"github.com/0990/gotun/core"
 	"github.com/sirupsen/logrus"
 	"io"
 	"net"
@@ -28,7 +29,7 @@ func StartTCPEchoServer(addr string) error {
 				})
 
 				for {
-					buf := make([]byte, 65535)
+					buf := make([]byte, core.MaxSegmentSize)
 					n, err := conn.Read(buf)
 					if err != nil {
 						if err != io.EOF {
@@ -62,7 +63,7 @@ func CheckTCP(targetAddr string, req string, timeout time.Duration) (string, err
 	}
 
 	conn.SetReadDeadline(time.Now().Add(timeout))
-	buf := make([]byte, 65535)
+	buf := make([]byte, core.MaxSegmentSize)
 	n, err := conn.Read(buf)
 	if err != nil {
 		return "", err

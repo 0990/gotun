@@ -10,8 +10,6 @@ import (
 	"time"
 )
 
-const socketBufSize = 64 * 1024
-
 type WorkerMap struct {
 	m syncx.Map[string, *UDPWorker]
 }

@@ -2,6 +2,7 @@ package tun
 
 import (
 	"fmt"
+	"github.com/0990/gotun/core"
 	"github.com/0990/gotun/pkg/msg"
 	"github.com/sirupsen/logrus"
 )
@@ -66,14 +67,14 @@ func (s *Frps) Cfg() Config {
 	return s.cfg
 }
 
-func (s *Frps) HandlerWorkerStream(src Stream) {
+func (s *Frps) HandlerWorkerStream(src core.IStream) {
 	err := s.handleWorkerStream(src)
 	if err != nil {
 		logrus.WithError(err).Error("handleWorkerStream")
 	}
 }
 
-func (s *Frps) handleWorkerStream(src Stream) error {
+func (s *Frps) handleWorkerStream(src core.IStream) error {
 	rw, err := s.cryptoHelper.DstCrypto(src)
 	if err != nil {
 		return err
@@ -114,7 +115,7 @@ func (s *Frps) Close() error {
 	return nil
 }
 
-func (s *Frps) handleInputStream(src Stream) {
+func (s *Frps) handleInputStream(src core.IStream) {
 	defer src.Close()
 
 	ctl, ok := s.ctlMgr.Get()
@@ -137,10 +138,10 @@ func (s *Frps) handleInputStream(src Stream) {
 		return
 	}
 
-	s.cryptoHelper.Copy(dst, src)
+	s.cryptoHelper.Pipe(dst, src)
 }
 
-func (s *Frps) sayStart(dst Stream) error {
+func (s *Frps) sayStart(dst core.IStream) error {
 	rw, err := s.cryptoHelper.DstReaderWriter(dst)
 	if err != nil {
 		return err

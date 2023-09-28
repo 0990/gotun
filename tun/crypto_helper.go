@@ -3,10 +3,12 @@ package tun
 import (
 	"crypto/cipher"
 	"errors"
+	"github.com/0990/gotun/core"
 	"github.com/0990/gotun/pkg/crypto"
 	"github.com/0990/gotun/pkg/util"
 	"github.com/sirupsen/logrus"
 	"io"
+	"net"
 	"time"
 )
 
@@ -43,13 +45,13 @@ func NewCryptoHelper(config Config) (*CryptoHelper, error) {
 	}, nil
 }
 
-func (c *CryptoHelper) Copy(dst, src Stream) {
+func (c *CryptoHelper) Pipe(dst, src core.IStream) {
 	srcLocalAddr := src.LocalAddr()
 	srcRemoteAddr := src.RemoteAddr()
 	dstLocalAddr := dst.LocalAddr()
 	dstRemoteAddr := dst.RemoteAddr()
 
-	id := util.RandomString(4)
+	id := util.TraceID(4)
 	log := logrus.WithFields(logrus.Fields{
 		"inLocal":   srcLocalAddr,
 		"inRemote":  srcRemoteAddr,
@@ -63,15 +65,15 @@ func (c *CryptoHelper) Copy(dst, src Stream) {
 	log.Debug("stream opened")
 	defer log.Debug("stream closed")
 
-	err := c.copy(dst, src, id)
+	err := c.pipe(dst, src, id)
 	if err != nil {
-		if !errors.Is(err, io.EOF) && !errors.Is(err, ErrTimeout) {
-			log.WithError(err).Error("failed to copy")
+		if !errors.Is(err, io.EOF) {
+			log.WithError(err).Debug("pipe end")
 		}
 	}
 }
 
-func (c *CryptoHelper) copy(dst, src Stream, id string) error {
+func (c *CryptoHelper) pipe(dst, src core.IStream, id string) error {
 	s, err := crypto.NewReaderWriter(src, c.srcMode, c.srcAead)
 	if err != nil {
 		return err
@@ -81,17 +83,17 @@ func (c *CryptoHelper) copy(dst, src Stream, id string) error {
 		return err
 	}
 
+	in := &CryptoStream{
+		rw:     s,
+		stream: src,
+	}
+
+	out := &CryptoStream{
+		rw:     d,
+		stream: dst,
+	}
+
 	if h, ok := src.(CustomCopy); ok {
-		in := &CryptoStream{
-			rw:     s,
-			Stream: src,
-		}
-
-		out := &CryptoStream{
-			rw:     d,
-			Stream: dst,
-		}
-
 		err := h.CustomCopy(in, out, id)
 		if err != nil {
 			return err
@@ -99,8 +101,7 @@ func (c *CryptoHelper) copy(dst, src Stream, id string) error {
 		return nil
 	}
 
-	go util.Copy(s, d)
-	return util.Copy(d, s)
+	return core.Pipe(in, out, time.Second*60)
 }
 
 func (c *CryptoHelper) SrcReaderWriter(rw io.ReadWriter) (io.ReadWriter, error) {
@@ -112,16 +113,16 @@ func (c *CryptoHelper) DstReaderWriter(rw io.ReadWriter) (io.ReadWriter, error) 
 }
 
 type CryptoStream struct {
-	rw io.ReadWriter
-	Stream
+	rw     io.ReadWriter
+	stream core.IStream
 }
 
 func (p *CryptoStream) SetReadDeadline(t time.Time) error {
-	return p.Stream.SetReadDeadline(t)
+	return p.stream.SetReadDeadline(t)
 }
 
 func (p *CryptoStream) Close() error {
-	return p.Stream.Close()
+	return p.stream.Close()
 }
 
 func (p *CryptoStream) Read(b []byte) (int, error) {
@@ -132,7 +133,19 @@ func (p *CryptoStream) Write(b []byte) (int, error) {
 	return p.rw.Write(b)
 }
 
-func (c *CryptoHelper) SrcCrypto(s Stream) (Stream, error) {
+func (p *CryptoStream) ID() string {
+	return p.stream.ID()
+}
+
+func (p *CryptoStream) LocalAddr() net.Addr {
+	return p.stream.LocalAddr()
+}
+
+func (p *CryptoStream) RemoteAddr() net.Addr {
+	return p.stream.RemoteAddr()
+}
+
+func (c *CryptoHelper) SrcCrypto(s core.IStream) (core.IStream, error) {
 	rw, err := crypto.NewReaderWriter(s, c.srcMode, c.srcAead)
 	if err != nil {
 		return nil, err
@@ -140,11 +153,11 @@ func (c *CryptoHelper) SrcCrypto(s Stream) (Stream, error) {
 
 	return &CryptoStream{
 		rw:     rw,
-		Stream: s,
+		stream: s,
 	}, nil
 }
 
-func (c *CryptoHelper) DstCrypto(s Stream) (Stream, error) {
+func (c *CryptoHelper) DstCrypto(s core.IStream) (core.IStream, error) {
 	rw, err := crypto.NewReaderWriter(s, c.dstMode, c.dstAead)
 	if err != nil {
 		return nil, err
@@ -152,6 +165,6 @@ func (c *CryptoHelper) DstCrypto(s Stream) (Stream, error) {
 
 	return &CryptoStream{
 		rw:     rw,
-		Stream: s,
+		stream: s,
 	}, nil
 }
