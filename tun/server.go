@@ -42,20 +42,21 @@ func NewServer(cfg Config) (*Server, error) {
 }
 
 func (s *Server) Run() error {
-	s.SetStatus("input run...")
-	err := s.input.Run()
-	if err != nil {
-		s.SetStatus(fmt.Sprintf("input run:%s", err.Error()))
-		return err
-	}
 	s.SetStatus("output run...")
-	err = s.output.Run()
+	err := s.output.Run()
 	if err != nil {
 		s.SetStatus(fmt.Sprintf("output run:%s", err.Error()))
 		return err
 	}
 
+	s.SetStatus("input run...")
 	s.input.SetOnNewStream(s.handleInputStream)
+	err = s.input.Run()
+	if err != nil {
+		s.SetStatus(fmt.Sprintf("input run:%s", err.Error()))
+		return err
+	}
+
 	s.SetStatus("running")
 	return nil
 }

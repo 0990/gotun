@@ -13,8 +13,9 @@ type AppConfig struct {
 	WebPassword             string `yaml:"web_password"`                 //密码
 	WebLoginFailLimitInHour int    `yaml:"web_login_fail_limit_in_hour"` //每小时最大失败次数
 
-	LogLevel    string `yaml:"log_level"`
-	PProfListen string `yaml:"pprof_port"`
+	LogLevel         string `yaml:"log_level"`
+	PProfListen      string `yaml:"pprof_listen"`
+	PrometheusListen string `yaml:"prometheus_listen"`
 
 	BuildIn BuiltIn `yaml:"build-in"` //内置的服务
 }
@@ -105,8 +106,10 @@ func addComments(node *yaml.Node) {
 			key.HeadComment = "每小时登录失败限制次数"
 		case "log_level":
 			key.HeadComment = "日志等级:debug/info/warn/error"
-		case "pprof_port":
+		case "pprof_listen":
 			key.HeadComment = "pprof监听地址,可为空"
+		case "prometheus_listen":
+			key.HeadComment = "prometheus监听地址,可为空"
 		case "build-in":
 			key.HeadComment = "内置服务配置"
 
@@ -135,6 +138,7 @@ func Welcome(appCfg *AppConfig) {
 		"\nhttps://github.com/sunshinev/go-sword" +
 		"\n[Server info]" +
 		"\nPProf Listen : " + appCfg.PProfListen +
+		"\nPrometheus Listen : " + appCfg.PrometheusListen +
 		"\nLog Level    : " + appCfg.LogLevel +
 		"\n\nStart successful, server is running ...\n" +
 		"Please request: " +

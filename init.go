@@ -9,6 +9,7 @@ import (
 	"github.com/0990/gotun/server/socks5x"
 	"github.com/0990/gotun/tun"
 	"github.com/0990/httpproxy"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 	"net/http"
 	"os"
@@ -49,6 +50,13 @@ func Run(fileName string, tunDir string) error {
 	SafeGo(func() {
 		if len(appCfg.PProfListen) > 0 {
 			http.ListenAndServe(appCfg.PProfListen, nil)
+		}
+	})
+
+	SafeGo(func() {
+		if len(appCfg.PrometheusListen) > 0 {
+			http.Handle("/metrics", promhttp.Handler())
+			http.ListenAndServe(appCfg.PrometheusListen, nil)
 		}
 	})
 

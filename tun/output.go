@@ -4,9 +4,22 @@ import (
 	"context"
 	"errors"
 	"github.com/0990/gotun/core"
+	"github.com/0990/gotun/pkg/syncx"
+	"github.com/0990/gotun/pkg/util"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/sirupsen/logrus"
+	"sync"
 	"sync/atomic"
 	"time"
+)
+
+var (
+	connStreamGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name:        "output_idx_get_total",
+		Help:        "The total number of processed events",
+		ConstLabels: nil,
+	}, []string{"idx"})
 )
 
 type output interface {
@@ -70,6 +83,9 @@ type Output struct {
 	poolNum    int //此值>0时，会预先生成muxConnNum个连接，用于后续的多路复用，<=0时，每次都会新建连接
 	makerPools []core.IStreamMaker
 	poolIdx    int
+	lock       sync.RWMutex
+
+	idxGetCounts syncx.Map[int, atomic.Int32]
 
 	close int32
 }
@@ -90,10 +106,7 @@ func (p *Output) CheckCfg() error {
 func (p *Output) Run() error {
 	makers := make([]core.IStreamMaker, p.poolNum)
 	for k := range makers {
-		m, err := p.waitCreateStreamMaker()
-		if err != nil {
-			return err
-		}
+		m := p.waitCreateStreamMaker()
 		makers[k] = m
 	}
 	p.makerPools = makers
@@ -110,33 +123,90 @@ func (p *Output) GetStream() (core.IStream, error) {
 		return nil, errors.New("poolnum<=0")
 	}
 
-	idx := p.poolIdx % p.poolNum
-	p.poolIdx++
-
-	maker := p.makerPools[idx]
-	if maker == nil || maker.IsClosed() {
-		m, err := p.waitCreateStreamMaker()
-		if err != nil {
-			return nil, errors.New("waitCreateStreamMaker error")
-		}
-		p.makerPools[idx] = m
+	idx, maker, ok := p.getStreamMaker()
+	if ok {
+		connStreamGauge.WithLabelValues(util.ToString(idx)).Add(1)
+		return maker.OpenStream()
 	}
 
-	return p.makerPools[idx].OpenStream()
+	logrus.Warn("start waitStreamMakerCreated")
+	idx, maker, err := p.waitStreamMakerCreated()
+	if err == nil {
+		connStreamGauge.WithLabelValues(util.ToString(idx)).Add(1)
+		return maker.OpenStream()
+	}
+
+	logrus.WithError(err).Warn("waitStreamMakerCreated")
+	return nil, err
 }
 
-func (p *Output) waitCreateStreamMaker() (core.IStreamMaker, error) {
+func (p *Output) getStreamMaker() (int, core.IStreamMaker, bool) {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+
+	for i := 0; i < p.poolNum; i++ {
+		idx := p.poolIdx % p.poolNum
+		p.poolIdx++
+
+		maker := p.makerPools[idx]
+		if maker == nil {
+			continue
+		}
+
+		if maker.IsClosed() {
+			connStreamGauge.WithLabelValues(util.ToString(idx)).Set(0)
+			p.makerPools[idx] = nil
+			go func() {
+				m := p.waitCreateStreamMaker()
+				p.lock.Lock()
+				defer p.lock.Unlock()
+				p.makerPools[idx] = m
+			}()
+
+			continue
+		}
+		return idx, maker, true
+	}
+
+	return 0, nil, false
+}
+
+func (p *Output) waitStreamMakerCreated() (int, core.IStreamMaker, error) {
+	now := time.Now()
+	for {
+		if time.Since(now) > time.Second {
+			return -1, nil, errors.New("waitStreamMakerCreated timeout")
+		}
+
+		if atomic.LoadInt32(&p.close) > 0 {
+			return -1, nil, errors.New("output closed")
+		}
+
+		for i := 0; i < p.poolNum; i++ {
+			p.lock.RLock()
+			maker := p.makerPools[i]
+			p.lock.RUnlock()
+
+			if maker == nil || maker.IsClosed() {
+				continue
+			}
+			return i, maker, nil
+		}
+		time.Sleep(time.Millisecond * 50)
+	}
+}
+
+func (p *Output) waitCreateStreamMaker() core.IStreamMaker {
 
 	for {
 		logrus.Debug("creating conn....")
 		if conn, err := p.makeStreamMaker(context.Background(), p.addr, p.config); err == nil {
 			logrus.Debug("creating conn ok")
-			return conn, nil
+			return conn
 		} else {
-
 			//如果关闭了，就不再重连
 			if atomic.LoadInt32(&p.close) > 0 {
-				return nil, errors.New("output closed")
+				return nil
 			}
 			logrus.Warn("re-connecting:", err)
 			time.Sleep(time.Second)
