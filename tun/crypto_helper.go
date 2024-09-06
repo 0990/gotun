@@ -17,22 +17,26 @@ type CryptoHelper struct {
 	srcAead, dstAead cipher.AEAD
 }
 
-func NewCryptoHelper(config Config) (*CryptoHelper, error) {
-	srcMode, err := crypto.ToMode(config.InDecryptMode)
+func NewCryptoHelperWithConfig(config Config) (*CryptoHelper, error) {
+	return NewCryptoHelper(config.InDecryptMode, config.InDecryptKey, config.OutCryptMode, config.OutCryptKey)
+}
+
+func NewCryptoHelper(inDecryptMode, inDecryptKey, outDecryptMode, outDecryptKey string) (*CryptoHelper, error) {
+	srcMode, err := crypto.ToMode(inDecryptMode)
 	if err != nil {
 		return nil, err
 	}
-	dstMode, err := crypto.ToMode(config.OutCryptMode)
+	dstMode, err := crypto.ToMode(outDecryptMode)
 	if err != nil {
 		return nil, err
 	}
 
-	srcAead, err := util.CreateAesGcmAead(util.StringToAesKey(config.InDecryptKey, 32))
+	srcAead, err := util.CreateAesGcmAead(util.StringToAesKey(inDecryptKey, 32))
 	if err != nil {
 		return nil, err
 	}
 
-	dstAead, err := util.CreateAesGcmAead(util.StringToAesKey(config.OutCryptKey, 32))
+	dstAead, err := util.CreateAesGcmAead(util.StringToAesKey(outDecryptKey, 32))
 	if err != nil {
 		return nil, err
 	}

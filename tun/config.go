@@ -9,6 +9,7 @@ import (
 )
 
 const TUN_CONFIG_SUFFIX = ".tun"
+const GROUP_CONFIG_SUFFIX = ".group"
 
 type Config struct {
 	UUID string `json:"uuid"`
@@ -150,7 +151,57 @@ func serviceFile(dir string, name string) string {
 	return dir + "/" + name + TUN_CONFIG_SUFFIX
 }
 
+func createGroupFile(dir string, cfg GroupConfig) error {
+	cfgData, err := json.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+
+	filename := groupFile(dir, cfg.Name)
+	os.Mkdir(dir, os.ModePerm)
+
+	if isFileExist(filename) {
+		return errors.New("group already exist")
+	}
+
+	f, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.Write(cfgData)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func deleteGroupFile(dir string, name string) error {
+	filename := groupFile(dir, name)
+	err := os.Remove(filename)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
+func groupFile(dir string, name string) string {
+	return dir + "/" + name + GROUP_CONFIG_SUFFIX
+}
+
 func loadAllServiceFile(dir string) ([]Config, error) {
+	return loadAllFile[Config](dir, TUN_CONFIG_SUFFIX)
+}
+
+func loadAllGroupFile(dir string) ([]GroupConfig, error) {
+	return loadAllFile[GroupConfig](dir, GROUP_CONFIG_SUFFIX)
+}
+
+func loadAllFile[T any](dir string, suffix string) ([]T, error) {
 	rd, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -159,7 +210,7 @@ func loadAllServiceFile(dir string) ([]Config, error) {
 		return nil, err
 	}
 
-	var cfgs []Config
+	var cfgs []T
 	for _, v := range rd {
 		if v.IsDir() {
 			continue
@@ -167,7 +218,7 @@ func loadAllServiceFile(dir string) ([]Config, error) {
 		name := v.Name()
 
 		suffix := path.Ext(name)
-		if suffix != TUN_CONFIG_SUFFIX {
+		if suffix != suffix {
 			continue
 		}
 
@@ -176,7 +227,7 @@ func loadAllServiceFile(dir string) ([]Config, error) {
 			return nil, err
 		}
 
-		var cfg Config
+		var cfg T
 		err = json.Unmarshal(data, &cfg)
 		if err != nil {
 			return nil, err
@@ -195,4 +246,33 @@ func isFileExist(path string) bool {
 		return false
 	}
 	return true
+}
+
+// 代理组，只有最低ping值的output会启用
+type GroupConfig struct {
+	UUID string `json:"uuid"`
+	Name string `json:"name"`
+
+	Input   IOConfig        `json:"input"`
+	Outputs []POutputConfig `json:"outputs"`
+
+	CreatedAt time.Time `json:"create_at"`
+}
+
+type POutputConfig struct {
+	Ping   PingConfig `json:"ping"`
+	Output IOConfig   `json:"output"`
+}
+
+type PingConfig struct {
+	Addr     string `json:"addr"` //socks5_ack|tcp_ack|ping  ping@127.0.0.1
+	Interval int64  `json:"interval"`
+}
+
+type IOConfig struct {
+	Addr        string `json:"addr"`
+	ProtoCfg    string `json:"proto_cfg"`
+	DecryptMode string `json:"decrypt_mode"`
+	DecryptKey  string `json:"decrypt_key"`
+	Extend      string `json:"extend"`
 }
