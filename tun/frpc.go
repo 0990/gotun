@@ -31,7 +31,7 @@ func NewFrpc(cfg Config) (*Frpc, error) {
 		return nil, err
 	}
 
-	c, err := NewCryptoHelper(cfg)
+	c, err := NewCryptoHelperWithConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
