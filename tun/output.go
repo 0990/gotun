@@ -4,12 +4,10 @@ import (
 	"context"
 	"errors"
 	"github.com/0990/gotun/core"
-	"github.com/0990/gotun/pkg/syncx"
 	"github.com/0990/gotun/pkg/util"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/sirupsen/logrus"
-	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -65,6 +63,7 @@ func NewOutput(output string, config string, extendStr string) (output, error) {
 	o.addr = addr
 	o.config = config
 	o.poolNum = extend.MuxConn
+	o.autoExpire = extend.AutoExpire
 	err = o.CheckCfg()
 	if err != nil {
 		return nil, err
@@ -81,11 +80,10 @@ type Output struct {
 	config string
 
 	poolNum    int //此值>0时，会预先生成muxConnNum个连接，用于后续的多路复用，<=0时，每次都会新建连接
-	makerPools []core.IStreamMaker
-	poolIdx    int
-	lock       sync.RWMutex
+	makerPools []*streamMakerContainer
+	poolIdx    atomic.Int32
 
-	idxGetCounts syncx.Map[int, atomic.Int32]
+	autoExpire int //此值>0，当makerPool中的连接时间（秒）达到此值时，会重建连接
 
 	close int32
 }
@@ -104,12 +102,16 @@ func (p *Output) CheckCfg() error {
 }
 
 func (p *Output) Run() error {
-	makers := make([]core.IStreamMaker, p.poolNum)
+	makers := make([]*streamMakerContainer, p.poolNum)
 	for k := range makers {
 		m := p.waitCreateStreamMaker()
-		makers[k] = m
+
+		w := &streamMakerContainer{}
+		w.SetMaker(m, p.autoExpire)
+		makers[k] = w
 	}
 	p.makerPools = makers
+	connStreamGauge.Reset()
 	return nil
 }
 
@@ -136,36 +138,27 @@ func (p *Output) GetStream() (core.IStream, error) {
 		return maker.OpenStream()
 	}
 
-	logrus.WithError(err).Warn("waitStreamMakerCreated")
+	logrus.WithError(err).Warn("waitStreamMakerCreated failed")
 	return nil, err
 }
 
 func (p *Output) getStreamMaker() (int, core.IStreamMaker, bool) {
-	p.lock.Lock()
-	defer p.lock.Unlock()
-
 	for i := 0; i < p.poolNum; i++ {
-		idx := p.poolIdx % p.poolNum
-		p.poolIdx++
+		idx := int(p.poolIdx.Load()) % p.poolNum
+		p.poolIdx.Add(1)
 
-		maker := p.makerPools[idx]
-		if maker == nil {
-			continue
+		w := p.makerPools[idx]
+		if m, ok := w.GetMaker(); ok {
+			return idx, m, true
 		}
 
-		if maker.IsClosed() {
-			connStreamGauge.WithLabelValues(util.ToString(idx)).Set(0)
-			p.makerPools[idx] = nil
-			go func() {
-				m := p.waitCreateStreamMaker()
-				p.lock.Lock()
-				defer p.lock.Unlock()
-				p.makerPools[idx] = m
-			}()
+		connStreamGauge.WithLabelValues(util.ToString(idx)).Set(0)
+		go func() {
+			m := p.waitCreateStreamMaker()
+			w.SetMaker(m, p.autoExpire)
+		}()
 
-			continue
-		}
-		return idx, maker, true
+		continue
 	}
 
 	return 0, nil, false
@@ -183,14 +176,12 @@ func (p *Output) waitStreamMakerCreated() (int, core.IStreamMaker, error) {
 		}
 
 		for i := 0; i < p.poolNum; i++ {
-			p.lock.RLock()
-			maker := p.makerPools[i]
-			p.lock.RUnlock()
 
-			if maker == nil || maker.IsClosed() {
-				continue
+			w := p.makerPools[i]
+
+			if m, ok := w.GetMaker(); ok {
+				return i, m, nil
 			}
-			return i, maker, nil
 		}
 		time.Sleep(time.Millisecond * 50)
 	}

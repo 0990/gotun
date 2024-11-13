@@ -31,7 +31,8 @@ type Config struct {
 }
 
 type Extend struct {
-	MuxConn int `json:"mux_conn"`
+	MuxConn    int `json:"mux_conn"`
+	AutoExpire int `json:"auto_expire"`
 }
 
 type InProtoTCP struct {
