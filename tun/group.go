@@ -99,6 +99,12 @@ func (g *Group) selectBestOutput() {
 		return
 	}
 
+	c, err := NewCryptoHelper(g.cfg.Input.CryptMode, g.cfg.Input.CryptKey, cfg.CryptMode, cfg.CryptKey)
+	if err != nil {
+		logrus.WithError(err).Error("crypto helper error")
+		return
+	}
+	g.cryptoHelper = c
 	g.outputAddr = cfg.Addr
 	g.createOutput(cfg)
 }
@@ -108,10 +114,14 @@ func (g *Group) createOutput(config IOConfig) error {
 	if err != nil {
 		return err
 	}
-	//TODO 延迟关闭
-	if g.output != nil {
-		g.output.Close()
-	}
+	var old = g.output
+	go func() {
+		//延迟1分钟关闭
+		time.Sleep(time.Minute)
+		if old != nil {
+			old.Close()
+		}
+	}()
 	g.output = output
 	return nil
 }

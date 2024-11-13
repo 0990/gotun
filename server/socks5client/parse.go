@@ -15,9 +15,9 @@ func ParseUrl(rawUrl string) (socks5.ClientCfg, string, error) {
 		return socks5.ClientCfg{}, "", err
 	}
 
-	var testWebUrl string
+	var url string
 	if len(u.Path) > 0 {
-		testWebUrl = u.Path[1:]
+		url = u.Path[1:]
 	}
 
 	password, _ := u.User.Password()
@@ -29,5 +29,5 @@ func ParseUrl(rawUrl string) (socks5.ClientCfg, string, error) {
 		TCPTimeout: 60,
 	}
 
-	return clientCfg, testWebUrl, nil
+	return clientCfg, url, nil
 }

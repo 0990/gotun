@@ -54,7 +54,7 @@ func (s *PingRunner) run() {
 }
 
 func (s *PingRunner) Ping() {
-	ping, err := s.ping.Ping()
+	ping, err := s.ping.Ping(10, time.Second)
 	s.Lock()
 	defer s.Unlock()
 	if err != nil {

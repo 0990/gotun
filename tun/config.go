@@ -271,9 +271,9 @@ type PingConfig struct {
 }
 
 type IOConfig struct {
-	Addr        string `json:"addr"`
-	ProtoCfg    string `json:"proto_cfg"`
-	DecryptMode string `json:"decrypt_mode"`
-	DecryptKey  string `json:"decrypt_key"`
-	Extend      string `json:"extend"`
+	Addr      string `json:"addr"`
+	ProtoCfg  string `json:"proto_cfg"`
+	CryptMode string `json:"crypt_mode"`
+	CryptKey  string `json:"crypt_key"`
+	Extend    string `json:"extend"`
 }
