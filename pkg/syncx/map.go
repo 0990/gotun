@@ -35,8 +35,8 @@ func (m *Map[K, V]) Store(key K, value V) { m.m.Store(key, value) }
 
 func (m *Map[K, V]) PickOne() (key K, value V, ok bool) {
 	m.m.Range(func(k, v any) bool {
-		key = k
-		value = v
+		key = k.(K)
+		value = v.(V)
 		ok = true
 		return false
 	})

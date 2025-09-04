@@ -98,7 +98,11 @@ func (p *inputTcpMux) OnNewConn(conn net.Conn) error {
 func (p *inputTcpMux) handleConnYamux(conn net.Conn) {
 	defer conn.Close()
 
-	session, err := yamux.Server(conn, nil)
+	muxCfg := yamux.DefaultConfig()
+	muxCfg.KeepAliveInterval = 20 * time.Second
+	muxCfg.MaxStreamWindowSize = 6 * 1024 * 1024
+
+	session, err := yamux.Server(conn, muxCfg)
 	if err != nil {
 		return
 	}

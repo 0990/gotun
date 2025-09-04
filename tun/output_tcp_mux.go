@@ -58,7 +58,12 @@ func dialTCPYamuxBuilder(ctx context.Context, addr string, config string) (core.
 	if err != nil {
 		return nil, err
 	}
-	session, err := yamux.Client(conn, nil)
+
+	muxCfg := yamux.DefaultConfig()
+	muxCfg.KeepAliveInterval = 20 * time.Second
+	muxCfg.MaxStreamWindowSize = 6 * 1024 * 1024
+
+	session, err := yamux.Client(conn, muxCfg)
 	if err != nil {
 		return nil, err
 	}
