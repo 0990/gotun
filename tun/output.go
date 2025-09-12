@@ -143,6 +143,7 @@ func (p *Output) GetStream() (core.IStream, error) {
 }
 
 func (p *Output) getStreamMaker() (int, core.IStreamMaker, bool) {
+	// 遍历 pool 找到已有 maker 的 slot
 	for i := 0; i < p.poolNum; i++ {
 		idx := int(p.poolIdx.Load()) % p.poolNum
 		p.poolIdx.Add(1)
@@ -152,13 +153,19 @@ func (p *Output) getStreamMaker() (int, core.IStreamMaker, bool) {
 			return idx, m, true
 		}
 
-		connStreamGauge.WithLabelValues(util.ToString(idx)).Set(0)
-		go func() {
+		// 如果没有 maker，就尽量 **只启动一次** 创建任务（TryStartCreate 内部保证原子性）
+		// 其它并发者不会重复启动创建 goroutine。
+		started := w.TryStartCreate(func() {
+			// 创建函数在单独的 goroutine 中执行
 			m := p.waitCreateStreamMaker()
+			// 无论成功或失败都调用 SetMaker（nil 表示创建失败/关闭等）
+			// SetMaker 里应该处理 nil 的安全性
 			w.SetMaker(m, p.autoExpire)
-		}()
+		})
 
-		continue
+		if started {
+			connStreamGauge.WithLabelValues(util.ToString(idx)).Set(0)
+		}
 	}
 
 	return 0, nil, false
@@ -190,9 +197,9 @@ func (p *Output) waitStreamMakerCreated() (int, core.IStreamMaker, error) {
 func (p *Output) waitCreateStreamMaker() core.IStreamMaker {
 
 	for {
-		logrus.Debug("creating conn....")
+		logrus.Debug("creating StreamMaker....")
 		if conn, err := p.makeStreamMaker(context.Background(), p.addr, p.config); err == nil {
-			logrus.Debug("creating conn ok")
+			logrus.Debug("creating StreamMaker ok")
 			return conn
 		} else {
 			//如果关闭了，就不再重连
