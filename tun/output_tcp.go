@@ -3,6 +3,7 @@ package tun
 import (
 	"encoding/json"
 	"github.com/0990/gotun/core"
+	"github.com/0990/gotun/pkg/stats"
 	"io"
 	"net"
 )
@@ -15,7 +16,7 @@ func (c *TCPConn) ID() string {
 	return "tcp"
 }
 
-func dialTCP(addr string, config string) (core.IStream, error) {
+func dialTCP(addr string, config string, readerCounter, writeCounter stats.Counter) (core.IStream, error) {
 	var cfg OutProtoTCP
 	if config != "" {
 		err := json.Unmarshal([]byte(config), &cfg)
@@ -24,10 +25,12 @@ func dialTCP(addr string, config string) (core.IStream, error) {
 		}
 	}
 
-	conn, err := net.Dial("tcp", addr)
+	tcpConn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return nil, err
 	}
+
+	conn := &StatsConn{Conn: tcpConn, readCounter: readerCounter, writeCounter: writeCounter}
 
 	err = tcpHeadAppend(conn, cfg.Head)
 	if err != nil {

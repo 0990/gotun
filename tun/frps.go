@@ -18,12 +18,12 @@ type Frps struct {
 }
 
 func NewFrps(cfg Config) (*Frps, error) {
-	input, err := newInput(cfg.Input, cfg.InProtoCfg)
+	input, err := newInput(cfg.Input, cfg.InProtoCfg, NewCommonCounter(cfg.UUID, cfg.Input), NewCommonCounter(cfg.UUID, cfg.Input))
 	if err != nil {
 		return nil, err
 	}
 
-	worker, err := newInput(cfg.Output, cfg.OutProtoCfg)
+	worker, err := newInput(cfg.Output, cfg.OutProtoCfg, NewCommonCounter(cfg.UUID, cfg.Output), NewCommonCounter(cfg.UUID, cfg.Output))
 	if err != nil {
 		return nil, err
 	}

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/0990/gotun/pkg/stats"
 	"github.com/sirupsen/logrus"
 	"io"
 	"net"
@@ -16,9 +17,12 @@ type inputTCP struct {
 	addr     string
 	cfg      InProtoTCP
 	listener net.Listener
+
+	readCounter  stats.Counter
+	writeCounter stats.Counter
 }
 
-func NewInputTCP(addr string, extra string) (*inputTCP, error) {
+func NewInputTCP(addr string, extra string, readCounter, writeCounter stats.Counter) (*inputTCP, error) {
 	var cfg InProtoTCP
 
 	if extra != "" {
@@ -29,8 +33,10 @@ func NewInputTCP(addr string, extra string) (*inputTCP, error) {
 	}
 
 	return &inputTCP{
-		addr: addr,
-		cfg:  cfg,
+		addr:         addr,
+		cfg:          cfg,
+		readCounter:  readCounter,
+		writeCounter: writeCounter,
 	}, nil
 }
 
@@ -69,7 +75,13 @@ func (p *inputTCP) serve() {
 	}
 }
 
-func (p *inputTCP) handleConn(conn net.Conn) {
+func (p *inputTCP) handleConn(tcpConn net.Conn) {
+	conn := &StatsConn{
+		Conn:         tcpConn,
+		readCounter:  p.readCounter,
+		writeCounter: p.writeCounter,
+	}
+
 	err := p.OnNewConn(conn)
 	if err != nil {
 		if !errors.Is(err, io.EOF) {

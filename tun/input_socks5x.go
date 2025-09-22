@@ -2,6 +2,7 @@ package tun
 
 import (
 	"encoding/json"
+	"github.com/0990/gotun/pkg/stats"
 	"github.com/sirupsen/logrus"
 	"net"
 	"time"
@@ -13,9 +14,12 @@ type inputSocks5X struct {
 	addr     string
 	cfg      InProtoSocks5X
 	listener net.Listener
+
+	readCounter  stats.Counter
+	writeCounter stats.Counter
 }
 
-func NewInputSocks5X(addr string, extra string) (*inputSocks5X, error) {
+func NewInputSocks5X(addr string, extra string, readCounter, writeCounter stats.Counter) (*inputSocks5X, error) {
 	var cfg InProtoSocks5X
 
 	if extra != "" {
@@ -28,8 +32,10 @@ func NewInputSocks5X(addr string, extra string) (*inputSocks5X, error) {
 	}
 
 	return &inputSocks5X{
-		addr: addr,
-		cfg:  cfg,
+		addr:         addr,
+		cfg:          cfg,
+		readCounter:  readCounter,
+		writeCounter: writeCounter,
 	}, nil
 }
 
@@ -68,7 +74,14 @@ func (p *inputSocks5X) serve() {
 	}
 }
 
-func (p *inputSocks5X) handleConn(conn net.Conn) {
+func (p *inputSocks5X) handleConn(tcpConn net.Conn) {
+	conn := &StatsConn{
+		Conn:         tcpConn,
+		readBytes:    0,
+		writeBytes:   0,
+		readCounter:  p.readCounter,
+		writeCounter: p.writeCounter,
+	}
 	c := &Socks5XConn{Conn: conn, cfg: p.cfg}
 	p.inputBase.OnNewStream(c)
 }

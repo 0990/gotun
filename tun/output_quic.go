@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/0990/gotun/core"
+	"github.com/0990/gotun/pkg/stats"
 	"github.com/quic-go/quic-go"
 	"net"
 	"time"
@@ -53,7 +54,7 @@ func (p *QUICStream) SetReadDeadline(t time.Time) error {
 	return p.Stream.SetReadDeadline(t)
 }
 
-func dialQUICBuilder(ctx context.Context, addr string, config string) (core.IStreamMaker, error) {
+func dialQUICBuilder(ctx context.Context, addr string, config string, readCounter, writeCounter stats.Counter) (core.IStreamMaker, error) {
 	tlsConf := &tls.Config{
 		InsecureSkipVerify: true,
 		NextProtos:         []string{"quic-stunnel"},

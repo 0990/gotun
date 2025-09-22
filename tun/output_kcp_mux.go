@@ -5,12 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/0990/gotun/core"
+	"github.com/0990/gotun/pkg/stats"
 	"github.com/xtaci/smux"
 	"log"
 	"time"
 )
 
-func dialKCPBuilder(ctx context.Context, addr string, config string) (core.IStreamMaker, error) {
+func dialKCPBuilder(ctx context.Context, addr string, config string, readCounter, writeCounter stats.Counter) (core.IStreamMaker, error) {
 	var cfg KCPConfig
 	if config != "" {
 		err := json.Unmarshal([]byte(config), &cfg)

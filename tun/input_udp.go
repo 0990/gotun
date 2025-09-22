@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/0990/gotun/core"
 	"github.com/0990/gotun/pkg/pool"
+	"github.com/0990/gotun/pkg/stats"
 	"github.com/sirupsen/logrus"
 	"io"
 	"net"
@@ -13,12 +14,14 @@ import (
 type inputUDP struct {
 	inputBase
 
-	addr string
-	cfg  UDPConfig
-	conn net.PacketConn
+	addr         string
+	cfg          UDPConfig
+	conn         net.PacketConn
+	readCounter  stats.Counter
+	writeCounter stats.Counter
 }
 
-func NewInputUDP(addr string, extra string) (*inputUDP, error) {
+func NewInputUDP(addr string, extra string, readCounter, writeCounter stats.Counter) (*inputUDP, error) {
 	var cfg UDPConfig
 
 	if extra != "" {
@@ -29,8 +32,10 @@ func NewInputUDP(addr string, extra string) (*inputUDP, error) {
 	}
 
 	return &inputUDP{
-		addr: addr,
-		cfg:  cfg,
+		addr:         addr,
+		cfg:          cfg,
+		readCounter:  readCounter,
+		writeCounter: writeCounter,
 	}, nil
 }
 
@@ -40,7 +45,11 @@ func (p *inputUDP) Run() error {
 		return err
 	}
 
-	p.conn = conn
+	p.conn = &StatsPacketConn{
+		PacketConn:   conn,
+		readCounter:  p.readCounter,
+		writeCounter: p.writeCounter,
+	}
 	go p.serve()
 	return nil
 }

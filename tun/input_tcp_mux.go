@@ -3,6 +3,7 @@ package tun
 import (
 	"encoding/json"
 	"github.com/0990/gotun/core"
+	"github.com/0990/gotun/pkg/stats"
 	"github.com/hashicorp/yamux"
 	"github.com/sirupsen/logrus"
 	"net"
@@ -20,9 +21,12 @@ type inputTcpMux struct {
 	uuid string
 
 	close int32
+
+	readCounter  stats.Counter
+	writeCounter stats.Counter
 }
 
-func NewInputTcpMux(addr string, config string) (*inputTcpMux, error) {
+func NewInputTcpMux(addr string, config string, readCounter, writeCounter stats.Counter) (*inputTcpMux, error) {
 	var cfg InProtoTCPMux
 
 	if config != "" {
@@ -33,9 +37,13 @@ func NewInputTcpMux(addr string, config string) (*inputTcpMux, error) {
 	}
 
 	return &inputTcpMux{
-		addr: addr,
-		cfg:  cfg,
-		uuid: time.Now().String(),
+		addr:         addr,
+		cfg:          cfg,
+		listener:     nil,
+		uuid:         time.Now().String(),
+		close:        0,
+		readCounter:  readCounter,
+		writeCounter: writeCounter,
 	}, nil
 }
 
@@ -74,7 +82,13 @@ func (p *inputTcpMux) serve() {
 	}
 }
 
-func (p *inputTcpMux) handleConn(conn net.Conn) {
+func (p *inputTcpMux) handleConn(tcpConn net.Conn) {
+	conn := &StatsConn{
+		Conn:         tcpConn,
+		readCounter:  p.readCounter,
+		writeCounter: p.writeCounter,
+	}
+
 	err := p.OnNewConn(conn)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{

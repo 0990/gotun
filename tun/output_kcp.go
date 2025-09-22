@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/0990/gotun/core"
+	"github.com/0990/gotun/pkg/stats"
 	"github.com/xtaci/kcp-go/v5"
 	"log"
 )
@@ -16,7 +17,7 @@ func (c *KCPSession) ID() string {
 	return "kcpsession"
 }
 
-func dialKCP(addr string, config string) (core.IStream, error) {
+func dialKCP(addr string, config string, readCounter, writeCounter stats.Counter) (core.IStream, error) {
 	var cfg KCPConfig
 	if config != "" {
 		err := json.Unmarshal([]byte(config), &cfg)

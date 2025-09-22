@@ -21,12 +21,12 @@ type Frpc struct {
 }
 
 func NewFrpc(cfg Config) (*Frpc, error) {
-	worker, err := NewOutput(cfg.Input, cfg.InProtoCfg, cfg.InExtend)
+	worker, err := NewOutput(cfg.Input, cfg.InProtoCfg, cfg.InExtend, NewCommonCounter(cfg.UUID, cfg.Input), NewCommonCounter(cfg.UUID, cfg.Input))
 	if err != nil {
 		return nil, err
 	}
 
-	output, err := NewOutput(cfg.Output, cfg.OutProtoCfg, cfg.OutExtend)
+	output, err := NewOutput(cfg.Output, cfg.OutProtoCfg, cfg.OutExtend, NewCommonCounter(cfg.UUID, cfg.Output), NewCommonCounter(cfg.UUID, cfg.Output))
 	if err != nil {
 		return nil, err
 	}

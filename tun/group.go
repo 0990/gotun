@@ -26,7 +26,7 @@ type Group struct {
 }
 
 func newGroup(cfg GroupConfig) (*Group, error) {
-	input, err := newInput(cfg.Input.Addr, cfg.Input.ProtoCfg)
+	input, err := newInput(cfg.Input.Addr, cfg.Input.ProtoCfg, NewCommonCounter(cfg.UUID, cfg.Input.Addr), NewCommonCounter(cfg.UUID, cfg.Input.Addr))
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +110,7 @@ func (g *Group) selectBestOutput() {
 }
 
 func (g *Group) createOutput(config IOConfig) error {
-	output, err := NewOutput(config.Addr, config.ProtoCfg, config.Extend)
+	output, err := NewOutput(config.Addr, config.ProtoCfg, config.Extend, NewCommonCounter("", config.Addr), NewCommonCounter("", config.Addr))
 	if err != nil {
 		return err
 	}

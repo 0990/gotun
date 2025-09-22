@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/0990/gotun/core"
+	"github.com/0990/gotun/pkg/stats"
 	"github.com/hashicorp/yamux"
 	"github.com/sirupsen/logrus"
 	"net"
@@ -40,7 +41,7 @@ func (c *TCPYamuxStream) SetReadDeadline(t time.Time) error {
 	return c.Stream.SetReadDeadline(t)
 }
 
-func dialTCPYamuxBuilder(ctx context.Context, addr string, config string) (core.IStreamMaker, error) {
+func dialTCPYamuxBuilder(ctx context.Context, addr string, config string, readCounter, writeCounter stats.Counter) (core.IStreamMaker, error) {
 	var cfg OutProtoTCPMux
 	if config != "" {
 		err := json.Unmarshal([]byte(config), &cfg)
@@ -49,10 +50,12 @@ func dialTCPYamuxBuilder(ctx context.Context, addr string, config string) (core.
 		}
 	}
 
-	conn, err := dialWithContext(ctx, "tcp", addr)
+	tcpConn, err := dialWithContext(ctx, "tcp", addr)
 	if err != nil {
 		return nil, err
 	}
+
+	conn := &StatsConn{Conn: tcpConn, readCounter: readCounter, writeCounter: writeCounter}
 
 	err = tcpHeadAppend(conn, cfg.Head)
 	if err != nil {

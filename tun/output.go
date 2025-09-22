@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/0990/gotun/core"
+	"github.com/0990/gotun/pkg/stats"
 	"github.com/0990/gotun/pkg/util"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -26,7 +27,10 @@ type output interface {
 	GetStream() (core.IStream, error)
 }
 
-func NewOutput(output string, config string, extendStr string) (output, error) {
+type makeStreamFunc func(addr string, config string, readCounter, writeCounter stats.Counter) (core.IStream, error)
+type makeStreamMakerFunc = func(ctx context.Context, addr string, config string, readCounter, writeCounter stats.Counter) (core.IStreamMaker, error)
+
+func NewOutput(output string, config string, extendStr string, readCounter, writeCounter stats.Counter) (output, error) {
 	proto, addr, err := parseProtocol(output)
 	if err != nil {
 		return nil, err
@@ -37,8 +41,8 @@ func NewOutput(output string, config string, extendStr string) (output, error) {
 		return nil, err
 	}
 
-	var makeStream func(addr string, config string) (core.IStream, error)
-	var makeStreamMaker func(ctx context.Context, addr string, config string) (core.IStreamMaker, error)
+	var makeStream makeStreamFunc
+	var makeStreamMaker makeStreamMakerFunc
 
 	switch proto {
 	case TCP:
@@ -64,6 +68,8 @@ func NewOutput(output string, config string, extendStr string) (output, error) {
 	o.config = config
 	o.poolNum = extend.MuxConn
 	o.autoExpire = extend.AutoExpire
+	o.readCounter = readCounter
+	o.writeCounter = writeCounter
 	err = o.CheckCfg()
 	if err != nil {
 		return nil, err
@@ -73,8 +79,8 @@ func NewOutput(output string, config string, extendStr string) (output, error) {
 }
 
 type Output struct {
-	makeStreamMaker func(ctx context.Context, addr string, config string) (core.IStreamMaker, error)
-	makeStream      func(addr string, config string) (core.IStream, error)
+	makeStreamMaker makeStreamMakerFunc
+	makeStream      makeStreamFunc
 
 	addr   string
 	config string
@@ -86,6 +92,9 @@ type Output struct {
 	autoExpire int //此值>0，当makerPool中的连接时间（秒）达到此值时，会重建连接
 
 	close int32
+
+	readCounter  stats.Counter
+	writeCounter stats.Counter
 }
 
 func (p *Output) CheckCfg() error {
@@ -118,7 +127,7 @@ func (p *Output) Run() error {
 // 默认通过makeStream临时创建，不存在makeStream时，则一定从streamMaker池中取streamMaker来创建stream(多路复用情况下)
 func (p *Output) GetStream() (core.IStream, error) {
 	if p.makeStream != nil {
-		return p.makeStream(p.addr, p.config)
+		return p.makeStream(p.addr, p.config, p.readCounter, p.writeCounter)
 	}
 
 	if p.poolNum <= 0 {
@@ -198,7 +207,7 @@ func (p *Output) waitCreateStreamMaker() core.IStreamMaker {
 
 	for {
 		logrus.Debug("creating StreamMaker....")
-		if conn, err := p.makeStreamMaker(context.Background(), p.addr, p.config); err == nil {
+		if conn, err := p.makeStreamMaker(context.Background(), p.addr, p.config, p.readCounter, p.writeCounter); err == nil {
 			logrus.Debug("creating StreamMaker ok")
 			return conn
 		} else {

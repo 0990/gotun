@@ -16,12 +16,12 @@ type Server struct {
 }
 
 func NewServer(cfg Config) (*Server, error) {
-	input, err := newInput(cfg.Input, cfg.InProtoCfg)
+	input, err := newInput(cfg.Input, cfg.InProtoCfg, NewUplinkCounter(cfg.UUID, cfg.Input), NewDownlinkCounter(cfg.UUID, cfg.Input))
 	if err != nil {
 		return nil, err
 	}
 
-	output, err := NewOutput(cfg.Output, cfg.OutProtoCfg, cfg.OutExtend)
+	output, err := NewOutput(cfg.Output, cfg.OutProtoCfg, cfg.OutExtend, NewDownlinkCounter(cfg.UUID, cfg.Output), NewUplinkCounter(cfg.UUID, cfg.Output))
 	if err != nil {
 		return nil, err
 	}

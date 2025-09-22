@@ -3,6 +3,7 @@ package tun
 import (
 	"errors"
 	"github.com/0990/gotun/core"
+	"github.com/0990/gotun/pkg/stats"
 	"net"
 )
 
@@ -12,18 +13,18 @@ type input interface {
 	SetOnNewStream(func(stream core.IStream))
 }
 
-func newInput(input string, config string) (input, error) {
+func newInput(input string, config string, readCounter, writeCounter stats.Counter) (input, error) {
 	proto, addr, err := parseProtocol(input)
 	if err != nil {
 		return nil, err
 	}
 	switch proto {
 	case TCP:
-		return NewInputTCP(addr, config)
+		return NewInputTCP(addr, config, readCounter, writeCounter)
 	case TcpMux:
-		return NewInputTcpMux(addr, config)
+		return NewInputTcpMux(addr, config, readCounter, writeCounter)
 	case UDP:
-		return NewInputUDP(addr, config)
+		return NewInputUDP(addr, config, readCounter, writeCounter)
 	case QUIC:
 		return NewInputQUIC(addr, config)
 	case KCP:
@@ -31,7 +32,7 @@ func newInput(input string, config string) (input, error) {
 	case KcpMux:
 		return NewInputKCPMux(addr, config)
 	case Socks5X:
-		return NewInputSocks5X(addr, config)
+		return NewInputSocks5X(addr, config, readCounter, writeCounter)
 	default:
 		return nil, errors.New("unknown protocol")
 	}
