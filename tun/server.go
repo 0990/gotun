@@ -2,6 +2,7 @@ package tun
 
 import (
 	"fmt"
+
 	"github.com/0990/gotun/core"
 	"github.com/sirupsen/logrus"
 )
@@ -16,12 +17,12 @@ type Server struct {
 }
 
 func NewServer(cfg Config) (*Server, error) {
-	input, err := newInput(cfg.Input, cfg.InProtoCfg, NewUplinkCounter(cfg.UUID, cfg.Input), NewDownlinkCounter(cfg.UUID, cfg.Input))
+	input, err := newInput(cfg.Input, cfg.InProtoCfg, NewUplinkCounter(cfg.Name, cfg.Input), NewDownlinkCounter(cfg.Name, cfg.Input))
 	if err != nil {
 		return nil, err
 	}
 
-	output, err := NewOutput(cfg.Output, cfg.OutProtoCfg, cfg.OutExtend, NewDownlinkCounter(cfg.UUID, cfg.Output), NewUplinkCounter(cfg.UUID, cfg.Output))
+	output, err := NewOutput(cfg.Output, cfg.OutProtoCfg, cfg.OutExtend, NewDownlinkCounter(cfg.Name, cfg.Output), NewUplinkCounter(cfg.Name, cfg.Output))
 	if err != nil {
 		return nil, err
 	}

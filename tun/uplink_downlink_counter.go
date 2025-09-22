@@ -1,9 +1,10 @@
 package tun
 
 import (
+	"sync/atomic"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"sync/atomic"
 )
 
 // prometheus 指标
@@ -13,7 +14,7 @@ var (
 			Name: "conn_bytes_uplink_total",
 			Help: "Total bytes uplink from connections",
 		},
-		[]string{"uuid", "io"},
+		[]string{"name", "io"},
 	)
 
 	connBytesDownlinkTotal = promauto.NewCounterVec(
@@ -21,7 +22,7 @@ var (
 			Name: "conn_bytes_downlink_total",
 			Help: "Total bytes downlink to connections",
 		},
-		[]string{"uuid", "io"},
+		[]string{"name", "io"},
 	)
 
 	//暂未分类的使用这个
@@ -30,19 +31,19 @@ var (
 			Name: "conn_bytes_common_total",
 			Help: "Total bytes common to connections",
 		},
-		[]string{"uuid", "io"},
+		[]string{"name", "io"},
 	)
 )
 
-func NewUplinkCounter(uuid string, io string) *UplinkCounter {
+func NewUplinkCounter(name string, io string) *UplinkCounter {
 	return &UplinkCounter{
-		uuid: uuid,
+		name: name,
 		io:   io,
 	}
 }
 
 type UplinkCounter struct {
-	uuid  string
+	name  string
 	io    string
 	value int64
 }
@@ -53,19 +54,19 @@ func (p *UplinkCounter) Value() int64 {
 
 // Add adds a value to the current counter value, and returns the previous value.
 func (p *UplinkCounter) Add(v int64) int64 {
-	connBytesUplinkTotal.WithLabelValues(p.uuid, p.io).Add(float64(v))
+	connBytesUplinkTotal.WithLabelValues(p.name, p.io).Add(float64(v))
 	return atomic.AddInt64(&p.value, v)
 }
 
-func NewDownlinkCounter(uuid string, io string) *DownlinkCounter {
+func NewDownlinkCounter(name string, io string) *DownlinkCounter {
 	return &DownlinkCounter{
-		uuid: uuid,
+		name: name,
 		io:   io,
 	}
 }
 
 type DownlinkCounter struct {
-	uuid  string
+	name  string
 	io    string
 	value int64
 }
@@ -76,19 +77,19 @@ func (p *DownlinkCounter) Value() int64 {
 
 // Add adds a value to the current counter value, and returns the previous value.
 func (p *DownlinkCounter) Add(v int64) int64 {
-	connBytesDownlinkTotal.WithLabelValues(p.uuid, p.io).Add(float64(v))
+	connBytesDownlinkTotal.WithLabelValues(p.name, p.io).Add(float64(v))
 	return atomic.AddInt64(&p.value, v)
 }
 
-func NewCommonCounter(uuid string, io string) *CommonCounter {
+func NewCommonCounter(name string, io string) *CommonCounter {
 	return &CommonCounter{
-		uuid: uuid,
+		name: name,
 		io:   io,
 	}
 }
 
 type CommonCounter struct {
-	uuid  string
+	name  string
 	io    string
 	value int64
 }
@@ -99,6 +100,6 @@ func (p *CommonCounter) Value() int64 {
 
 // Add adds a value to the current counter value, and returns the previous value.
 func (p *CommonCounter) Add(v int64) int64 {
-	connBytesCommonTotal.WithLabelValues(p.uuid, p.io).Add(float64(v))
+	connBytesCommonTotal.WithLabelValues(p.name, p.io).Add(float64(v))
 	return atomic.AddInt64(&p.value, v)
 }

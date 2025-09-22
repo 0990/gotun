@@ -1,9 +1,10 @@
 package tun
 
 import (
-	"github.com/0990/gotun/pkg/stats"
 	"net"
 	"sync/atomic"
+
+	"github.com/0990/gotun/pkg/stats"
 )
 
 // 统计流量的包装器
