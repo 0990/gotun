@@ -19,6 +19,13 @@ var (
 		Help:        "The total number of processed events",
 		ConstLabels: nil,
 	}, []string{"idx"})
+
+	openStreamHistogram = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:        "open_stream_duration_seconds",
+		Help:        "Time taken to open stream.",
+		Buckets:     []float64{0.01, 0.05, 0.2, 0.5, 2, 4, 10},
+		ConstLabels: nil,
+	}, []string{"status"})
 )
 
 type output interface {
@@ -126,7 +133,15 @@ func (p *Output) Run() error {
 
 // 默认通过makeStream临时创建，不存在makeStream时，则一定从streamMaker池中取streamMaker来创建stream(多路复用情况下)
 func (p *Output) GetStream() (core.IStream, error) {
+	now := time.Now()
+	status := ""
+	defer func() {
+		duration := time.Since(now).Seconds()
+		openStreamHistogram.WithLabelValues(status).Observe(duration)
+	}()
+
 	if p.makeStream != nil {
+		status = "makeStream"
 		return p.makeStream(p.addr, p.config, p.readCounter, p.writeCounter)
 	}
 
@@ -136,6 +151,7 @@ func (p *Output) GetStream() (core.IStream, error) {
 
 	idx, maker, ok := p.getStreamMaker()
 	if ok {
+		status = "openStream"
 		connStreamGauge.WithLabelValues(util.ToString(idx)).Add(1)
 		return maker.OpenStream()
 	}
@@ -143,10 +159,12 @@ func (p *Output) GetStream() (core.IStream, error) {
 	logrus.Warn("start waitStreamMakerCreated")
 	idx, maker, err := p.waitStreamMakerCreated()
 	if err == nil {
+		status = "waitMaker"
 		connStreamGauge.WithLabelValues(util.ToString(idx)).Add(1)
 		return maker.OpenStream()
 	}
 
+	status = "returnError"
 	logrus.WithError(err).Warn("waitStreamMakerCreated failed")
 	return nil, err
 }
