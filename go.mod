@@ -5,7 +5,7 @@ go 1.24.3
 
 require (
 	github.com/0990/httpproxy v0.0.1
-	github.com/0990/socks5 v1.0.8
+	github.com/0990/socks5 v1.0.9
 	github.com/abbot/go-http-auth v0.4.0
 	github.com/fatedier/golib v0.5.1
 	github.com/go-sql-driver/mysql v1.9.3

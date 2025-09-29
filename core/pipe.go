@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/0990/gotun/pkg/pool"
 	"io"
+	"sync/atomic"
 	"time"
 )
 
@@ -12,33 +13,66 @@ const SocketBufSize = 20480
 const MaxSegmentSize = 65535
 
 func Pipe(left IStream, right IStream, timeout time.Duration) error {
-	results := make(chan error, 2)
-	defer close(results)
+	// 使用一个原子变量记录最近一次数据活动的时间（UnixNano格式）
+	var lastActivity int64 = time.Now().UnixNano()
 
+	// 辅助函数：更新活动时间
+	updateActivity := func() {
+		atomic.StoreInt64(&lastActivity, time.Now().UnixNano())
+	}
+
+	// 启动全局监控协程
+	stopMonitor := make(chan struct{})
 	go func() {
-		_, err := unidirectionalStream(left, right, timeout)
-		results <- err
-		left.SetReadDeadline(time.Now())
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				last := atomic.LoadInt64(&lastActivity)
+				if time.Since(time.Unix(0, last)) > timeout {
+					// 当全局无活动超过timeout，关闭连接
+					left.SetReadDeadline(time.Now())
+					right.SetReadDeadline(time.Now())
+					return
+				}
+			case <-stopMonitor:
+				return
+			}
+		}
 	}()
 
-	_, err := unidirectionalStream(right, left, timeout)
-	results <- err
+	// 启动双向转发
+	results := make(chan error, 2)
+	go func() {
+		_, err := unidirectionalStream(left, right, updateActivity)
+		left.SetReadDeadline(time.Now())
+		results <- err
+	}()
+	_, err := unidirectionalStream(right, left, updateActivity)
 	right.SetReadDeadline(time.Now())
+	results <- err
 
+	// 停止监控
+	close(stopMonitor)
+
+	// 只返回第一个出错的结果
 	first := <-results
 	<-results
 	return first
 }
 
-func unidirectionalStream(dst IStream, src IStream, timeout time.Duration) (written int64, err error) {
+// unidirectionalStream 将数据从 src 拷贝到 dst, 每次拷贝数据时调用 activityCallback 通知活动
+func unidirectionalStream(dst IStream, src IStream, activityCallback func()) (written int64, err error) {
 	buf := pool.GetBuf(SocketBufSize)
 	defer pool.PutBuf(buf)
+
 	for {
-		if timeout != 0 {
-			src.SetReadDeadline(time.Now().Add(timeout))
-		}
+		// 这里不设置独立的超时，转而依靠全局监控
 		nr, er := src.Read(buf)
 		if nr > 0 {
+			// 数据到达，更新活动时间
+			activityCallback()
 			nw, ew := dst.Write(buf[0:nr])
 			if nw < 0 || nr < nw {
 				nw = 0

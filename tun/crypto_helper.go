@@ -66,13 +66,21 @@ func (c *CryptoHelper) Pipe(dst, src core.IStream) {
 		"id":        id,
 	})
 
+	now := time.Now()
 	log.Debug("stream opened")
-	defer log.Debug("stream closed")
+	closeReason := "eof"
+	defer func() {
+		log.WithFields(logrus.Fields{
+			"duration": int(time.Since(now).Seconds()),
+			"reason":   closeReason,
+		}).Debug("stream closed")
+	}()
 
 	err := c.pipe(dst, src, id)
 	if err != nil {
 		if !errors.Is(err, io.EOF) {
-			log.WithError(err).Debug("pipe end")
+			closeReason = err.Error()
+			//log.WithError(err).Debug("pipe end")
 		}
 	}
 }
@@ -105,7 +113,7 @@ func (c *CryptoHelper) pipe(dst, src core.IStream, id string) error {
 		return nil
 	}
 
-	return core.Pipe(in, out, time.Second*60)
+	return core.Pipe(in, out, time.Second*300)
 }
 
 func (c *CryptoHelper) SrcReaderWriter(rw io.ReadWriter) (io.ReadWriter, error) {
