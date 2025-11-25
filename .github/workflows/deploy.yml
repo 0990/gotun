@@ -1,17 +1,21 @@
-name: deploy.yml
+name: Deploy
 on:
   workflow_dispatch:
     inputs:
+      targets:
+        description: '要部署的主机数组（JSON），例如 ["LOCAL30"]'
+        required: true
+        default: '["LOCAL30","LOCAL31","HK","SG"]'
       ref:
         required: true
-        default: "main"
+        default: "master"
 
 jobs:
   deploy:
     runs-on: self-hosted
     strategy:
       matrix:
-        host: [LOCAL30,LOCAL31, HK, SG]  # logical names
+        host: ${{ fromJson(inputs.targets) }}
       fail-fast: false
     env:
       GO_VERSION: "1.24.3"
