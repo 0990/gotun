@@ -11,23 +11,30 @@ jobs:
     runs-on: self-hosted
     strategy:
       matrix:
-        host: [local30,local31, hk, sg]  # logical names
+        host: [LOCAL30,LOCAL31, HK, SG]  # logical names
       fail-fast: false
     env:
       GO_VERSION: "1.24.3"
     steps:
-      - uses: actions/checkout@v4
-        with: { ref: ${{ github.event.inputs.ref }} }
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref }}
 
-      - uses: actions/setup-go@v5
-        with: { go-version: ${{ env.GO_VERSION }} }
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
 
-      - run: |
+      - name: Build binary
+        run: |
           go mod download
           go build -o gotun ./cmd/main.go
 
-      - uses: webfactory/ssh-agent@v0.9.0
-        with: { ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }} }
+      - name: Add SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Deploy to ${{ matrix.host }}
         env:
@@ -35,7 +42,7 @@ jobs:
           SSH_USER: ${{ secrets[format('SSH_USER_{0}', matrix.host)] || 'root' }}
           SSH_PORT: ${{ secrets[format('SSH_PORT_{0}', matrix.host)] || '22' }}
         run: |
-          scp -P "$SSH_PORT" app "$SSH_USER@$SSH_HOST:/data/gotun/gotun.new"
+          scp -P "$SSH_PORT" gotun "$SSH_USER@$SSH_HOST:/data/gotun/gotun.new"
           ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" <<'EOF'
           set -e
           sudo systemctl stop gotun
