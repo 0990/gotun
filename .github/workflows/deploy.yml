@@ -1,0 +1,47 @@
+name: deploy.yml
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        required: true
+        default: "main"
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    strategy:
+      matrix:
+        host: [local30,local31, hk, sg]  # logical names
+      fail-fast: false
+    env:
+      GO_VERSION: "1.24.3"
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: ${{ github.event.inputs.ref }} }
+
+      - uses: actions/setup-go@v5
+        with: { go-version: ${{ env.GO_VERSION }} }
+
+      - run: |
+          go mod download
+          go build -o gotun ./cmd/main.go
+
+      - uses: webfactory/ssh-agent@v0.9.0
+        with: { ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }} }
+
+      - name: Deploy to ${{ matrix.host }}
+        env:
+          SSH_HOST: ${{ secrets[format('SSH_HOST_{0}', matrix.host)] }}
+          SSH_USER: ${{ secrets[format('SSH_USER_{0}', matrix.host)] || 'root' }}
+          SSH_PORT: ${{ secrets[format('SSH_PORT_{0}', matrix.host)] || '22' }}
+        run: |
+          scp -P "$SSH_PORT" app "$SSH_USER@$SSH_HOST:/data/gotun/gotun.new"
+          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" <<'EOF'
+          set -e
+          sudo systemctl stop gotun
+          cp /data/gotun/gotun /data/gotun/gotun.old
+          mv /data/gotun/gotun.new /data/gotun/gotun
+          sudo systemctl start gotun
+          sudo systemctl status gotun --no-pager -l
+          EOF
+
