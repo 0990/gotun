@@ -19,6 +19,7 @@ jobs:
       fail-fast: false
     env:
       GO_VERSION: "1.24.3"
+      GOPROXY: "https://goproxy.cn,direct"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -35,19 +36,18 @@ jobs:
           go mod download
           go build -o gotun ./cmd/main.go
 
-      - name: Add SSH key
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
       - name: Deploy to ${{ matrix.host }}
         env:
           SSH_HOST: ${{ secrets[format('SSH_HOST_{0}', matrix.host)] }}
           SSH_USER: ${{ secrets[format('SSH_USER_{0}', matrix.host)] || 'root' }}
           SSH_PORT: ${{ secrets[format('SSH_PORT_{0}', matrix.host)] || '22' }}
+          SSH_PASS: ${{ secrets[format('SSH_PASSWORD_{0}', matrix.host)] }}
         run: |
-          scp -P "$SSH_PORT" gotun "$SSH_USER@$SSH_HOST:/data/gotun/gotun.new"
-          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" <<'EOF'
+          sudo apt-get update -y
+          sudo apt-get install -y sshpass
+
+          sshpass -p "$SSH_PASS" scp -P "$SSH_PORT" gotun "$SSH_USER@$SSH_HOST:/data/gotun/gotun.new"
+          sshpass -p "$SSH_PASS" ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" <<'EOF'
           set -e
           sudo systemctl stop gotun
           cp /data/gotun/gotun /data/gotun/gotun.old
@@ -55,4 +55,3 @@ jobs:
           sudo systemctl start gotun
           sudo systemctl status gotun --no-pager -l
           EOF
-
