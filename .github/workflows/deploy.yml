@@ -43,8 +43,10 @@ jobs:
           SSH_PORT: ${{ secrets[format('SSH_PORT_{0}', matrix.host)] || '22' }}
           SSH_PASS: ${{ secrets[format('SSH_PASSWORD_{0}', matrix.host)] }}
         run: |
-          sshpass -p "$SSH_PASS" scp -P "$SSH_PORT" gotun "$SSH_USER@$SSH_HOST:/data/gotun/gotun.new"
-          sshpass -p "$SSH_PASS" ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" <<'EOF'
+          SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PreferredAuthentications=password -o PubkeyAuthentication=no"
+
+          sshpass -p "$SSH_PASS" scp $SSH_OPTS -P "$SSH_PORT" gotun "$SSH_USER@$SSH_HOST:/data/gotun/gotun.new"
+          sshpass -p "$SSH_PASS" ssh $SSH_OPTS -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" <<'EOF'
           set -e
           systemctl stop gotun
           cp /data/gotun/gotun /data/gotun/gotun.old
