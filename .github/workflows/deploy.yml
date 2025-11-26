@@ -43,8 +43,10 @@ jobs:
           SSH_PORT: ${{ secrets[format('SSH_PORT_{0}', matrix.host)] || '22' }}
           SSH_PASS: ${{ secrets[format('SSH_PASSWORD_{0}', matrix.host)] }}
         run: |
-          apt-get update -y
-          apt-get install -y sshpass
+          if ! command -v sshpass >/dev/null 2>&1; then
+            echo "sshpass not found on runner. Install sshpass or allow passwordless sudo to install it." >&2
+            exit 1
+          fi
 
           sshpass -p "$SSH_PASS" scp -P "$SSH_PORT" gotun "$SSH_USER@$SSH_HOST:/data/gotun/gotun.new"
           sshpass -p "$SSH_PASS" ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" <<'EOF'
