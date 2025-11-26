@@ -64,7 +64,7 @@ type InProtoSocks5X struct {
 var defaultInSocks5XConfig = InProtoSocks5X{
 	UserName:          "",
 	Password:          "",
-	TCPTimeout:        120,
+	TCPTimeout:        300,
 	UDPAdvertisedIP:   "",
 	UDPAdvertisedPort: 0,
 }

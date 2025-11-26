@@ -54,7 +54,7 @@ func createAppConfigFile(fileName string) (*AppConfig, error) {
 		Socks5XServer: Socks5XServerConfig{
 			ListenPort: 1080,
 			UDPTimout:  120,
-			TCPTimeout: 120,
+			TCPTimeout: 300,
 		},
 	}
 
