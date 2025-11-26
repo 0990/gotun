@@ -43,15 +43,15 @@ jobs:
           SSH_PORT: ${{ secrets[format('SSH_PORT_{0}', matrix.host)] || '22' }}
           SSH_PASS: ${{ secrets[format('SSH_PASSWORD_{0}', matrix.host)] }}
         run: |
-          sudo apt-get update -y
-          sudo apt-get install -y sshpass
+          apt-get update -y
+          apt-get install -y sshpass
 
           sshpass -p "$SSH_PASS" scp -P "$SSH_PORT" gotun "$SSH_USER@$SSH_HOST:/data/gotun/gotun.new"
           sshpass -p "$SSH_PASS" ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" <<'EOF'
           set -e
-          sudo systemctl stop gotun
+          systemctl stop gotun
           cp /data/gotun/gotun /data/gotun/gotun.old
           mv /data/gotun/gotun.new /data/gotun/gotun
-          sudo systemctl start gotun
-          sudo systemctl status gotun --no-pager -l
+          systemctl start gotun
+          systemctl status gotun --no-pager -l
           EOF
