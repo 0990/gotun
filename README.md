@@ -1,5 +1,13 @@
 # gotun
-tcp/udp转发器，可构建加密安全通道
+tcp/udp转发器，可将明文流量转换为加密流量在公网上传输，如下图所示
+
+明文在公网上传输
+
+![tunnel](doc/unencrypted.png)
+
+加密流量在公网上传输
+
+![tunnel](doc/encrypted.png)
 
 ## Feature
 * 支持tcp,udp,quic,kcp流量转发
