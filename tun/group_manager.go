@@ -18,6 +18,7 @@ type GroupManager struct {
 func NewGroupManager(dir string) *GroupManager {
 	return &GroupManager{
 		services: make(map[string]Service),
+		groups:   make(map[string]*Group),
 		lock:     sync.RWMutex{},
 		dir:      dir,
 	}

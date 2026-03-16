@@ -78,7 +78,7 @@ func (p *inputQUIC) serve() {
 	}
 }
 
-func (p *inputQUIC) handleSession(session quic.Connection) {
+func (p *inputQUIC) handleSession(session *quic.Conn) {
 	defer session.CloseWithError(1, "quic server close session")
 
 	for {

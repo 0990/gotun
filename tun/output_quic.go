@@ -12,11 +12,11 @@ import (
 )
 
 type QUICConn struct {
-	quic.Connection
+	*quic.Conn
 }
 
 func (c *QUICConn) OpenStream() (core.IStream, error) {
-	stream, err := c.Connection.OpenStream()
+	stream, err := c.Conn.OpenStream()
 	return &QUICStream{
 		Stream:     stream,
 		localAddr:  c.LocalAddr(),
@@ -29,11 +29,11 @@ func (c *QUICConn) IsClosed() bool {
 }
 
 func (c *QUICConn) Close() error {
-	return c.Connection.CloseWithError(0, "")
+	return c.Conn.CloseWithError(0, "")
 }
 
 type QUICStream struct {
-	quic.Stream
+	*quic.Stream
 
 	localAddr, remoteAddr net.Addr
 }
@@ -63,5 +63,5 @@ func dialQUICBuilder(ctx context.Context, addr string, config string, readCounte
 	if err != nil {
 		return nil, err
 	}
-	return &QUICConn{Connection: session}, nil
+	return &QUICConn{Conn: session}, nil
 }

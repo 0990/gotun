@@ -61,8 +61,8 @@ func List(mgr *tun.GroupManager, version string) func(writer http.ResponseWriter
 			cfg := v.Cfg()
 			status := v.Status()
 			cfgs = append(cfgs, ConfigX{
-				Config: cfg,
-				Status: status,
+				GroupConfig: cfg,
+				Status:      status,
 			})
 		}
 
@@ -70,15 +70,15 @@ func List(mgr *tun.GroupManager, version string) func(writer http.ResponseWriter
 			return cfgs[i].CreatedAt.Unix() > cfgs[j].CreatedAt.Unix()
 		})
 
-		var records []model.Tunnel
+		var records []model.Group
 		for _, cfg := range cfgs {
-			record := Config2Model(cfg.Config)
+			record := Config2Model(cfg.GroupConfig)
 			record.Status = cfg.Status
 			records = append(records, record)
 		}
 
 		if records == nil {
-			records = make([]model.Tunnel, 0)
+			records = make([]model.Group, 0)
 		}
 
 		totalNums := len(records)
@@ -128,7 +128,7 @@ func Create(mgr *tun.GroupManager) func(writer http.ResponseWriter, request *htt
 			panic(err.Error())
 		}
 
-		data := model.Tunnel{}
+		data := model.Group{}
 		err = json.Unmarshal(body, &data)
 		if err != nil {
 			panic(err.Error())
@@ -156,7 +156,7 @@ func Create(mgr *tun.GroupManager) func(writer http.ResponseWriter, request *htt
 	}
 }
 
-func addTunByModel(mgr *tun.GroupManager, m model.Tunnel) error {
+func addTunByModel(mgr *tun.GroupManager, m model.Group) error {
 	cfg, err := Model2Config(&m)
 	if err != nil {
 		return err
@@ -165,7 +165,7 @@ func addTunByModel(mgr *tun.GroupManager, m model.Tunnel) error {
 	now := time.Now()
 	cfg.CreatedAt = now
 
-	err = mgr.AddService(*cfg, true)
+	err = mgr.AddGroup(*cfg, true)
 	if err != nil {
 		return err
 	}
@@ -176,6 +176,17 @@ func Model2Config(ls *model.Group) (*tun.GroupConfig, error) {
 	var result tun.GroupConfig
 	err := json.Unmarshal([]byte(ls.Cfg), &result)
 	return &result, err
+}
+
+func Config2Model(ls tun.GroupConfig) model.Group {
+	data, _ := json.Marshal(ls)
+	return model.Group{
+		UUID:      ls.UUID,
+		Name:      ls.Name,
+		Input:     ls.Input.Addr,
+		Outputs:   string(data),
+		CreatedAt: ParseTime2String(ls.CreatedAt),
+	}
 }
 
 // --TODO
@@ -222,7 +233,7 @@ func Edit(mgr *tun.GroupManager) func(writer http.ResponseWriter, request *http.
 			panic(err.Error())
 		}
 
-		data := model.Tunnel{}
+		data := model.Group{}
 		err = json.Unmarshal(body, &data)
 		if err != nil {
 			panic(err.Error())
@@ -233,7 +244,7 @@ func Edit(mgr *tun.GroupManager) func(writer http.ResponseWriter, request *http.
 			panic(err.Error())
 		}
 
-		err = mgr.RemoveServiceByUUID(cfg.UUID)
+		err = mgr.RemoveGroupByUUID(cfg.UUID)
 		if err != nil {
 			panic(err.Error())
 		}
@@ -277,7 +288,7 @@ func Delete(mgr *tun.GroupManager) func(writer http.ResponseWriter, request *htt
 			panic(err.Error())
 		}
 
-		data := model.Tunnel{}
+		data := model.Group{}
 		err = json.Unmarshal(body, &data)
 		if err != nil {
 			panic(err.Error())
@@ -288,7 +299,7 @@ func Delete(mgr *tun.GroupManager) func(writer http.ResponseWriter, request *htt
 			panic(err.Error())
 		}
 
-		err = mgr.RemoveService(cfg.Name)
+		err = mgr.RemoveGroup(cfg.Name)
 		if err != nil {
 			panic(err.Error())
 		}
@@ -327,7 +338,7 @@ func Import(mgr *tun.GroupManager) func(writer http.ResponseWriter, request *htt
 			panic(err.Error())
 		}
 
-		cfg := &model.Tunnel{}
+		cfg := &model.Group{}
 		err = json.Unmarshal(body, cfg)
 		if err != nil {
 			panic(err.Error())
@@ -369,12 +380,12 @@ func Export(mgr *tun.GroupManager) func(w http.ResponseWriter, request *http.Req
 
 		name := request.FormValue("name")
 
-		_, exist := mgr.GetService(name)
+		_, exist := mgr.GetGroup(name)
 		if !exist {
 			panic(errors.New("tun not exist"))
 		}
 
-		path := mgr.ServiceFile(name)
+		path := mgr.GroupFile(name)
 
 		filename := filepath.Base(path)
 
