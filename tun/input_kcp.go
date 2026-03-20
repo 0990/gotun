@@ -87,7 +87,7 @@ func (p *inputKCP) serve() {
 			}
 			return
 		}
-		conn.SetStreamMode(false)
+		conn.SetStreamMode(true)
 		conn.SetWriteDelay(p.cfg.WriteDelay)
 		conn.SetNoDelay(config.NoDelay, config.Interval, config.Resend, config.NoCongestion)
 		conn.SetMtu(config.MTU)

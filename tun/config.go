@@ -90,16 +90,16 @@ type KCPConfig struct {
 }
 
 var defaultKCPConfig = KCPConfig{
-	WriteDelay:   false,
-	MTU:          1300,
+	WriteDelay:   true,
+	MTU:          990,
 	SndWnd:       2048,
 	RcvWnd:       1024,
-	DataShard:    10,
-	ParityShard:  3,
+	DataShard:    0,
+	ParityShard:  0,
 	DSCP:         46,
 	AckNodelay:   true,
 	NoDelay:      0,
-	Interval:     40,
+	Interval:     30,
 	Resend:       0,
 	NoCongestion: 0,
 	SockBuf:      16777217,

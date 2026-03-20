@@ -3,10 +3,11 @@ package tun
 import (
 	"context"
 	"encoding/json"
+	"log"
+
 	"github.com/0990/gotun/core"
 	"github.com/0990/gotun/pkg/stats"
 	"github.com/xtaci/kcp-go/v5"
-	"log"
 )
 
 type KCPSession struct {
@@ -40,7 +41,7 @@ func dialKCPConn(ctx context.Context, addr string, config KCPConfig) (*kcp.UDPSe
 	if err != nil {
 		return nil, err
 	}
-	kcpConn.SetStreamMode(false)
+	kcpConn.SetStreamMode(true)
 	kcpConn.SetWriteDelay(config.WriteDelay)
 	kcpConn.SetMtu(config.MTU)
 	kcpConn.SetACKNoDelay(config.AckNodelay)
