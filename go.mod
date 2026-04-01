@@ -1,12 +1,12 @@
 module github.com/0990/gotun
 
 // +qoddi goVersion go1.20.5
-go 1.24.3
+go 1.26.1
 
 require (
 	github.com/0990/httpproxy v0.0.1
 	github.com/0990/kcp-go v0.0.0-20260320123648-2a37fc38f6cd
-	github.com/0990/kcpx-go v0.0.0-20260320124309-46f2993fcb7c
+	github.com/0990/kcpx-go v0.0.0-20260401104805-c93ebf0b98ed
 	github.com/0990/socks5 v1.0.9
 	github.com/abbot/go-http-auth v0.4.0
 	github.com/fatedier/golib v0.5.1
@@ -20,7 +20,7 @@ require (
 	github.com/quic-go/quic-go v0.59.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/xtaci/smux v1.5.35
-	golang.org/x/net v0.47.0
+	golang.org/x/net v0.52.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -32,7 +32,7 @@ require (
 	github.com/jehiah/go-strftime v0.0.0-20171201141054-1d33003b3869 // indirect
 	github.com/jonboulle/clockwork v0.4.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
-	github.com/klauspost/reedsolomon v1.12.5 // indirect
+	github.com/klauspost/reedsolomon v1.13.3 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/lestrrat/go-envload v0.0.0-20180220120943-6ed08b54a570 // indirect
 	github.com/lestrrat/go-strftime v0.0.0-20180220042222-ba3bf9c1d042 // indirect
@@ -43,11 +43,11 @@ require (
 	github.com/prometheus/procfs v0.16.1 // indirect
 	github.com/tebeka/strftime v0.1.5 // indirect
 	github.com/tjfoc/gmsm v1.4.1 // indirect
-	golang.org/x/crypto v0.45.0 // indirect
-	golang.org/x/sync v0.18.0 // indirect
-	golang.org/x/sys v0.38.0 // indirect
-	golang.org/x/text v0.31.0 // indirect
-	golang.org/x/time v0.14.0 // indirect
+	golang.org/x/crypto v0.49.0 // indirect
+	golang.org/x/sync v0.20.0 // indirect
+	golang.org/x/sys v0.42.0 // indirect
+	golang.org/x/text v0.35.0 // indirect
+	golang.org/x/time v0.15.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 )

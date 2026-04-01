@@ -1,3 +1,3 @@
 package gotun
 
-const Version = "v0.2.4"
+var Version = "dev"

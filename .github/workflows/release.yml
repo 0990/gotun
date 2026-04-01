@@ -28,3 +28,4 @@ jobs:
         goos: ${{ matrix.goos }}
         goarch: ${{ matrix.goarch }}
         project_path: "./cmd"
+        ldflags: -X github.com/0990/gotun.Version=${{ github.event.release.tag_name }}
