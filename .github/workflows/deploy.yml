@@ -7,6 +7,7 @@ on:
         required: true
         default: '["LOCAL30","LOCAL31","HK","SG"]'
       ref:
+        description: '部署的 git ref。填 tag（如 v0.2.5）会注入该版本；填分支（如 master）则版本为 dev'
         required: true
         default: "master"
 
@@ -39,11 +40,14 @@ jobs:
           VERSION=""
           INPUT_REF="${{ github.event.inputs.ref }}"
 
-          if git rev-parse -q --verify "refs/tags/${INPUT_REF}" >/dev/null; then
-            VERSION="${INPUT_REF}"
-          else
-            VERSION="$(git tag --points-at HEAD | head -n 1)"
-          fi
+          case "${INPUT_REF}" in
+            refs/tags/*)
+              VERSION="${INPUT_REF#refs/tags/}"
+              ;;
+            v*)
+              VERSION="${INPUT_REF}"
+              ;;
+          esac
 
           if [ -z "${VERSION}" ]; then
             VERSION="dev"
