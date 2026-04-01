@@ -31,6 +31,10 @@ func newInput(input string, config string, readCounter, writeCounter stats.Count
 		return NewInputKCP(addr, config)
 	case KcpMux:
 		return NewInputKCPMux(addr, config)
+	case KCPX:
+		return NewInputKCPX(addr, config)
+	case KCPXMux:
+		return NewInputKCPXMux(addr, config)
 	case Socks5X:
 		return NewInputSocks5X(addr, config, readCounter, writeCounter)
 	default:

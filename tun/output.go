@@ -62,6 +62,10 @@ func NewOutput(output string, config string, extendStr string, readCounter, writ
 		makeStream = dialKCP
 	case KcpMux:
 		makeStreamMaker = dialKCPBuilder
+	case KCPX:
+		makeStream = dialKCPX
+	case KCPXMux:
+		makeStreamMaker = dialKCPXBuilder
 	case UDP:
 		makeStream = dialUDP
 	default:

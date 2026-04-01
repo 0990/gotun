@@ -10,8 +10,10 @@ const (
 	QUIC
 	KCP
 	KcpMux
+	KCPX
+	KCPXMux
 	UDP
-	Socks5X = 6
+	Socks5X
 )
 
 func (p protocol) String() string {
@@ -26,6 +28,10 @@ func (p protocol) String() string {
 		return "kcp"
 	case KcpMux:
 		return "kcp_mux"
+	case KCPX:
+		return "kcpx"
+	case KCPXMux:
+		return "kcpx_mux"
 	case UDP:
 		return "udp"
 	case Socks5X:
@@ -47,6 +53,10 @@ func toProtocol(s string) (protocol, error) {
 		return KCP, nil
 	case "kcp_mux", "kcpmux":
 		return KcpMux, nil
+	case "kcpx":
+		return KCPX, nil
+	case "kcpx_mux":
+		return KCPXMux, nil
 	case "udp":
 		return UDP, nil
 	case "socks5x":

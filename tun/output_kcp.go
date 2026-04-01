@@ -7,7 +7,7 @@ import (
 
 	"github.com/0990/gotun/core"
 	"github.com/0990/gotun/pkg/stats"
-	"github.com/xtaci/kcp-go/v5"
+	kcp "github.com/0990/kcp-go"
 )
 
 type KCPSession struct {

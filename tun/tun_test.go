@@ -250,6 +250,89 @@ func Test_KCPMuxTun(t *testing.T) {
 	echoTCP(t, relayClientAddr)
 }
 
+func Test_KCPXTun(t *testing.T) {
+	targetAddr := "127.0.0.1:7107"
+	echo.StartTCPEchoServer(targetAddr)
+
+	relayClientAddr := "127.0.0.1:6100"
+	relayServerAddr := "127.0.0.1:6101"
+
+	s, err := NewServer(Config{
+		Name:          "",
+		Input:         fmt.Sprintf("kcpx@%s", relayServerAddr),
+		Output:        fmt.Sprintf("tcp@%s", targetAddr),
+		InDecryptKey:  "111111",
+		InDecryptMode: "gcm",
+		OutCryptKey:   "",
+		OutCryptMode:  "",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s.Run()
+
+	c, err := NewServer(Config{
+		Name:          "",
+		Input:         fmt.Sprintf("tcp@%s", relayClientAddr),
+		Output:        fmt.Sprintf("kcpx@%s", relayServerAddr),
+		InDecryptKey:  "",
+		InDecryptMode: "",
+		OutCryptKey:   "111111",
+		OutCryptMode:  "gcm",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c.Run()
+
+	time.Sleep(time.Second * 2)
+	echoTCP(t, relayClientAddr)
+}
+
+func Test_KCPXMuxTun(t *testing.T) {
+	targetAddr := "127.0.0.1:7108"
+	echo.StartTCPEchoServer(targetAddr)
+
+	relayClientAddr := "127.0.0.1:6102"
+	relayServerAddr := "127.0.0.1:6103"
+
+	s, err := NewServer(Config{
+		Name:          "",
+		Input:         fmt.Sprintf("kcpx_mux@%s", relayServerAddr),
+		Output:        fmt.Sprintf("tcp@%s", targetAddr),
+		InDecryptKey:  "111111",
+		InDecryptMode: "gcm",
+		OutCryptKey:   "",
+		OutCryptMode:  "",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s.Run()
+
+	c, err := NewServer(Config{
+		Name:          "",
+		Input:         fmt.Sprintf("tcp@%s", relayClientAddr),
+		Output:        fmt.Sprintf("kcpx_mux@%s", relayServerAddr),
+		InDecryptKey:  "",
+		InDecryptMode: "",
+		OutCryptKey:   "111111",
+		OutCryptMode:  "gcm",
+		OutExtend:     muxConnExtend(10),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c.Run()
+
+	time.Sleep(time.Second * 2)
+	echoTCP(t, relayClientAddr)
+}
+
 func echoTCP(t *testing.T, clientAddr string) error {
 	conn, err := net.Dial("tcp", clientAddr)
 	if err != nil {

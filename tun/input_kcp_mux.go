@@ -3,8 +3,8 @@ package tun
 import (
 	"encoding/json"
 	"github.com/0990/gotun/core"
+	kcp "github.com/0990/kcp-go"
 	"github.com/sirupsen/logrus"
-	"github.com/xtaci/kcp-go/v5"
 	"github.com/xtaci/smux"
 	"log"
 	"net"

@@ -1,0 +1,27 @@
+# web监听地址
+web_listen: 0.0.0.0:8080
+# web登录账号
+web_username: admin
+# web登录密码
+web_password: admin
+# 每小时登录失败限制次数
+web_login_fail_limit_in_hour: 10
+# 日志等级:debug/info/warn/error
+log_level: info
+# pprof监听地址,可为空
+pprof_listen: ""
+# prometheus监听地址,可为空
+prometheus_listen: ""
+# 内置服务配置
+build-in:
+    # 是否启用内置服务,总开关，false情况下不启用(会忽略下面的配置)
+    enable: false
+    # echo服务监听地址,用于测试，客户端向此端口发送什么就回什么，为空则不启动
+    echo_listen: 0.0.0.0:8081
+    # http代理服务监听地址,为空则不启动
+    http_proxy_listen: 0.0.0.0:3128
+    # socks5x服务配置,为空则不启动
+    socks5x_server:
+        listen_port: 1080
+        udp_timeout: 120
+        tcp_timeout: 120

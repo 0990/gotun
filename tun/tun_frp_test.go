@@ -99,6 +99,52 @@ func Test_Frp_KCPMuxTun(t *testing.T) {
 	echoTCP(t, relayClientAddr)
 }
 
+func Test_Frp_KCPXMuxTun(t *testing.T) {
+	logrus.SetLevel(logrus.DebugLevel)
+	targetAddr := "127.0.0.1:7109"
+	echoserver2.StartTCPEchoServer(targetAddr)
+
+	relayClientAddr := "127.0.0.1:6104"
+	workerServerAddr := "127.0.0.1:6105"
+
+	c, err := NewService(Config{
+		Name:          "",
+		Mode:          "frps",
+		Input:         fmt.Sprintf("tcp@%s", relayClientAddr),
+		Output:        fmt.Sprintf("kcpx_mux@%s", workerServerAddr),
+		InDecryptKey:  "",
+		InDecryptMode: "",
+		OutCryptKey:   "111111",
+		OutCryptMode:  "gcm",
+		OutExtend:     muxConnExtend(10),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c.Run()
+
+	s, err := NewService(Config{
+		Name:          "",
+		Mode:          "frpc",
+		Input:         fmt.Sprintf("kcpx_mux@%s", workerServerAddr),
+		Output:        fmt.Sprintf("tcp@%s", targetAddr),
+		InDecryptKey:  "111111",
+		InDecryptMode: "gcm",
+		InExtend:      muxConnExtend(10),
+		OutCryptKey:   "",
+		OutCryptMode:  "",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s.Run()
+
+	time.Sleep(time.Second * 2)
+	echoTCP(t, relayClientAddr)
+}
+
 // 测试未通过 udp内网穿透模式暂不支持
 func Test_Frp_UDPTun(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)

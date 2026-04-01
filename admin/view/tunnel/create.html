@@ -23,8 +23,10 @@
 <script type="text/javascript">
     module.exports = {
         data: function() {
+            const kcpxProtoCfg = '{"write_delay":true,"mtu":990,"sndwnd":1024,"rcvwnd":1024,"datashard":0,"parityshard":0,"dscp":46,"acknodelay":false,"nodelay":1,"interval":30,"resend":2,"nc":0,"sockbuf":16777217,"streambuf":4194304,"handshake_timeout_ms":10000,"handshake_retry_interval_ms":500,"handshake_max_retries":20,"heartbeat_interval_ms":10000,"heartbeat_timeout_ms":30000,"reconnect_retry_interval_ms":500,"reconnect_max_retries":20,"enable_auto_reconnect":true}';
             return {
                 routeId: this.id,
+                kcpxProtoCfg: kcpxProtoCfg,
                 info:{
                     name:'tcp客户端',
                     mode:'',
@@ -126,7 +128,7 @@
                         protoCfg = '{"head":""}';
                         break
                     case "udp":
-                        protoCfg = '{"timeout":60}';
+                        protoCfg = '{"timeout":90}';
                         break
                     case "quic":
                         protoCfg =  '';
@@ -134,10 +136,14 @@
                     case "kcp":
                     case "kcpmux":
                     case"kcp_mux":
-                        protoCfg =  '{"write_delay":false,"mtu":1300,"sndwnd":2048,"rcvwnd":1024,"datashard":10,"parityshard":3,"dscp":46,"acknodelay":true,"nodelay":0,"interval":40,"resend":0,"nc":0,"sockbuf":16777217,"streambuf":4194304}';
+                        protoCfg =  '{"write_delay":true,"mtu":990,"sndwnd":1024,"rcvwnd":1024,"datashard":0,"parityshard":0,"dscp":46,"acknodelay":false,"nodelay":1,"interval":30,"resend":2,"nc":0,"sockbuf":16777217,"streambuf":4194304}';
+                        break
+                    case "kcpx":
+                    case "kcpx_mux":
+                        protoCfg = this.kcpxProtoCfg;
                         break
                     case "socks5x":
-                        protoCfg = `{"username":"","password":"","tcp_timeout":120,"udp_advertised_ip":"","udp_advertised_port":0}`
+                        protoCfg = `{"username":"","password":"","tcp_timeout":500,"udp_advertised_ip":"","udp_advertised_port":0}`
                         break
                     default:
                 }
@@ -161,7 +167,7 @@
                         break
                     case "udp":
                         extend = '';
-                        protoCfg =  '{"timeout":60}';
+                        protoCfg =  '{"timeout":90}';
                         break
                     case "quic":
                         extend = '{"mux_conn":10}';
@@ -169,12 +175,20 @@
                         break
                     case "kcp":
                         extend = '';
-                        protoCfg =  '{"write_delay":false,"mtu":1300,"sndwnd":2048,"rcvwnd":1024,"datashard":10,"parityshard":3,"dscp":46,"acknodelay":true,"nodelay":0,"interval":40,"resend":0,"nc":0,"sockbuf":16777217,"streambuf":4194304}';
+                        protoCfg =  '{"write_delay":true,"mtu":990,"sndwnd":2048,"rcvwnd":1024,"datashard":0,"parityshard":0,"dscp":46,"acknodelay":false,"nodelay":1,"interval":30,"resend":2,"nc":0,"sockbuf":16777217,"streambuf":4194304}';
                         break
                     case "kcpmux":
                     case "kcp_mux":
                         extend = '{"mux_conn":10}';
-                        protoCfg =  '{"write_delay":false,"mtu":1300,"sndwnd":2048,"rcvwnd":1024,"datashard":10,"parityshard":3,"dscp":46,"acknodelay":true,"nodelay":0,"interval":40,"resend":0,"nc":0,"sockbuf":16777217,"streambuf":4194304}';
+                        protoCfg =  '{"write_delay":true,"mtu":990,"sndwnd":2048,"rcvwnd":1024,"datashard":0,"parityshard":0,"dscp":46,"acknodelay":false,"nodelay":1,"interval":30,"resend":2,"nc":0,"sockbuf":16777217,"streambuf":4194304}';
+                        break
+                    case "kcpx":
+                        extend = '';
+                        protoCfg = this.kcpxProtoCfg;
+                        break
+                    case "kcpx_mux":
+                        extend = '{"mux_conn":10}';
+                        protoCfg = this.kcpxProtoCfg;
                         break
                     default:
                 }

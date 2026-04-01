@@ -2,10 +2,11 @@ package tun
 
 import (
 	"encoding/json"
-	"github.com/0990/gotun/pkg/stats"
-	"github.com/sirupsen/logrus"
 	"net"
 	"time"
+
+	"github.com/0990/gotun/pkg/stats"
+	"github.com/sirupsen/logrus"
 )
 
 type inputSocks5X struct {
@@ -87,5 +88,10 @@ func (p *inputSocks5X) handleConn(tcpConn net.Conn) {
 }
 
 func (p *inputSocks5X) Close() error {
-	return p.listener.Close()
+	if p.listener == nil {
+		return nil
+	}
+	err := p.listener.Close()
+	p.listener = nil
+	return err
 }
