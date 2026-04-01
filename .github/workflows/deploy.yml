@@ -32,10 +32,29 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: false
 
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          VERSION=""
+          INPUT_REF="${{ github.event.inputs.ref }}"
+
+          if git rev-parse -q --verify "refs/tags/${INPUT_REF}" >/dev/null; then
+            VERSION="${INPUT_REF}"
+          else
+            VERSION="$(git tag --points-at HEAD | head -n 1)"
+          fi
+
+          if [ -z "${VERSION}" ]; then
+            VERSION="dev"
+          fi
+
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
       - name: Build binary
         run: |
           go mod download
-          go build -o gotun ./cmd/main.go
+          go build -ldflags "-X github.com/0990/gotun.Version=${{ steps.version.outputs.version }}" -o gotun ./cmd/main.go
 
       - name: Deploy to ${{ matrix.host }}
         env:
