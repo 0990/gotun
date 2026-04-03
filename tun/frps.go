@@ -153,3 +153,15 @@ func (s *Frps) sayStart(dst core.IStream) error {
 	}
 	return nil
 }
+
+func (s *Frps) QualitySummary() QualitySummary {
+	return QualitySummary{Status: QualityStatusDisabled}
+}
+
+func (s *Frps) QualityDetails() map[string]QualitySnapshot {
+	return map[string]QualitySnapshot{}
+}
+
+func (s *Frps) QuickProbe() bool {
+	return false
+}

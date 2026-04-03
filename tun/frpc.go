@@ -6,6 +6,7 @@ import (
 	"github.com/0990/gotun/core"
 	"github.com/0990/gotun/pkg/msg"
 	"github.com/sirupsen/logrus"
+	"time"
 )
 
 const FrpWorkerCount = 10
@@ -16,17 +17,19 @@ type Frpc struct {
 	output       output
 	cryptoHelper *CryptoHelper
 
-	ctl *frpcController
+	ctl          *frpcController
+	outputProbe  *FrameProbeRunner
+	frameStreams *FrameStreamRegistry
 	StatusX
 }
 
 func NewFrpc(cfg Config) (*Frpc, error) {
-	worker, err := NewOutput(cfg.Input, cfg.InProtoCfg, cfg.InExtend, NewCommonCounter(cfg.UUID, cfg.Input), NewCommonCounter(cfg.UUID, cfg.Input))
+	worker, err := NewOutput(cfg.Name, cfg.Input, cfg.InProtoCfg, cfg.InExtend, NewCommonCounter(cfg.UUID, cfg.Input), NewCommonCounter(cfg.UUID, cfg.Input))
 	if err != nil {
 		return nil, err
 	}
 
-	output, err := NewOutput(cfg.Output, cfg.OutProtoCfg, cfg.OutExtend, NewCommonCounter(cfg.UUID, cfg.Output), NewCommonCounter(cfg.UUID, cfg.Output))
+	output, err := NewOutput(cfg.Name, cfg.Output, cfg.OutProtoCfg, cfg.OutExtend, NewCommonCounter(cfg.UUID, cfg.Output), NewCommonCounter(cfg.UUID, cfg.Output))
 	if err != nil {
 		return nil, err
 	}
@@ -41,6 +44,7 @@ func NewFrpc(cfg Config) (*Frpc, error) {
 		worker:       worker,
 		output:       output,
 		cryptoHelper: c,
+		frameStreams: &FrameStreamRegistry{},
 	}
 
 	ctl := newFrpcController(worker.GetStream, s.startWorker, c.SrcCrypto)
@@ -67,6 +71,7 @@ func (s *Frpc) Run() error {
 	s.SetStatus("ctx run...")
 	s.ctl.Run(s.SetStatus)
 	s.SetStatus("running")
+	s.startProbe()
 	return nil
 }
 
@@ -74,6 +79,9 @@ func (s *Frpc) Close() error {
 	s.worker.Close()
 	s.output.Close()
 	s.ctl.Close()
+	if s.outputProbe != nil {
+		s.outputProbe.Close()
+	}
 	return nil
 }
 func (s *Frpc) Cfg() Config {
@@ -96,7 +104,22 @@ func (s *Frpc) handleWorkerStream(src core.IStream) {
 	}
 	defer dst.Close()
 
-	s.cryptoHelper.Pipe(dst, src)
+	dstStream, err := s.cryptoHelper.WrapDst(dst)
+	if err != nil {
+		logrus.WithError(err).Error("wrap dst")
+		return
+	}
+	srcStream, err := s.cryptoHelper.WrapSrc(src)
+	if err != nil {
+		logrus.WithError(err).Error("wrap src")
+		return
+	}
+	if frameStream, ok := dstStream.(*FrameStream); ok {
+		s.frameStreams.Add(frameStream)
+		defer s.frameStreams.Remove(frameStream)
+	}
+
+	s.cryptoHelper.PipePrepared(dstStream, srcStream)
 }
 
 func (s *Frpc) sayHelloAndWait(src core.IStream) error {
@@ -133,4 +156,28 @@ func (s *Frpc) startWorker(count int32) error {
 		go s.handleWorkerStream(stream)
 	}
 	return nil
+}
+
+func (s *Frpc) QualitySummary() QualitySummary {
+	return s.output.QualitySummary()
+}
+
+func (s *Frpc) QualityDetails() map[string]QualitySnapshot {
+	return map[string]QualitySnapshot{
+		"output": s.output.QualitySnapshot(),
+	}
+}
+
+func (s *Frpc) startProbe() {
+	if s.output.FrameHeaderEnabled() {
+		s.outputProbe = NewFrameProbeRunner(s.frameStreams, outputTracker(s.output), s.output.ProbeConfig())
+		s.outputProbe.Run()
+	}
+}
+
+func (s *Frpc) QuickProbe() bool {
+	if s.outputProbe == nil {
+		return false
+	}
+	return s.outputProbe.TriggerQuickProbe(time.Minute)
 }

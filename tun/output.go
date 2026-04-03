@@ -32,12 +32,16 @@ type output interface {
 	Run() error
 	Close() error
 	GetStream() (core.IStream, error)
+	QualitySnapshot() QualitySnapshot
+	QualitySummary() QualitySummary
+	FrameHeaderEnabled() bool
+	ProbeConfig() Extend
 }
 
 type makeStreamFunc func(addr string, config string, readCounter, writeCounter stats.Counter) (core.IStream, error)
 type makeStreamMakerFunc = func(ctx context.Context, addr string, config string, readCounter, writeCounter stats.Counter) (core.IStreamMaker, error)
 
-func NewOutput(output string, config string, extendStr string, readCounter, writeCounter stats.Counter) (output, error) {
+func NewOutput(name string, output string, config string, extendStr string, readCounter, writeCounter stats.Counter) (output, error) {
 	proto, addr, err := parseProtocol(output)
 	if err != nil {
 		return nil, err
@@ -81,6 +85,9 @@ func NewOutput(output string, config string, extendStr string, readCounter, writ
 	o.autoExpire = extend.AutoExpire
 	o.readCounter = readCounter
 	o.writeCounter = writeCounter
+	o.name = name
+	o.extend = extend
+	o.quality = NewQualityTracker(name, addr, readCounter, writeCounter, extend.FrameHeaderEnable, extend.ProbeWindowSize)
 	err = o.CheckCfg()
 	if err != nil {
 		return nil, err
@@ -95,6 +102,8 @@ type Output struct {
 
 	addr   string
 	config string
+	name   string
+	extend Extend
 
 	poolNum    int //此值>0时，会预先生成muxConnNum个连接，用于后续的多路复用，<=0时，每次都会新建连接
 	makerPools []*streamMakerContainer
@@ -106,6 +115,7 @@ type Output struct {
 
 	readCounter  stats.Counter
 	writeCounter stats.Counter
+	quality      *QualityTracker
 }
 
 func (p *Output) CheckCfg() error {
@@ -146,7 +156,13 @@ func (p *Output) GetStream() (core.IStream, error) {
 
 	if p.makeStream != nil {
 		status = "makeStream"
-		return p.makeStream(p.addr, p.config, p.readCounter, p.writeCounter)
+		stream, err := p.makeStream(p.addr, p.config, p.readCounter, p.writeCounter)
+		if err != nil {
+			p.quality.RecordOpenFailure()
+			return nil, err
+		}
+		p.quality.RecordOpenSuccess()
+		return p.wrapQualityStream(stream), nil
 	}
 
 	if p.poolNum <= 0 {
@@ -157,7 +173,13 @@ func (p *Output) GetStream() (core.IStream, error) {
 	if ok {
 		status = "openStream"
 		connStreamGauge.WithLabelValues(util.ToString(idx)).Add(1)
-		return maker.OpenStream()
+		stream, err := maker.OpenStream()
+		if err != nil {
+			p.quality.RecordOpenFailure()
+			return nil, err
+		}
+		p.quality.RecordOpenSuccess()
+		return p.wrapQualityStream(stream), nil
 	}
 
 	logrus.Warn("start waitStreamMakerCreated")
@@ -165,11 +187,18 @@ func (p *Output) GetStream() (core.IStream, error) {
 	if err == nil {
 		status = "waitMaker"
 		connStreamGauge.WithLabelValues(util.ToString(idx)).Add(1)
-		return maker.OpenStream()
+		stream, openErr := maker.OpenStream()
+		if openErr != nil {
+			p.quality.RecordOpenFailure()
+			return nil, openErr
+		}
+		p.quality.RecordOpenSuccess()
+		return p.wrapQualityStream(stream), nil
 	}
 
 	status = "returnError"
 	logrus.WithError(err).Warn("waitStreamMakerCreated failed")
+	p.quality.RecordOpenFailure()
 	return nil, err
 }
 
@@ -252,4 +281,45 @@ func (p *Output) Close() error {
 		}
 	}
 	return nil
+}
+
+func (p *Output) wrapQualityStream(stream core.IStream) core.IStream {
+	p.quality.RecordStreamOpen()
+	return &qualityStream{IStream: stream, tracker: p.quality}
+}
+
+func (p *Output) QualitySnapshot() QualitySnapshot {
+	return p.quality.Snapshot()
+}
+
+func (p *Output) QualitySummary() QualitySummary {
+	return p.quality.Summary()
+}
+
+func (p *Output) FrameHeaderEnabled() bool {
+	return p.extend.FrameHeaderEnable
+}
+
+func (p *Output) ProbeConfig() Extend {
+	return p.extend
+}
+
+type qualityStream struct {
+	core.IStream
+	tracker *QualityTracker
+	closed  atomic.Bool
+}
+
+func (s *qualityStream) Close() error {
+	if s.closed.CompareAndSwap(false, true) {
+		s.tracker.RecordStreamClose()
+	}
+	return s.IStream.Close()
+}
+
+func outputTracker(out output) *QualityTracker {
+	if concrete, ok := out.(*Output); ok {
+		return concrete.quality
+	}
+	return NewQualityTracker("", "", nil, nil, false, 0)
 }

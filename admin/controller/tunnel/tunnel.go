@@ -53,7 +53,8 @@ func List(mgr *tun.Manager, version string) func(writer http.ResponseWriter, req
 
 		type ConfigX struct {
 			tun.Config
-			Status string
+			Status  string
+			Quality tun.QualitySummary
 		}
 
 		var cfgs []ConfigX
@@ -61,8 +62,9 @@ func List(mgr *tun.Manager, version string) func(writer http.ResponseWriter, req
 			cfg := v.Cfg()
 			status := v.Status()
 			cfgs = append(cfgs, ConfigX{
-				Config: cfg,
-				Status: status,
+				Config:  cfg,
+				Status:  status,
+				Quality: v.QualitySummary(),
 			})
 		}
 
@@ -74,6 +76,7 @@ func List(mgr *tun.Manager, version string) func(writer http.ResponseWriter, req
 		for _, cfg := range cfgs {
 			record := Config2Model(cfg.Config)
 			record.Status = cfg.Status
+			record.QualitySummary = model.QualitySummary(cfg.Quality)
 			records = append(records, record)
 		}
 
@@ -96,6 +99,93 @@ func List(mgr *tun.Manager, version string) func(writer http.ResponseWriter, req
 					TotalPages:  int(totalPages),
 					CurrentPage: pageInt,
 				},
+			},
+		}
+
+		d, err := json.Marshal(&ret)
+		if err != nil {
+			panic(err.Error())
+		}
+
+		_, err = writer.Write(d)
+		if err != nil {
+			panic(err.Error())
+		}
+	}
+}
+
+func Quality(mgr *tun.Manager) func(w http.ResponseWriter, request *http.Request) {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		defer func() {
+			if err := recover(); err != nil {
+				msg, _ := json.Marshal(response.Ret{
+					Code: http.StatusInternalServerError,
+					Msg:  fmt.Sprintf("%v", err),
+				})
+				writer.Write(msg)
+			}
+		}()
+
+		name := request.FormValue("name")
+		if name == "" {
+			panic(errors.New("lose name"))
+		}
+
+		service, ok := mgr.GetService(name)
+		if !ok {
+			panic(errors.New("tun not exist"))
+		}
+
+		ret := response.Ret{
+			Code: http.StatusOK,
+			Data: map[string]interface{}{
+				"name":    name,
+				"summary": service.QualitySummary(),
+				"details": service.QualityDetails(),
+			},
+		}
+
+		d, err := json.Marshal(&ret)
+		if err != nil {
+			panic(err.Error())
+		}
+
+		_, err = writer.Write(d)
+		if err != nil {
+			panic(err.Error())
+		}
+	}
+}
+
+func QuickProbe(mgr *tun.Manager) func(w http.ResponseWriter, request *http.Request) {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		defer func() {
+			if err := recover(); err != nil {
+				msg, _ := json.Marshal(response.Ret{
+					Code: http.StatusInternalServerError,
+					Msg:  fmt.Sprintf("%v", err),
+				})
+				writer.Write(msg)
+			}
+		}()
+
+		services := mgr.AllService()
+		started := 0
+		skipped := 0
+		for _, service := range services {
+			if service.QuickProbe() {
+				started++
+				continue
+			}
+			skipped++
+		}
+
+		ret := response.Ret{
+			Code: http.StatusOK,
+			Msg:  fmt.Sprintf("quick probe started for %d tunnel(s), skipped %d tunnel(s)", started, skipped),
+			Data: map[string]int{
+				"started": started,
+				"skipped": skipped,
 			},
 		}
 

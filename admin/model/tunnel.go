@@ -1,5 +1,12 @@
 package model
 
+type QualitySummary struct {
+	Status    string  `json:"status"`
+	RTTMs     int64   `json:"rtt_ms"`
+	LossPct   float64 `json:"loss_pct"`
+	LastError string  `json:"last_error"`
+}
+
 type Tunnel struct {
 	UUID string `json:"uuid"`
 	Name string `json:"name"`
@@ -19,6 +26,8 @@ type Tunnel struct {
 
 	Status    string `json:"status"`
 	CreatedAt string `json:"created_at"`
+
+	QualitySummary QualitySummary `json:"quality_summary"`
 }
 
 func (tunnel *Tunnel) TableName() string {

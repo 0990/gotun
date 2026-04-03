@@ -107,8 +107,10 @@ func (p *inputKCPXMux) serve() {
 }
 
 func (p *inputKCPXMux) handleConn(conn net.Conn) {
-	smuxConfig := smux.DefaultConfig()
-	smuxConfig.MaxReceiveBuffer = p.cfg.StreamBuf
+	smuxConfig, err := newSmuxConfig(p.cfg.StreamBuf)
+	if err != nil {
+		return
+	}
 	mux, err := smux.Server(conn, smuxConfig)
 	if err != nil {
 		return

@@ -23,8 +23,13 @@
 <script type="text/javascript">
     module.exports = {
         data: function() {
+            const muxFrameExtend = JSON.stringify({
+                mux_conn: 10,
+                frame_header_enable: true,
+            });
             return {
                 routeId: this.id,
+                muxFrameExtend: muxFrameExtend,
                 info:{
                     name:'',
                     mode:'',
@@ -39,7 +44,7 @@
 
                     out_crypt_mode:'',
                     out_crypt_key:'',
-                    out_extend:'{"mux_conn":10}',
+                    out_extend:muxFrameExtend,
                 },
                  fields_type:{
                      name:'string',
@@ -108,6 +113,10 @@
         created: function() {
             this.info = this.data;
             delete this.info['status'];
+            delete this.info['quality_summary'];
+            delete this.info['quality_status'];
+            delete this.info['quality_rtt'];
+            delete this.info['quality_loss'];
             delete this.info['_index'];
             delete this.info['_rowKey'];
             delete this.info['created_at'];

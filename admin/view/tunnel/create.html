@@ -24,9 +24,14 @@
     module.exports = {
         data: function() {
             const kcpxProtoCfg = '{"write_delay":true,"mtu":990,"sndwnd":1024,"rcvwnd":1024,"datashard":0,"parityshard":0,"dscp":46,"acknodelay":false,"nodelay":1,"interval":30,"resend":2,"nc":0,"sockbuf":16777217,"streambuf":4194304,"handshake_timeout_ms":10000,"handshake_retry_interval_ms":500,"handshake_max_retries":20,"heartbeat_interval_ms":10000,"heartbeat_timeout_ms":30000,"reconnect_retry_interval_ms":500,"reconnect_max_retries":20,"enable_auto_reconnect":true}';
+            const muxFrameExtend = JSON.stringify({
+                mux_conn: 10,
+                frame_header_enable: true,
+            });
             return {
                 routeId: this.id,
                 kcpxProtoCfg: kcpxProtoCfg,
+                muxFrameExtend: muxFrameExtend,
                 info:{
                     name:'tcp客户端',
                     mode:'',
@@ -41,7 +46,7 @@
 
                     out_crypt_mode:'gcm',
                     out_crypt_key:'goodweather',
-                    out_extend:'{"mux_conn":10}',
+                    out_extend:muxFrameExtend,
                 },
                 placeholder:{
                     mode: '空|frpc|frps',
@@ -69,6 +74,9 @@
         },
         props: ['id'],
         methods: {
+            buildMuxFrameExtend() {
+                return this.muxFrameExtend;
+            },
             updateOtherInput(name, newValue) {
                 if (name==='input'||name==="mode") {
                     // 从 @ 处截取前面的字符
@@ -162,7 +170,7 @@
                         break
                     case "tcpmux":
                     case "tcp_mux":
-                        extend = '{"mux_conn":10}';
+                        extend = this.buildMuxFrameExtend();
                         protoCfg = '{"head":""}';
                         break
                     case "udp":
@@ -170,7 +178,7 @@
                         protoCfg =  '{"timeout":90}';
                         break
                     case "quic":
-                        extend = '{"mux_conn":10}';
+                        extend = this.buildMuxFrameExtend();
                         protoCfg =  '';
                         break
                     case "kcp":
@@ -179,7 +187,7 @@
                         break
                     case "kcpmux":
                     case "kcp_mux":
-                        extend = '{"mux_conn":10}';
+                        extend = this.buildMuxFrameExtend();
                         protoCfg =  '{"write_delay":true,"mtu":990,"sndwnd":2048,"rcvwnd":1024,"datashard":0,"parityshard":0,"dscp":46,"acknodelay":false,"nodelay":1,"interval":30,"resend":2,"nc":0,"sockbuf":16777217,"streambuf":4194304}';
                         break
                     case "kcpx":
@@ -187,7 +195,7 @@
                         protoCfg = this.kcpxProtoCfg;
                         break
                     case "kcpx_mux":
-                        extend = '{"mux_conn":10}';
+                        extend = this.buildMuxFrameExtend();
                         protoCfg = this.kcpxProtoCfg;
                         break
                     default:

@@ -7,6 +7,9 @@ type Service interface {
 	Close() error
 	Cfg() Config
 	Status() string
+	QualitySummary() QualitySummary
+	QualityDetails() map[string]QualitySnapshot
+	QuickProbe() bool
 }
 
 func NewService(cfg Config) (Service, error) {

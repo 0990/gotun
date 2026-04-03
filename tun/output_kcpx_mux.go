@@ -3,7 +3,6 @@ package tun
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/0990/gotun/core"
@@ -22,11 +21,9 @@ func dialKCPXBuilder(ctx context.Context, addr string, config string, readCounte
 		return nil, err
 	}
 
-	smuxConfig := smux.DefaultConfig()
-	smuxConfig.MaxReceiveBuffer = cfg.StreamBuf
-
-	if err := smux.VerifyConfig(smuxConfig); err != nil {
-		log.Fatalf("%+v", err)
+	smuxConfig, err := newSmuxConfig(cfg.StreamBuf)
+	if err != nil {
+		return nil, err
 	}
 
 	smuxSess, err := smux.Client(session, smuxConfig)

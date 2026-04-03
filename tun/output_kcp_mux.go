@@ -7,7 +7,6 @@ import (
 	"github.com/0990/gotun/core"
 	"github.com/0990/gotun/pkg/stats"
 	"github.com/xtaci/smux"
-	"log"
 	"time"
 )
 
@@ -27,11 +26,9 @@ func dialKCPBuilder(ctx context.Context, addr string, config string, readCounter
 		return nil, err
 	}
 
-	smuxConfig := smux.DefaultConfig()
-	smuxConfig.MaxReceiveBuffer = cfg.StreamBuf
-
-	if err := smux.VerifyConfig(smuxConfig); err != nil {
-		log.Fatalf("%+v", err)
+	smuxConfig, err := newSmuxConfig(cfg.StreamBuf)
+	if err != nil {
+		return nil, err
 	}
 
 	smuxSess, err := smux.Client(session, smuxConfig)
