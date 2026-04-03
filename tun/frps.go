@@ -184,6 +184,6 @@ func (s *Frps) QualityDetails() map[string]QualitySnapshot {
 	return map[string]QualitySnapshot{}
 }
 
-func (s *Frps) QuickProbe() bool {
+func (s *Frps) Probe() bool {
 	return false
 }

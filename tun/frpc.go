@@ -6,7 +6,6 @@ import (
 	"github.com/0990/gotun/core"
 	"github.com/0990/gotun/pkg/msg"
 	"github.com/sirupsen/logrus"
-	"time"
 )
 
 const FrpWorkerCount = 10
@@ -184,9 +183,9 @@ func (s *Frpc) startProbe() {
 	}
 }
 
-func (s *Frpc) QuickProbe() bool {
+func (s *Frpc) Probe() bool {
 	if s.outputProbe == nil {
 		return false
 	}
-	return s.outputProbe.TriggerQuickProbe(time.Minute)
+	return s.outputProbe.TriggerProbe()
 }

@@ -157,7 +157,7 @@ func Quality(mgr *tun.Manager) func(w http.ResponseWriter, request *http.Request
 	}
 }
 
-func QuickProbe(mgr *tun.Manager) func(w http.ResponseWriter, request *http.Request) {
+func Probe(mgr *tun.Manager) func(w http.ResponseWriter, request *http.Request) {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		defer func() {
 			if err := recover(); err != nil {
@@ -173,7 +173,7 @@ func QuickProbe(mgr *tun.Manager) func(w http.ResponseWriter, request *http.Requ
 		started := 0
 		skipped := 0
 		for _, service := range services {
-			if service.QuickProbe() {
+			if service.Probe() {
 				started++
 				continue
 			}
@@ -182,7 +182,7 @@ func QuickProbe(mgr *tun.Manager) func(w http.ResponseWriter, request *http.Requ
 
 		ret := response.Ret{
 			Code: http.StatusOK,
-			Msg:  fmt.Sprintf("quick probe started for %d tunnel(s), skipped %d tunnel(s)", started, skipped),
+			Msg:  fmt.Sprintf("probe triggered for %d tunnel(s), skipped %d tunnel(s)", started, skipped),
 			Data: map[string]int{
 				"started": started,
 				"skipped": skipped,

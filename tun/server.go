@@ -2,7 +2,6 @@ package tun
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/0990/gotun/core"
 	"github.com/sirupsen/logrus"
@@ -137,9 +136,9 @@ func (s *Server) startProbe() {
 	s.probeRunner.Run()
 }
 
-func (s *Server) QuickProbe() bool {
+func (s *Server) Probe() bool {
 	if s.probeRunner == nil {
 		return false
 	}
-	return s.probeRunner.TriggerQuickProbe(time.Minute)
+	return s.probeRunner.TriggerProbe()
 }

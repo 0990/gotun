@@ -9,7 +9,7 @@ type Service interface {
 	Status() string
 	QualitySummary() QualitySummary
 	QualityDetails() map[string]QualitySnapshot
-	QuickProbe() bool
+	Probe() bool
 }
 
 func NewService(cfg Config) (Service, error) {

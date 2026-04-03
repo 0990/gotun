@@ -62,7 +62,7 @@ func Register(assets embed.FS, listen string, mgr *tun.Manager, authMgr *AuthMan
 	h.HandleFunc("/api/tunnel/export", authMgr.JustCheck(tunnel.Export(mgr)))
 	h.HandleFunc("/api/tunnel/check_server", authMgr.JustCheck(tunnel.CheckServer(mgr)))
 	h.HandleFunc("/api/tunnel/quality", authMgr.JustCheck(tunnel.Quality(mgr)))
-	h.HandleFunc("/api/tunnel/quick_probe", authMgr.JustCheck(tunnel.QuickProbe(mgr)))
+	h.HandleFunc("/api/tunnel/probe", authMgr.JustCheck(tunnel.Probe(mgr)))
 	// ----Route-end----
 
 	go func() {

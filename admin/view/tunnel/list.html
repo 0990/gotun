@@ -4,10 +4,10 @@
             <i-breadcrumb-item>tunnel</i-breadcrumb-item>
             <i-breadcrumb-item>list</i-breadcrumb-item>
         </i-breadcrumb>
-        <i-content :style="{padding: '24px', minHeight: '280px', background: '#fff'}">
+            <i-content :style="{padding: '24px', minHeight: '280px', background: '#fff'}">
             <i-row>
                 <i-col span="12" :style="{textAlign:'left'}">
-                    <i-button type="info" @click="invokeQuickProbe">QuickProbe</i-button>
+                    <i-button :type="probeEnabled ? 'warning' : 'info'" @click="invokeProbeToggle">{{ probeButtonText }}</i-button>
                     <i-button type="info" @click="invokeCreate">创建</i-button>
                     <i-button type="info" @click="invokeImport">导入</i-button>
                     <input type="file" id="input" multiple accept=".tun">
@@ -68,6 +68,9 @@
                 main_data: [],
                 pageTotal:0,
                 pageSize:0,
+                probeEnabled:false,
+                probeTimer:null,
+                probePending:false,
                 viewModal:false,
                 viewModalData:{},
                 deleteModal:false,
@@ -113,6 +116,11 @@ created_at:'string',
             }
         },
         props: ['page'],
+        computed: {
+            probeButtonText: function() {
+                return this.probeEnabled ? 'Probe On' : 'Probe';
+            }
+        },
         methods: {
             tableData: function() {
                 var pageStr = this.routePage ? '?page='+this.routePage : '';
@@ -146,16 +154,48 @@ created_at:'string',
             invokeFlushList:function (){
                 this.tableData()
             },
-            invokeQuickProbe: function() {
+            invokeProbeToggle: function() {
+                if (this.probeEnabled) {
+                    this.stopProbeLoop();
+                    this.$Message.success('probe stopped');
+                    return
+                }
+                this.probeEnabled = true;
+                this.fireProbe();
+                this.probeTimer = setInterval(() => {
+                    this.fireProbe();
+                }, 500);
+                this.$Message.success('probe started');
+            },
+            fireProbe: function() {
+                if(!this.probeEnabled || this.probePending) {
+                    return
+                }
+                this.probePending = true
                 this.axios
-                    .post('/api/tunnel/quick_probe')
+                    .post('/api/tunnel/probe')
                     .then(response=>{
                         if(response.data.code !== 200) {
                             this.$Message.error(response.data.msg);
-                            return
+                            this.stopProbeLoop();
                         }
-                        this.$Message.success(response.data.msg);
                     })
+                    .catch(error => {
+                        const msg = error && error.message ? error.message : 'probe request failed';
+                        this.$Message.error(msg);
+                        this.stopProbeLoop();
+                    })
+                    .finally(() => {
+                        this.probePending = false;
+                    })
+            },
+            stopProbeLoop: function() {
+                this.probeEnabled = false;
+                if(this.probeTimer) {
+                    clearInterval(this.probeTimer);
+                    this.probeTimer = null;
+                }
+                this.probePending = false;
             },
             invokeEchoCheck: function() {
                 this.invokeCheckServer("echo");
@@ -289,6 +329,13 @@ created_at:'string',
             this.routePage = to.query.page
             this.tableData();
             next()
+        },
+        beforeRouteLeave: function(to, from, next) {
+            this.stopProbeLoop();
+            next()
+        },
+        beforeDestroy: function() {
+            this.stopProbeLoop();
         }
     }
 </script>

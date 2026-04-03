@@ -2,7 +2,6 @@ package tun
 
 import (
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -13,9 +12,8 @@ type FrameProbeRunner struct {
 	close   chan struct{}
 	wake    chan struct{}
 
-	quickUntil atomic.Int64
-	lastProbe  atomic.Int64
-	probeMu    sync.Mutex
+	lastProbe time.Time
+	probeMu   sync.Mutex
 }
 
 func NewFrameProbeRunner(channel *ProbeChannel, tracker *QualityTracker, cfg Extend) *FrameProbeRunner {
@@ -48,20 +46,16 @@ func (r *FrameProbeRunner) loop() {
 	for {
 		select {
 		case <-ticker.C:
-			r.maybeProbe(time.Now())
+			r.maybeProbe(time.Now(), false)
 		case <-r.wake:
-			r.maybeProbe(time.Now())
+			r.maybeProbe(time.Now(), true)
 		case <-r.close:
 			return
 		}
 	}
 }
 
-func (r *FrameProbeRunner) TriggerQuickProbe(duration time.Duration) bool {
-	if duration <= 0 {
-		return false
-	}
-	r.quickUntil.Store(time.Now().Add(duration).UnixNano())
+func (r *FrameProbeRunner) TriggerProbe() bool {
 	select {
 	case r.wake <- struct{}{}:
 	default:
@@ -69,7 +63,7 @@ func (r *FrameProbeRunner) TriggerQuickProbe(duration time.Duration) bool {
 	return true
 }
 
-func (r *FrameProbeRunner) maybeProbe(now time.Time) {
+func (r *FrameProbeRunner) maybeProbe(now time.Time, force bool) {
 	r.probeMu.Lock()
 	defer r.probeMu.Unlock()
 
@@ -78,17 +72,11 @@ func (r *FrameProbeRunner) maybeProbe(now time.Time) {
 		interval = 10 * time.Second
 	}
 
-	quickUntil := time.Unix(0, r.quickUntil.Load())
-	if now.Before(quickUntil) {
-		interval = time.Millisecond * 200
-	}
-
-	last := time.Unix(0, r.lastProbe.Load())
-	if !last.IsZero() && now.Sub(last) < interval {
+	if !force && !r.lastProbe.IsZero() && now.Sub(r.lastProbe) < interval {
 		return
 	}
 
-	r.lastProbe.Store(now.UnixNano())
+	r.lastProbe = now
 	r.probeOnce()
 }
 
