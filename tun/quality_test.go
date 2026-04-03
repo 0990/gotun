@@ -132,3 +132,65 @@ func Test_ProbeDoesNotReachBackend(t *testing.T) {
 		t.Fatalf("expected only one backend connection for business stream, got %d", accepted.Load())
 	}
 }
+
+func Test_ProbeWorksWithoutBusinessTraffic(t *testing.T) {
+	targetAddr := "127.0.0.1:7209"
+	var accepted atomic.Int64
+	listener, err := net.Listen("tcp", targetAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	go func() {
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				return
+			}
+			accepted.Add(1)
+			_ = conn.Close()
+		}
+	}()
+
+	relayServerAddr := "127.0.0.1:6205"
+	server, err := NewServer(Config{
+		Name:          "idle-probe-server",
+		Input:         fmt.Sprintf("tcp@%s", relayServerAddr),
+		Output:        fmt.Sprintf("tcp@%s", targetAddr),
+		InDecryptKey:  "111111",
+		InDecryptMode: "gcm",
+		InExtend:      `{"frame_header_enable":true}`,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := server.Run(); err != nil {
+		t.Fatal(err)
+	}
+
+	client, err := NewServer(Config{
+		Name:         "idle-probe-client",
+		Input:        "tcp@127.0.0.1:6204",
+		Output:       fmt.Sprintf("tcp@%s", relayServerAddr),
+		OutCryptKey:  "111111",
+		OutCryptMode: "gcm",
+		OutExtend:    `{"frame_header_enable":true,"probe_interval_sec":1,"probe_timeout_ms":1000,"probe_window_size":5}`,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := client.Run(); err != nil {
+		t.Fatal(err)
+	}
+
+	time.Sleep(3 * time.Second)
+
+	if accepted.Load() != 0 {
+		t.Fatalf("expected no backend connections without business traffic, got %d", accepted.Load())
+	}
+
+	details := client.QualityDetails()["output"]
+	if details.ProbeSuccessTotal == 0 {
+		t.Fatalf("expected probe success without business traffic, got %+v", details)
+	}
+}

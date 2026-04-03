@@ -1,92 +1,30 @@
 package tun
 
 import (
-	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
 )
 
-type FrameStreamRegistry struct {
-	mu      sync.RWMutex
-	streams []*FrameStream
-	next    int
-}
-
-func (r *FrameStreamRegistry) Add(stream *FrameStream) {
-	if r == nil || stream == nil {
-		return
-	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.streams = append(r.streams, stream)
-}
-
-func (r *FrameStreamRegistry) Remove(stream *FrameStream) {
-	if r == nil || stream == nil {
-		return
-	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	for i, s := range r.streams {
-		if s != stream {
-			continue
-		}
-		r.streams = append(r.streams[:i], r.streams[i+1:]...)
-		if r.next >= len(r.streams) {
-			r.next = 0
-		}
-		return
-	}
-}
-
-func (r *FrameStreamRegistry) Probe(timeout time.Duration) (time.Duration, error) {
-	stream := r.Next()
-	if stream == nil {
-		return 0, errors.New("no active frame stream")
-	}
-	return stream.Probe(timeout)
-}
-
-func (r *FrameStreamRegistry) Next() *FrameStream {
-	if r == nil {
-		return nil
-	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if len(r.streams) == 0 {
-		return nil
-	}
-	if r.next >= len(r.streams) {
-		r.next = 0
-	}
-	stream := r.streams[r.next]
-	r.next++
-	if r.next >= len(r.streams) {
-		r.next = 0
-	}
-	return stream
-}
-
 type FrameProbeRunner struct {
-	registry *FrameStreamRegistry
-	tracker  *QualityTracker
-	cfg      Extend
-	close    chan struct{}
-	wake     chan struct{}
+	channel *ProbeChannel
+	tracker *QualityTracker
+	cfg     Extend
+	close   chan struct{}
+	wake    chan struct{}
 
 	quickUntil atomic.Int64
 	lastProbe  atomic.Int64
 	probeMu    sync.Mutex
 }
 
-func NewFrameProbeRunner(registry *FrameStreamRegistry, tracker *QualityTracker, cfg Extend) *FrameProbeRunner {
+func NewFrameProbeRunner(channel *ProbeChannel, tracker *QualityTracker, cfg Extend) *FrameProbeRunner {
 	return &FrameProbeRunner{
-		registry: registry,
-		tracker:  tracker,
-		cfg:      cfg,
-		close:    make(chan struct{}),
-		wake:     make(chan struct{}, 1),
+		channel: channel,
+		tracker: tracker,
+		cfg:     cfg,
+		close:   make(chan struct{}),
+		wake:    make(chan struct{}, 1),
 	}
 }
 
@@ -142,7 +80,7 @@ func (r *FrameProbeRunner) maybeProbe(now time.Time) {
 
 	quickUntil := time.Unix(0, r.quickUntil.Load())
 	if now.Before(quickUntil) {
-		interval = time.Second
+		interval = time.Millisecond * 200
 	}
 
 	last := time.Unix(0, r.lastProbe.Load())
@@ -159,7 +97,7 @@ func (r *FrameProbeRunner) probeOnce() {
 	if timeout <= 0 {
 		timeout = 5 * time.Second
 	}
-	rtt, err := r.registry.Probe(timeout)
+	rtt, err := r.channel.Probe(timeout)
 	if err != nil {
 		r.tracker.RecordProbeFailure(err)
 		return

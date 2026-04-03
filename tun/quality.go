@@ -106,7 +106,7 @@ type QualityTracker struct {
 
 func NewQualityTracker(service, output string, readCounter, writeCounter stats.Counter, enabled bool, windowSize int) *QualityTracker {
 	if windowSize <= 0 {
-		windowSize = 60
+		windowSize = 20
 	}
 	return &QualityTracker{
 		service:      service,

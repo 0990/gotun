@@ -18,6 +18,8 @@ const (
 	frameTypeProbeResp byte = 0x02
 )
 
+var ErrProbeChannelClosed = errors.New("probe channel closed")
+
 type ProbeReq struct {
 	Seq          uint64
 	SentUnixNano int64
@@ -159,6 +161,40 @@ func (s *FrameStream) Probe(timeout time.Duration) (time.Duration, error) {
 		return time.Since(time.Unix(0, resp.SentUnixNano)), nil
 	case <-timer.C:
 		return 0, errors.New("probe timeout")
+	}
+}
+
+func (s *FrameStream) ServeControlLoop() error {
+	for {
+		frameType, payload, err := readFrame(s.stream)
+		if err != nil {
+			return err
+		}
+		switch frameType {
+		case frameTypeProbeReq:
+			req, err := decodeProbeReq(payload)
+			if err != nil {
+				return err
+			}
+			resp := ProbeResp{
+				Seq:          req.Seq,
+				SentUnixNano: req.SentUnixNano,
+				RecvUnixNano: time.Now().UnixNano(),
+			}
+			if err := s.WriteProbeResp(resp); err != nil {
+				return err
+			}
+		case frameTypeProbeResp:
+			resp, err := decodeProbeResp(payload)
+			if err != nil {
+				return err
+			}
+			s.notifyProbeWaiter(resp)
+		case frameTypeBusiness:
+			return errors.New("unexpected business frame on probe stream")
+		default:
+			return errors.New("unknown frame type")
+		}
 	}
 }
 

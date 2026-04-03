@@ -118,6 +118,22 @@ func (s *Frps) Close() error {
 func (s *Frps) handleInputStream(src core.IStream) {
 	defer src.Close()
 
+	srcStream, role, err := s.cryptoHelper.WrapSrcWithRole(src)
+	if err != nil {
+		logrus.WithError(err).Error("wrap src")
+		return
+	}
+	if role == streamRoleProbe {
+		if frameStream, ok := srcStream.(*FrameStream); ok {
+			if err := frameStream.ServeControlLoop(); err != nil {
+				logrus.WithError(err).Debug("serve probe stream")
+			}
+			return
+		}
+		logrus.Error("probe role requires frame stream")
+		return
+	}
+
 	ctl, ok := s.ctlMgr.Get()
 	if !ok {
 		logrus.Error("no controller")
@@ -138,7 +154,13 @@ func (s *Frps) handleInputStream(src core.IStream) {
 		return
 	}
 
-	s.cryptoHelper.Pipe(dst, src)
+	dstStream, err := s.cryptoHelper.WrapDst(dst)
+	if err != nil {
+		logrus.WithError(err).Error("wrap dst")
+		return
+	}
+
+	s.cryptoHelper.PipePrepared(dstStream, srcStream)
 }
 
 func (s *Frps) sayStart(dst core.IStream) error {

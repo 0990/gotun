@@ -14,7 +14,7 @@ type Server struct {
 	output       output
 	cryptoHelper *CryptoHelper
 	probeRunner  *FrameProbeRunner
-	frameStreams *FrameStreamRegistry
+	probeChannel *ProbeChannel
 
 	StatusX
 }
@@ -40,7 +40,6 @@ func NewServer(cfg Config) (*Server, error) {
 		input:        input,
 		output:       output,
 		cryptoHelper: c,
-		frameStreams: &FrameStreamRegistry{},
 	}
 	s.SetStatus("init")
 	return s, nil
@@ -69,10 +68,13 @@ func (s *Server) Run() error {
 
 func (s *Server) Close() error {
 	s.input.Close()
-	s.output.Close()
 	if s.probeRunner != nil {
 		s.probeRunner.Close()
 	}
+	if s.probeChannel != nil {
+		s.probeChannel.Close()
+	}
+	s.output.Close()
 	return nil
 }
 
@@ -83,9 +85,19 @@ func (s *Server) Cfg() Config {
 func (s *Server) handleInputStream(src core.IStream) {
 	defer src.Close()
 
-	srcStream, err := s.cryptoHelper.WrapSrc(src)
+	srcStream, role, err := s.cryptoHelper.WrapSrcWithRole(src)
 	if err != nil {
 		logrus.WithError(err).Error("wrap src")
+		return
+	}
+	if role == streamRoleProbe {
+		if frameStream, ok := srcStream.(*FrameStream); ok {
+			if err := frameStream.ServeControlLoop(); err != nil {
+				logrus.WithError(err).Debug("serve probe stream")
+			}
+			return
+		}
+		logrus.Error("probe role requires frame stream")
 		return
 	}
 
@@ -100,10 +112,6 @@ func (s *Server) handleInputStream(src core.IStream) {
 	if err != nil {
 		logrus.WithError(err).Error("wrap dst")
 		return
-	}
-	if frameStream, ok := dstStream.(*FrameStream); ok {
-		s.frameStreams.Add(frameStream)
-		defer s.frameStreams.Remove(frameStream)
 	}
 
 	s.cryptoHelper.PipePrepared(dstStream, srcStream)
@@ -123,7 +131,9 @@ func (s *Server) startProbe() {
 	if !s.output.FrameHeaderEnabled() {
 		return
 	}
-	s.probeRunner = NewFrameProbeRunner(s.frameStreams, outputTracker(s.output), s.output.ProbeConfig())
+	s.probeChannel = NewProbeChannel(s.output, s.cryptoHelper)
+	s.probeChannel.Run()
+	s.probeRunner = NewFrameProbeRunner(s.probeChannel, outputTracker(s.output), s.output.ProbeConfig())
 	s.probeRunner.Run()
 }
 

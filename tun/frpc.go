@@ -19,7 +19,7 @@ type Frpc struct {
 
 	ctl          *frpcController
 	outputProbe  *FrameProbeRunner
-	frameStreams *FrameStreamRegistry
+	probeChannel *ProbeChannel
 	StatusX
 }
 
@@ -44,7 +44,6 @@ func NewFrpc(cfg Config) (*Frpc, error) {
 		worker:       worker,
 		output:       output,
 		cryptoHelper: c,
-		frameStreams: &FrameStreamRegistry{},
 	}
 
 	ctl := newFrpcController(worker.GetStream, s.startWorker, c.SrcCrypto)
@@ -77,11 +76,14 @@ func (s *Frpc) Run() error {
 
 func (s *Frpc) Close() error {
 	s.worker.Close()
-	s.output.Close()
-	s.ctl.Close()
 	if s.outputProbe != nil {
 		s.outputProbe.Close()
 	}
+	if s.probeChannel != nil {
+		s.probeChannel.Close()
+	}
+	s.output.Close()
+	s.ctl.Close()
 	return nil
 }
 func (s *Frpc) Cfg() Config {
@@ -97,26 +99,31 @@ func (s *Frpc) handleWorkerStream(src core.IStream) {
 		return
 	}
 
+	srcStream, role, err := s.cryptoHelper.WrapSrcWithRole(src)
+	if err != nil {
+		logrus.WithError(err).Error("wrap src")
+		return
+	}
+	if role == streamRoleProbe {
+		if frameStream, ok := srcStream.(*FrameStream); ok {
+			if err := frameStream.ServeControlLoop(); err != nil {
+				logrus.WithError(err).Debug("serve probe stream")
+			}
+			return
+		}
+		logrus.Error("probe role requires frame stream")
+		return
+	}
 	dst, err := s.output.GetStream()
 	if err != nil {
 		logrus.WithError(err).Error("openStream")
 		return
 	}
 	defer dst.Close()
-
 	dstStream, err := s.cryptoHelper.WrapDst(dst)
 	if err != nil {
 		logrus.WithError(err).Error("wrap dst")
 		return
-	}
-	srcStream, err := s.cryptoHelper.WrapSrc(src)
-	if err != nil {
-		logrus.WithError(err).Error("wrap src")
-		return
-	}
-	if frameStream, ok := dstStream.(*FrameStream); ok {
-		s.frameStreams.Add(frameStream)
-		defer s.frameStreams.Remove(frameStream)
 	}
 
 	s.cryptoHelper.PipePrepared(dstStream, srcStream)
@@ -170,7 +177,9 @@ func (s *Frpc) QualityDetails() map[string]QualitySnapshot {
 
 func (s *Frpc) startProbe() {
 	if s.output.FrameHeaderEnabled() {
-		s.outputProbe = NewFrameProbeRunner(s.frameStreams, outputTracker(s.output), s.output.ProbeConfig())
+		s.probeChannel = NewProbeChannel(s.output, s.cryptoHelper)
+		s.probeChannel.Run()
+		s.outputProbe = NewFrameProbeRunner(s.probeChannel, outputTracker(s.output), s.output.ProbeConfig())
 		s.outputProbe.Run()
 	}
 }

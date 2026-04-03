@@ -32,6 +32,7 @@ type output interface {
 	Run() error
 	Close() error
 	GetStream() (core.IStream, error)
+	GetProbeStream() (core.IStream, error)
 	QualitySnapshot() QualitySnapshot
 	QualitySummary() QualitySummary
 	FrameHeaderEnabled() bool
@@ -147,6 +148,14 @@ func (p *Output) Run() error {
 
 // 默认通过makeStream临时创建，不存在makeStream时，则一定从streamMaker池中取streamMaker来创建stream(多路复用情况下)
 func (p *Output) GetStream() (core.IStream, error) {
+	return p.getStream(true, false)
+}
+
+func (p *Output) GetProbeStream() (core.IStream, error) {
+	return p.getStream(false, true)
+}
+
+func (p *Output) getStream(trackQuality bool, probe bool) (core.IStream, error) {
 	now := time.Now()
 	status := ""
 	defer func() {
@@ -156,13 +165,21 @@ func (p *Output) GetStream() (core.IStream, error) {
 
 	if p.makeStream != nil {
 		status = "makeStream"
+		if probe {
+			status = "probe_makeStream"
+		}
 		stream, err := p.makeStream(p.addr, p.config, p.readCounter, p.writeCounter)
 		if err != nil {
-			p.quality.RecordOpenFailure()
+			if trackQuality {
+				p.quality.RecordOpenFailure()
+			}
 			return nil, err
 		}
-		p.quality.RecordOpenSuccess()
-		return p.wrapQualityStream(stream), nil
+		if trackQuality {
+			p.quality.RecordOpenSuccess()
+			return p.wrapQualityStream(stream), nil
+		}
+		return stream, nil
 	}
 
 	if p.poolNum <= 0 {
@@ -172,34 +189,64 @@ func (p *Output) GetStream() (core.IStream, error) {
 	idx, maker, ok := p.getStreamMaker()
 	if ok {
 		status = "openStream"
+		if probe {
+			status = "probe_openStream"
+		}
 		connStreamGauge.WithLabelValues(util.ToString(idx)).Add(1)
 		stream, err := maker.OpenStream()
 		if err != nil {
-			p.quality.RecordOpenFailure()
+			p.invalidateMaker(idx)
+			if trackQuality {
+				p.quality.RecordOpenFailure()
+			}
 			return nil, err
 		}
-		p.quality.RecordOpenSuccess()
-		return p.wrapQualityStream(stream), nil
+		if trackQuality {
+			p.quality.RecordOpenSuccess()
+			return p.wrapQualityStream(stream), nil
+		}
+		return stream, nil
 	}
 
 	logrus.Warn("start waitStreamMakerCreated")
 	idx, maker, err := p.waitStreamMakerCreated()
 	if err == nil {
 		status = "waitMaker"
+		if probe {
+			status = "probe_waitMaker"
+		}
 		connStreamGauge.WithLabelValues(util.ToString(idx)).Add(1)
 		stream, openErr := maker.OpenStream()
 		if openErr != nil {
-			p.quality.RecordOpenFailure()
+			p.invalidateMaker(idx)
+			if trackQuality {
+				p.quality.RecordOpenFailure()
+			}
 			return nil, openErr
 		}
-		p.quality.RecordOpenSuccess()
-		return p.wrapQualityStream(stream), nil
+		if trackQuality {
+			p.quality.RecordOpenSuccess()
+			return p.wrapQualityStream(stream), nil
+		}
+		return stream, nil
 	}
 
 	status = "returnError"
+	if probe {
+		status = "probe_returnError"
+	}
 	logrus.WithError(err).Warn("waitStreamMakerCreated failed")
-	p.quality.RecordOpenFailure()
+	if trackQuality {
+		p.quality.RecordOpenFailure()
+	}
 	return nil, err
+}
+
+func (p *Output) invalidateMaker(idx int) {
+	if idx < 0 || idx >= len(p.makerPools) {
+		return
+	}
+	p.makerPools[idx].SetMaker(nil, p.autoExpire)
 }
 
 func (p *Output) getStreamMaker() (int, core.IStreamMaker, bool) {

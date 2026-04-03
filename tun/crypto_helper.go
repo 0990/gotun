@@ -57,7 +57,7 @@ func NewCryptoHelper(inDecryptMode, inDecryptKey, outDecryptMode, outDecryptKey 
 }
 
 func (c *CryptoHelper) Pipe(dst, src core.IStream) {
-	srcWrapped, err := c.WrapSrc(src)
+	srcWrapped, _, err := c.WrapSrcWithRole(src)
 	if err != nil {
 		return
 	}
@@ -194,23 +194,43 @@ func (c *CryptoHelper) DstCrypto(s core.IStream) (core.IStream, error) {
 }
 
 func (c *CryptoHelper) WrapSrc(s core.IStream) (core.IStream, error) {
+	stream, _, err := c.WrapSrcWithRole(s)
+	return stream, err
+}
+
+func (c *CryptoHelper) WrapSrcWithRole(s core.IStream) (core.IStream, streamRole, error) {
 	stream, err := c.SrcCrypto(s)
 	if err != nil {
-		return nil, err
+		return nil, streamRoleBusiness, err
 	}
 	if !c.srcExtend.FrameHeaderEnable {
-		return stream, nil
+		return stream, streamRoleBusiness, nil
 	}
-	return NewFrameStream(stream), nil
+	role, err := readStreamHandshake(stream)
+	if err != nil {
+		return nil, streamRoleBusiness, err
+	}
+	return NewFrameStream(stream), role, nil
 }
 
 func (c *CryptoHelper) WrapDst(s core.IStream) (core.IStream, error) {
+	return c.wrapDstWithRole(s, streamRoleBusiness)
+}
+
+func (c *CryptoHelper) WrapProbeDst(s core.IStream) (core.IStream, error) {
+	return c.wrapDstWithRole(s, streamRoleProbe)
+}
+
+func (c *CryptoHelper) wrapDstWithRole(s core.IStream, role streamRole) (core.IStream, error) {
 	stream, err := c.DstCrypto(s)
 	if err != nil {
 		return nil, err
 	}
 	if !c.dstExtend.FrameHeaderEnable {
 		return stream, nil
+	}
+	if err := writeStreamHandshake(stream, role); err != nil {
+		return nil, err
 	}
 	return NewFrameStream(stream), nil
 }
