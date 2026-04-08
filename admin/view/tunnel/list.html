@@ -70,6 +70,7 @@
                 pageSize:0,
                 probeEnabled:false,
                 probeTimer:null,
+                probeRefreshTimer:null,
                 probePending:false,
                 viewModal:false,
                 viewModalData:{},
@@ -122,6 +123,22 @@ created_at:'string',
             }
         },
         methods: {
+            normalizeTunnelRow: function(item) {
+                const quality = item.quality_summary || {};
+                item.quality_status = quality.status || 'disabled';
+                item.quality_rtt = item.quality_status === 'disabled' ? -1 : (quality.rtt_ms ?? 0);
+                item.quality_loss = item.quality_status === 'disabled' ? -1 : (quality.loss_pct ?? 0);
+                return item;
+            },
+            scheduleProbeListRefresh: function(delayMS) {
+                if(this.probeRefreshTimer) {
+                    clearTimeout(this.probeRefreshTimer);
+                }
+                this.probeRefreshTimer = setTimeout(() => {
+                    this.probeRefreshTimer = null;
+                    this.tableData();
+                }, delayMS || 300);
+            },
             tableData: function() {
                 var pageStr = this.routePage ? '?page='+this.routePage : '';
 
@@ -137,13 +154,7 @@ created_at:'string',
                             return
                         }
                         document.getElementById('appName').textContent="gotun "+response.data.data.version;
-                        this.main_data = response.data.data.list.map(item => {
-                            const quality = item.quality_summary || {};
-                            item.quality_status = quality.status || 'disabled';
-                            item.quality_rtt = item.quality_status === 'disabled' ? -1 : (quality.rtt_ms ?? 0);
-                            item.quality_loss = item.quality_status === 'disabled' ? -1 : (quality.loss_pct ?? 0);
-                            return item;
-                        }),
+                        this.main_data = response.data.data.list.map(item => this.normalizeTunnelRow(item)),
                         this.pageTotal = response.data.data.pagination.total_nums,
                         this.pageSize = response.data.data.pagination.page_size
                     })
@@ -164,7 +175,7 @@ created_at:'string',
                 this.fireProbe();
                 this.probeTimer = setInterval(() => {
                     this.fireProbe();
-                }, 500);
+                }, 1000);
                 this.$Message.success('probe started');
             },
             fireProbe: function() {
@@ -178,7 +189,9 @@ created_at:'string',
                         if(response.data.code !== 200) {
                             this.$Message.error(response.data.msg);
                             this.stopProbeLoop();
+                            return
                         }
+                        this.scheduleProbeListRefresh(300);
                     })
                     .catch(error => {
                         const msg = error && error.message ? error.message : 'probe request failed';
@@ -194,6 +207,10 @@ created_at:'string',
                 if(this.probeTimer) {
                     clearInterval(this.probeTimer);
                     this.probeTimer = null;
+                }
+                if(this.probeRefreshTimer) {
+                    clearTimeout(this.probeRefreshTimer);
+                    this.probeRefreshTimer = null;
                 }
                 this.probePending = false;
             },
@@ -281,14 +298,15 @@ created_at:'string',
                             return
                         }
                         const payload = response.data.data || {};
+                        const summary = payload.summary || {};
                         const details = payload.details || {};
                         this.viewModal = true
                         this.viewModalData = {
                             name: row.name,
-                            status: row.quality_status,
-                            rtt_ms: String(row.quality_rtt),
-                            loss_pct: String(row.quality_loss),
-                            summary: JSON.stringify(payload.summary || {}, null, 2),
+                            status: summary.status || row.quality_status,
+                            rtt_ms: String(summary.rtt_ms ?? row.quality_rtt),
+                            loss_pct: String(summary.loss_pct ?? row.quality_loss),
+                            summary: JSON.stringify(summary, null, 2),
                             details: JSON.stringify(details, null, 2),
                         }
                     })
