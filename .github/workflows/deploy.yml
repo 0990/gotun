@@ -82,10 +82,24 @@ jobs:
   deploy:
     runs-on: self-hosted
     needs: build
-    strategy:
-      matrix:
-        host: ${{ fromJson(inputs.targets) }}
-      fail-fast: false
+    env:
+      TARGETS: ${{ join(fromJson(inputs.targets), ' ') }}
+      SSH_HOST_LOCAL30: ${{ secrets.SSH_HOST_LOCAL30 }}
+      SSH_USER_LOCAL30: ${{ secrets.SSH_USER_LOCAL30 || 'root' }}
+      SSH_PORT_LOCAL30: ${{ secrets.SSH_PORT_LOCAL30 || '22' }}
+      SSH_PASSWORD_LOCAL30: ${{ secrets.SSH_PASSWORD_LOCAL30 }}
+      SSH_HOST_LOCAL31: ${{ secrets.SSH_HOST_LOCAL31 }}
+      SSH_USER_LOCAL31: ${{ secrets.SSH_USER_LOCAL31 || 'root' }}
+      SSH_PORT_LOCAL31: ${{ secrets.SSH_PORT_LOCAL31 || '22' }}
+      SSH_PASSWORD_LOCAL31: ${{ secrets.SSH_PASSWORD_LOCAL31 }}
+      SSH_HOST_HK: ${{ secrets.SSH_HOST_HK }}
+      SSH_USER_HK: ${{ secrets.SSH_USER_HK || 'root' }}
+      SSH_PORT_HK: ${{ secrets.SSH_PORT_HK || '22' }}
+      SSH_PASSWORD_HK: ${{ secrets.SSH_PASSWORD_HK }}
+      SSH_HOST_SG: ${{ secrets.SSH_HOST_SG }}
+      SSH_USER_SG: ${{ secrets.SSH_USER_SG || 'root' }}
+      SSH_PORT_SG: ${{ secrets.SSH_PORT_SG || '22' }}
+      SSH_PASSWORD_SG: ${{ secrets.SSH_PASSWORD_SG }}
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v4
@@ -99,38 +113,71 @@ jobs:
           cp "deploy-artifact/${{ needs.build.outputs.binary_name }}" gotun
           chmod +x gotun
 
-      - name: Deploy to ${{ matrix.host }}
+      - name: Deploy to targets
         shell: bash
-        env:
-          SSH_HOST: ${{ secrets[format('SSH_HOST_{0}', matrix.host)] }}
-          SSH_USER: ${{ secrets[format('SSH_USER_{0}', matrix.host)] || 'root' }}
-          SSH_PORT: ${{ secrets[format('SSH_PORT_{0}', matrix.host)] || '22' }}
-          SSH_PASS: ${{ secrets[format('SSH_PASSWORD_{0}', matrix.host)] }}
         run: |
           set -euo pipefail
-          echo "[deploy] target=${{ matrix.host }} host=${SSH_HOST} port=${SSH_PORT} version=${{ needs.build.outputs.version }}"
-
           SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PreferredAuthentications=password -o PubkeyAuthentication=no -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=4"
+          if [ -z "${TARGETS}" ]; then
+            echo "[deploy] no targets resolved from inputs.targets"
+            exit 1
+          fi
 
-          echo "[deploy] uploading binary"
-          sshpass -p "$SSH_PASS" scp $SSH_OPTS -P "$SSH_PORT" gotun "$SSH_USER@$SSH_HOST:/data/gotun/gotun.new"
+          DEPLOY_FAILED=0
+          for TARGET in ${TARGETS}; do
+            echo "[deploy] target=${TARGET} version=${{ needs.build.outputs.version }}"
 
-          echo "[deploy] running remote deployment commands"
-          sshpass -p "$SSH_PASS" ssh $SSH_OPTS -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" <<'EOF'
-          set -e
-          echo "[remote] host=$(hostname)"
-          echo "[remote] pwd=$(pwd)"
-          echo "[remote] stopping gotun"
-          timeout 30s systemctl stop gotun
-          echo "[remote] backing up current binary"
-          cp /data/gotun/gotun /data/gotun/gotun.old
-          echo "[remote] replacing binary"
-          mv /data/gotun/gotun.new /data/gotun/gotun
-          chmod +x /data/gotun/gotun
-          echo "[remote] starting gotun"
-          timeout 30s systemctl start gotun
-          echo "[remote] gotun status"
-          systemctl status gotun --no-pager -l
-          echo "[remote] recent journal"
-          journalctl -u gotun -n 50 --no-pager
-          EOF
+            HOST_VAR="SSH_HOST_${TARGET}"
+            USER_VAR="SSH_USER_${TARGET}"
+            PORT_VAR="SSH_PORT_${TARGET}"
+            PASS_VAR="SSH_PASSWORD_${TARGET}"
+
+            SSH_HOST="${!HOST_VAR:-}"
+            SSH_USER="${!USER_VAR:-root}"
+            SSH_PORT="${!PORT_VAR:-22}"
+            SSH_PASS="${!PASS_VAR:-}"
+
+            if [ -z "$SSH_HOST" ] || [ -z "$SSH_PASS" ]; then
+              echo "[deploy] missing SSH_HOST or SSH_PASSWORD secret for ${TARGET}"
+              DEPLOY_FAILED=1
+              continue
+            fi
+
+            echo "[deploy] host=${SSH_HOST} port=${SSH_PORT}"
+
+            if ! sshpass -p "$SSH_PASS" scp $SSH_OPTS -P "$SSH_PORT" gotun "$SSH_USER@$SSH_HOST:/data/gotun/gotun.new"; then
+              echo "[deploy] upload failed for ${TARGET}"
+              DEPLOY_FAILED=1
+              continue
+            fi
+
+            if ! sshpass -p "$SSH_PASS" ssh $SSH_OPTS -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" <<'EOF'
+            set -e
+            echo "[remote] host=$(hostname)"
+            echo "[remote] pwd=$(pwd)"
+            echo "[remote] stopping gotun"
+            timeout 30s systemctl stop gotun
+            echo "[remote] backing up current binary"
+            cp /data/gotun/gotun /data/gotun/gotun.old
+            echo "[remote] replacing binary"
+            mv /data/gotun/gotun.new /data/gotun/gotun
+            chmod +x /data/gotun/gotun
+            echo "[remote] starting gotun"
+            timeout 30s systemctl start gotun
+            echo "[remote] gotun status"
+            systemctl status gotun --no-pager -l
+            echo "[remote] recent journal"
+            journalctl -u gotun -n 50 --no-pager
+            EOF
+            then
+              echo "[deploy] remote deployment failed for ${TARGET}"
+              DEPLOY_FAILED=1
+              continue
+            fi
+
+            echo "[deploy] target=${TARGET} completed"
+          done
+
+          if [ "$DEPLOY_FAILED" -ne 0 ]; then
+            exit 1
+          fi
