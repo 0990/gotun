@@ -7,6 +7,13 @@ type QualitySummary struct {
 	LastError string  `json:"last_error"`
 }
 
+type BandwidthSummary struct {
+	Status    string  `json:"status"`
+	Mbps      float64 `json:"mbps"`
+	LastError string  `json:"last_error"`
+	TestedAt  string  `json:"tested_at"`
+}
+
 type Tunnel struct {
 	UUID string `json:"uuid"`
 	Name string `json:"name"`
@@ -27,7 +34,8 @@ type Tunnel struct {
 	Status    string `json:"status"`
 	CreatedAt string `json:"created_at"`
 
-	QualitySummary QualitySummary `json:"quality_summary"`
+	QualitySummary   QualitySummary   `json:"quality_summary"`
+	BandwidthSummary BandwidthSummary `json:"bandwidth_summary"`
 }
 
 func (tunnel *Tunnel) TableName() string {

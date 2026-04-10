@@ -53,8 +53,9 @@ func List(mgr *tun.Manager, version string) func(writer http.ResponseWriter, req
 
 		type ConfigX struct {
 			tun.Config
-			Status  string
-			Quality tun.QualitySummary
+			Status    string
+			Quality   tun.QualitySummary
+			Bandwidth tun.BandwidthSummary
 		}
 
 		var cfgs []ConfigX
@@ -62,9 +63,10 @@ func List(mgr *tun.Manager, version string) func(writer http.ResponseWriter, req
 			cfg := v.Cfg()
 			status := v.Status()
 			cfgs = append(cfgs, ConfigX{
-				Config:  cfg,
-				Status:  status,
-				Quality: v.QualitySummary(),
+				Config:    cfg,
+				Status:    status,
+				Quality:   v.QualitySummary(),
+				Bandwidth: v.BandwidthSummary(),
 			})
 		}
 
@@ -77,6 +79,7 @@ func List(mgr *tun.Manager, version string) func(writer http.ResponseWriter, req
 			record := Config2Model(cfg.Config)
 			record.Status = cfg.Status
 			record.QualitySummary = model.QualitySummary(cfg.Quality)
+			record.BandwidthSummary = bandwidthSummaryToModel(cfg.Bandwidth)
 			records = append(records, record)
 		}
 
@@ -153,6 +156,57 @@ func Quality(mgr *tun.Manager) func(w http.ResponseWriter, request *http.Request
 		_, err = writer.Write(d)
 		if err != nil {
 			panic(err.Error())
+		}
+	}
+}
+
+func Bandwidth(mgr *tun.Manager) func(w http.ResponseWriter, request *http.Request) {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		defer func() {
+			if err := recover(); err != nil {
+				msg, _ := json.Marshal(response.Ret{
+					Code: http.StatusInternalServerError,
+					Msg:  fmt.Sprintf("%v", err),
+				})
+				writer.Write(msg)
+			}
+		}()
+
+		name := request.FormValue("name")
+		if name == "" {
+			panic(errors.New("lose name"))
+		}
+
+		service, ok := mgr.GetService(name)
+		if !ok {
+			panic(errors.New("tun not exist"))
+		}
+
+		summary, err := service.BandwidthTest()
+		msg := "success"
+		if err != nil {
+			msg = err.Error()
+		} else if summary.Status == tun.BandwidthStatusDisabled && summary.LastError != "" {
+			msg = summary.LastError
+		}
+
+		ret := response.Ret{
+			Code: http.StatusOK,
+			Msg:  msg,
+			Data: map[string]interface{}{
+				"name":    name,
+				"summary": summary,
+			},
+		}
+
+		d, marshalErr := json.Marshal(&ret)
+		if marshalErr != nil {
+			panic(marshalErr.Error())
+		}
+
+		_, writeErr := writer.Write(d)
+		if writeErr != nil {
+			panic(writeErr.Error())
 		}
 	}
 }
@@ -296,6 +350,15 @@ func Config2Model(ls tun.Config) model.Tunnel {
 		OutCryptKey:   ls.OutCryptKey,
 		OutExtend:     ls.OutExtend,
 		CreatedAt:     ParseTime2String(ls.CreatedAt),
+	}
+}
+
+func bandwidthSummaryToModel(summary tun.BandwidthSummary) model.BandwidthSummary {
+	return model.BandwidthSummary{
+		Status:    summary.Status,
+		Mbps:      summary.Mbps,
+		LastError: summary.LastError,
+		TestedAt:  ParseTime2String(summary.TestedAt),
 	}
 }
 

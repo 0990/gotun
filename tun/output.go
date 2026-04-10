@@ -33,6 +33,7 @@ type output interface {
 	Close() error
 	GetStream() (core.IStream, error)
 	GetProbeStream() (core.IStream, error)
+	GetBandwidthStream() (core.IStream, error)
 	QualitySnapshot() QualitySnapshot
 	QualitySummary() QualitySummary
 	FrameHeaderEnabled() bool
@@ -148,14 +149,18 @@ func (p *Output) Run() error {
 
 // 默认通过makeStream临时创建，不存在makeStream时，则一定从streamMaker池中取streamMaker来创建stream(多路复用情况下)
 func (p *Output) GetStream() (core.IStream, error) {
-	return p.getStream(true, false)
+	return p.getStream(true, "")
 }
 
 func (p *Output) GetProbeStream() (core.IStream, error) {
-	return p.getStream(false, true)
+	return p.getStream(false, "probe")
 }
 
-func (p *Output) getStream(trackQuality bool, probe bool) (core.IStream, error) {
+func (p *Output) GetBandwidthStream() (core.IStream, error) {
+	return p.getStream(false, "bandwidth")
+}
+
+func (p *Output) getStream(trackQuality bool, purpose string) (core.IStream, error) {
 	now := time.Now()
 	status := ""
 	defer func() {
@@ -165,8 +170,8 @@ func (p *Output) getStream(trackQuality bool, probe bool) (core.IStream, error) 
 
 	if p.makeStream != nil {
 		status = "makeStream"
-		if probe {
-			status = "probe_makeStream"
+		if purpose != "" {
+			status = purpose + "_makeStream"
 		}
 		stream, err := p.makeStream(p.addr, p.config, p.readCounter, p.writeCounter)
 		if err != nil {
@@ -189,8 +194,8 @@ func (p *Output) getStream(trackQuality bool, probe bool) (core.IStream, error) 
 	idx, maker, ok := p.getStreamMaker()
 	if ok {
 		status = "openStream"
-		if probe {
-			status = "probe_openStream"
+		if purpose != "" {
+			status = purpose + "_openStream"
 		}
 		connStreamGauge.WithLabelValues(util.ToString(idx)).Add(1)
 		stream, err := maker.OpenStream()
@@ -212,8 +217,8 @@ func (p *Output) getStream(trackQuality bool, probe bool) (core.IStream, error) 
 	idx, maker, err := p.waitStreamMakerCreated()
 	if err == nil {
 		status = "waitMaker"
-		if probe {
-			status = "probe_waitMaker"
+		if purpose != "" {
+			status = purpose + "_waitMaker"
 		}
 		connStreamGauge.WithLabelValues(util.ToString(idx)).Add(1)
 		stream, openErr := maker.OpenStream()
@@ -232,8 +237,8 @@ func (p *Output) getStream(trackQuality bool, probe bool) (core.IStream, error) 
 	}
 
 	status = "returnError"
-	if probe {
-		status = "probe_returnError"
+	if purpose != "" {
+		status = purpose + "_returnError"
 	}
 	logrus.WithError(err).Warn("waitStreamMakerCreated failed")
 	if trackQuality {

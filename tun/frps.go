@@ -1,7 +1,10 @@
 package tun
 
 import (
+	"errors"
 	"fmt"
+	"io"
+
 	"github.com/0990/gotun/core"
 	"github.com/0990/gotun/pkg/msg"
 	"github.com/sirupsen/logrus"
@@ -125,12 +128,22 @@ func (s *Frps) handleInputStream(src core.IStream) {
 	}
 	if role == streamRoleProbe {
 		if frameStream, ok := srcStream.(*FrameStream); ok {
-			if err := frameStream.ServeControlLoop(); err != nil {
+			if err := frameStream.ServeControlLoop(); err != nil && !errors.Is(err, io.EOF) {
 				logrus.WithError(err).Debug("serve probe stream")
 			}
 			return
 		}
 		logrus.Error("probe role requires frame stream")
+		return
+	}
+	if role == streamRoleBandwidth {
+		if frameStream, ok := srcStream.(*FrameStream); ok {
+			if err := ServeBandwidthLoop(frameStream); err != nil {
+				logrus.WithError(err).Debug("serve bandwidth stream")
+			}
+			return
+		}
+		logrus.Error("bandwidth role requires frame stream")
 		return
 	}
 
@@ -182,6 +195,14 @@ func (s *Frps) QualitySummary() QualitySummary {
 
 func (s *Frps) QualityDetails() map[string]QualitySnapshot {
 	return map[string]QualitySnapshot{}
+}
+
+func (s *Frps) BandwidthSummary() BandwidthSummary {
+	return BandwidthSummary{Status: BandwidthStatusDisabled, LastError: "frps mode unsupported"}
+}
+
+func (s *Frps) BandwidthTest() (BandwidthSummary, error) {
+	return BandwidthSummary{Status: BandwidthStatusDisabled, LastError: "frps mode unsupported"}, nil
 }
 
 func (s *Frps) Probe() bool {

@@ -8,8 +8,9 @@ import (
 type streamRole byte
 
 const (
-	streamRoleBusiness streamRole = 0x00
-	streamRoleProbe    streamRole = 0x01
+	streamRoleBusiness  streamRole = 0x00
+	streamRoleProbe     streamRole = 0x01
+	streamRoleBandwidth streamRole = 0x02
 )
 
 var streamHandshakeMagic = [4]byte{'G', 'T', 'H', '1'}
@@ -42,7 +43,7 @@ func readStreamHandshake(r io.Reader) (streamRole, error) {
 		return streamRoleBusiness, errors.New("unsupported stream handshake version")
 	}
 	switch streamRole(buf[5]) {
-	case streamRoleBusiness, streamRoleProbe:
+	case streamRoleBusiness, streamRoleProbe, streamRoleBandwidth:
 		return streamRole(buf[5]), nil
 	default:
 		return streamRoleBusiness, errors.New("invalid stream handshake role")

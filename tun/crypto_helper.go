@@ -221,6 +221,10 @@ func (c *CryptoHelper) WrapProbeDst(s core.IStream) (core.IStream, error) {
 	return c.wrapDstWithRole(s, streamRoleProbe)
 }
 
+func (c *CryptoHelper) WrapBandwidthDst(s core.IStream) (core.IStream, error) {
+	return c.wrapDstWithRole(s, streamRoleBandwidth)
+}
+
 func (c *CryptoHelper) wrapDstWithRole(s core.IStream, role streamRole) (core.IStream, error) {
 	stream, err := c.DstCrypto(s)
 	if err != nil {

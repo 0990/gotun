@@ -9,6 +9,8 @@ type Service interface {
 	Status() string
 	QualitySummary() QualitySummary
 	QualityDetails() map[string]QualitySnapshot
+	BandwidthSummary() BandwidthSummary
+	BandwidthTest() (BandwidthSummary, error)
 	Probe() bool
 }
 
