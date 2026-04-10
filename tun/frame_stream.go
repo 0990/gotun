@@ -13,9 +13,10 @@ import (
 )
 
 const (
-	frameTypeBusiness  byte = 0x00
-	frameTypeProbeReq  byte = 0x01
-	frameTypeProbeResp byte = 0x02
+	frameTypeBusiness      byte = 0x00
+	frameTypeProbeReq      byte = 0x01
+	frameTypeProbeResp     byte = 0x02
+	frameTypeBandwidthDone byte = 0x03
 )
 
 var ErrProbeChannelClosed = errors.New("probe channel closed")
@@ -33,6 +34,7 @@ type ProbeResp struct {
 
 type FrameStream struct {
 	stream core.IStream
+	role   streamRole
 
 	pending []byte
 	writeMu sync.Mutex
@@ -43,9 +45,10 @@ type FrameStream struct {
 	probeWaiters map[uint64]chan ProbeResp
 }
 
-func NewFrameStream(stream core.IStream) *FrameStream {
+func NewFrameStream(stream core.IStream, role streamRole) *FrameStream {
 	return &FrameStream{
 		stream:       stream,
+		role:         role,
 		probeWaiters: make(map[uint64]chan ProbeResp),
 	}
 }
@@ -108,6 +111,11 @@ func (s *FrameStream) Read(p []byte) (int, error) {
 				return 0, err
 			}
 			s.notifyProbeWaiter(resp)
+		case frameTypeBandwidthDone:
+			if s.role == streamRoleBandwidth {
+				return 0, io.EOF
+			}
+			return 0, errors.New("unexpected bandwidth done frame")
 		default:
 			return 0, errors.New("unknown frame type")
 		}
@@ -130,6 +138,10 @@ func (s *FrameStream) WriteProbeReq(req ProbeReq) error {
 
 func (s *FrameStream) WriteProbeResp(resp ProbeResp) error {
 	return s.writeFrame(frameTypeProbeResp, encodeProbeResp(resp))
+}
+
+func (s *FrameStream) WriteBandwidthDone() error {
+	return s.writeFrame(frameTypeBandwidthDone, nil)
 }
 
 func (s *FrameStream) Probe(timeout time.Duration) (time.Duration, error) {

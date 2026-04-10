@@ -210,7 +210,7 @@ func (c *CryptoHelper) WrapSrcWithRole(s core.IStream) (core.IStream, streamRole
 	if err != nil {
 		return nil, streamRoleBusiness, err
 	}
-	return NewFrameStream(stream), role, nil
+	return NewFrameStream(stream, role), role, nil
 }
 
 func (c *CryptoHelper) WrapDst(s core.IStream) (core.IStream, error) {
@@ -236,7 +236,7 @@ func (c *CryptoHelper) wrapDstWithRole(s core.IStream, role streamRole) (core.IS
 	if err := writeStreamHandshake(stream, role); err != nil {
 		return nil, err
 	}
-	return NewFrameStream(stream), nil
+	return NewFrameStream(stream, role), nil
 }
 
 func (c *CryptoHelper) SrcFrameEnabled() bool {

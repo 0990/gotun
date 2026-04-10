@@ -196,7 +196,7 @@ func serveBandwidthDownload(stream *FrameStream, req bandwidthRequest) error {
 			return err
 		}
 	}
-	return nil
+	return stream.WriteBandwidthDone()
 }
 
 func writeBandwidthRequest(w io.Writer, req bandwidthRequest) error {
