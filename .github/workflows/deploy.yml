@@ -2,10 +2,14 @@ name: Deploy
 on:
   workflow_dispatch:
     inputs:
-      targets:
-        description: '要部署的主机数组（JSON），例如 ["LOCAL30"]'
+      self_host_targets:
+        description: '通过 self-hosted runner 部署的主机数组（JSON），例如 ["LOCAL30"]'
         required: true
-        default: '["LOCAL30","LOCAL31","HK","SG"]'
+        default: '["LOCAL30"]'
+      online_targets:
+        description: '通过 ubuntu-latest runner 部署的主机数组（JSON），例如 ["HK"]'
+        required: true
+        default: '["HK","SG"]'
       ref:
         description: '部署的 git ref。填 tag（如 v0.2.5）会注入该版本；填分支（如 master）则版本为 dev'
         required: true
@@ -79,11 +83,12 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  deploy:
+  deploy_self_hosted:
     runs-on: self-hosted
     needs: build
+    if: ${{ inputs.self_host_targets != '[]' }}
     env:
-      TARGETS: ${{ join(fromJson(inputs.targets), ' ') }}
+      TARGETS: ${{ join(fromJson(inputs.self_host_targets), ' ') }}
       SSH_HOST_LOCAL30: ${{ secrets.SSH_HOST_LOCAL30 }}
       SSH_USER_LOCAL30: ${{ secrets.SSH_USER_LOCAL30 || 'root' }}
       SSH_PORT_LOCAL30: ${{ secrets.SSH_PORT_LOCAL30 || '22' }}
@@ -113,13 +118,115 @@ jobs:
           cp "deploy-artifact/${{ needs.build.outputs.binary_name }}" gotun
           chmod +x gotun
 
-      - name: Deploy to targets
+      - name: Deploy to self-hosted targets
         shell: bash
         run: |
           set -euo pipefail
           SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PreferredAuthentications=password -o PubkeyAuthentication=no -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=4"
           if [ -z "${TARGETS}" ]; then
-            echo "[deploy] no targets resolved from inputs.targets"
+            echo "[deploy] no self-hosted targets resolved from inputs.self_host_targets"
+            exit 1
+          fi
+
+          DEPLOY_FAILED=0
+          for TARGET in ${TARGETS}; do
+            echo "[deploy] target=${TARGET} version=${{ needs.build.outputs.version }}"
+
+            HOST_VAR="SSH_HOST_${TARGET}"
+            USER_VAR="SSH_USER_${TARGET}"
+            PORT_VAR="SSH_PORT_${TARGET}"
+            PASS_VAR="SSH_PASSWORD_${TARGET}"
+
+            SSH_HOST="${!HOST_VAR:-}"
+            SSH_USER="${!USER_VAR:-root}"
+            SSH_PORT="${!PORT_VAR:-22}"
+            SSH_PASS="${!PASS_VAR:-}"
+
+            if [ -z "$SSH_HOST" ] || [ -z "$SSH_PASS" ]; then
+              echo "[deploy] missing SSH_HOST or SSH_PASSWORD secret for ${TARGET}"
+              DEPLOY_FAILED=1
+              continue
+            fi
+
+            echo "[deploy] host=${SSH_HOST} port=${SSH_PORT}"
+
+            if ! sshpass -p "$SSH_PASS" scp $SSH_OPTS -P "$SSH_PORT" gotun "$SSH_USER@$SSH_HOST:/data/gotun/gotun.new"; then
+              echo "[deploy] upload failed for ${TARGET}"
+              DEPLOY_FAILED=1
+              continue
+            fi
+
+            if ! sshpass -p "$SSH_PASS" ssh $SSH_OPTS -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" <<'EOF'
+            set -e
+            echo "[remote] host=$(hostname)"
+            echo "[remote] pwd=$(pwd)"
+            echo "[remote] stopping gotun"
+            timeout 30s systemctl stop gotun
+            echo "[remote] backing up current binary"
+            cp /data/gotun/gotun /data/gotun/gotun.old
+            echo "[remote] replacing binary"
+            mv /data/gotun/gotun.new /data/gotun/gotun
+            chmod +x /data/gotun/gotun
+            echo "[remote] starting gotun"
+            timeout 30s systemctl start gotun
+            echo "[remote] gotun status"
+            systemctl status gotun --no-pager -l
+            echo "[remote] recent journal"
+            journalctl -u gotun -n 50 --no-pager
+            EOF
+            then
+              echo "[deploy] remote deployment failed for ${TARGET}"
+              DEPLOY_FAILED=1
+              continue
+            fi
+
+            echo "[deploy] target=${TARGET} completed"
+          done
+
+          if [ "$DEPLOY_FAILED" -ne 0 ]; then
+            exit 1
+          fi
+
+  deploy_online:
+    runs-on: ubuntu-latest
+    needs: build
+    if: ${{ inputs.online_targets != '[]' }}
+    env:
+      TARGETS: ${{ join(fromJson(inputs.online_targets), ' ') }}
+      SSH_HOST_HK: ${{ secrets.SSH_HOST_HK }}
+      SSH_USER_HK: ${{ secrets.SSH_USER_HK || 'root' }}
+      SSH_PORT_HK: ${{ secrets.SSH_PORT_HK || '22' }}
+      SSH_PASSWORD_HK: ${{ secrets.SSH_PASSWORD_HK }}
+      SSH_HOST_SG: ${{ secrets.SSH_HOST_SG }}
+      SSH_USER_SG: ${{ secrets.SSH_USER_SG || 'root' }}
+      SSH_PORT_SG: ${{ secrets.SSH_PORT_SG || '22' }}
+      SSH_PASSWORD_SG: ${{ secrets.SSH_PASSWORD_SG }}
+    steps:
+      - name: Install sshpass
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y sshpass
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build.outputs.artifact_name }}
+          path: deploy-artifact
+
+      - name: Prepare binary
+        shell: bash
+        run: |
+          cp "deploy-artifact/${{ needs.build.outputs.binary_name }}" gotun
+          chmod +x gotun
+
+      - name: Deploy to online targets
+        shell: bash
+        run: |
+          set -euo pipefail
+          SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PreferredAuthentications=password -o PubkeyAuthentication=no -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=4"
+          if [ -z "${TARGETS}" ]; then
+            echo "[deploy] no online targets resolved from inputs.online_targets"
             exit 1
           fi
 
