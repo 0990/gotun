@@ -12,15 +12,15 @@ on:
         default: "master"
 
 jobs:
-  deploy:
-    runs-on: self-hosted
-    strategy:
-      matrix:
-        host: ${{ fromJson(inputs.targets) }}
-      fail-fast: false
+  build:
+    runs-on: ubuntu-latest
     env:
       GO_VERSION: "1.26.1"
-      GOPROXY: "https://goproxy.cn,direct"
+      BINARY_NAME: gotun-linux-amd64
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      artifact_name: ${{ steps.artifact.outputs.name }}
+      binary_name: ${{ env.BINARY_NAME }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -55,12 +55,52 @@ jobs:
 
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
+      - name: Resolve artifact name
+        id: artifact
+        shell: bash
+        run: |
+          echo "name=gotun-${GITHUB_RUN_ID}" >> "$GITHUB_OUTPUT"
+
       - name: Build binary
+        shell: bash
+        env:
+          GOOS: linux
+          GOARCH: amd64
+          CGO_ENABLED: "0"
         run: |
           go mod download
-          go build -ldflags "-X github.com/0990/gotun.Version=${{ steps.version.outputs.version }}" -o gotun ./cmd/main.go
+          go build -ldflags "-X github.com/0990/gotun.Version=${{ steps.version.outputs.version }}" -o "${BINARY_NAME}" ./cmd/main.go
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: ${{ env.BINARY_NAME }}
+          if-no-files-found: error
+          retention-days: 1
+
+  deploy:
+    runs-on: self-hosted
+    needs: build
+    strategy:
+      matrix:
+        host: ${{ fromJson(inputs.targets) }}
+      fail-fast: false
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build.outputs.artifact_name }}
+          path: deploy-artifact
+
+      - name: Prepare binary
+        shell: bash
+        run: |
+          cp "deploy-artifact/${{ needs.build.outputs.binary_name }}" gotun
+          chmod +x gotun
 
       - name: Deploy to ${{ matrix.host }}
+        shell: bash
         env:
           SSH_HOST: ${{ secrets[format('SSH_HOST_{0}', matrix.host)] }}
           SSH_USER: ${{ secrets[format('SSH_USER_{0}', matrix.host)] || 'root' }}
@@ -68,7 +108,7 @@ jobs:
           SSH_PASS: ${{ secrets[format('SSH_PASSWORD_{0}', matrix.host)] }}
         run: |
           set -euo pipefail
-          echo "[deploy] target=${{ matrix.host }} host=${SSH_HOST} port=${SSH_PORT} version=${{ steps.version.outputs.version }}"
+          echo "[deploy] target=${{ matrix.host }} host=${SSH_HOST} port=${SSH_PORT} version=${{ needs.build.outputs.version }}"
 
           SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PreferredAuthentications=password -o PubkeyAuthentication=no -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=4"
 
