@@ -173,7 +173,7 @@ jobs:
             systemctl status gotun --no-pager -l
             echo "[remote] recent journal"
             journalctl -u gotun -n 50 --no-pager
-            EOF
+EOF
             then
               echo "[deploy] remote deployment failed for ${TARGET}"
               DEPLOY_FAILED=1
@@ -275,7 +275,7 @@ jobs:
             systemctl status gotun --no-pager -l
             echo "[remote] recent journal"
             journalctl -u gotun -n 50 --no-pager
-            EOF
+EOF
             then
               echo "[deploy] remote deployment failed for ${TARGET}"
               DEPLOY_FAILED=1
