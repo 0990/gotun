@@ -156,24 +156,24 @@ jobs:
               continue
             fi
 
-            if ! sshpass -p "$SSH_PASS" ssh $SSH_OPTS -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" <<'EOF'
-            set -e
-            echo "[remote] host=$(hostname)"
-            echo "[remote] pwd=$(pwd)"
-            echo "[remote] stopping gotun"
-            timeout 30s systemctl stop gotun
-            echo "[remote] backing up current binary"
-            cp /data/gotun/gotun /data/gotun/gotun.old
-            echo "[remote] replacing binary"
-            mv /data/gotun/gotun.new /data/gotun/gotun
-            chmod +x /data/gotun/gotun
-            echo "[remote] starting gotun"
-            timeout 30s systemctl start gotun
-            echo "[remote] gotun status"
-            systemctl status gotun --no-pager -l
-            echo "[remote] recent journal"
-            journalctl -u gotun -n 50 --no-pager
-EOF
+            if ! printf '%s\n' \
+              'set -e' \
+              'echo "[remote] host=$(hostname)"' \
+              'echo "[remote] pwd=$(pwd)"' \
+              'echo "[remote] stopping gotun"' \
+              'timeout 30s systemctl stop gotun' \
+              'echo "[remote] backing up current binary"' \
+              'cp /data/gotun/gotun /data/gotun/gotun.old' \
+              'echo "[remote] replacing binary"' \
+              'mv /data/gotun/gotun.new /data/gotun/gotun' \
+              'chmod +x /data/gotun/gotun' \
+              'echo "[remote] starting gotun"' \
+              'timeout 30s systemctl start gotun' \
+              'echo "[remote] gotun status"' \
+              'systemctl status gotun --no-pager -l' \
+              'echo "[remote] recent journal"' \
+              'journalctl -u gotun -n 50 --no-pager' \
+              | sshpass -p "$SSH_PASS" ssh $SSH_OPTS -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" 'bash -se'
             then
               echo "[deploy] remote deployment failed for ${TARGET}"
               DEPLOY_FAILED=1
@@ -258,24 +258,24 @@ EOF
               continue
             fi
 
-            if ! sshpass -p "$SSH_PASS" ssh $SSH_OPTS -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" <<'EOF'
-            set -e
-            echo "[remote] host=$(hostname)"
-            echo "[remote] pwd=$(pwd)"
-            echo "[remote] stopping gotun"
-            timeout 30s systemctl stop gotun
-            echo "[remote] backing up current binary"
-            cp /data/gotun/gotun /data/gotun/gotun.old
-            echo "[remote] replacing binary"
-            mv /data/gotun/gotun.new /data/gotun/gotun
-            chmod +x /data/gotun/gotun
-            echo "[remote] starting gotun"
-            timeout 30s systemctl start gotun
-            echo "[remote] gotun status"
-            systemctl status gotun --no-pager -l
-            echo "[remote] recent journal"
-            journalctl -u gotun -n 50 --no-pager
-EOF
+            if ! printf '%s\n' \
+              'set -e' \
+              'echo "[remote] host=$(hostname)"' \
+              'echo "[remote] pwd=$(pwd)"' \
+              'echo "[remote] stopping gotun"' \
+              'timeout 30s systemctl stop gotun' \
+              'echo "[remote] backing up current binary"' \
+              'cp /data/gotun/gotun /data/gotun/gotun.old' \
+              'echo "[remote] replacing binary"' \
+              'mv /data/gotun/gotun.new /data/gotun/gotun' \
+              'chmod +x /data/gotun/gotun' \
+              'echo "[remote] starting gotun"' \
+              'timeout 30s systemctl start gotun' \
+              'echo "[remote] gotun status"' \
+              'systemctl status gotun --no-pager -l' \
+              'echo "[remote] recent journal"' \
+              'journalctl -u gotun -n 50 --no-pager' \
+              | sshpass -p "$SSH_PASS" ssh $SSH_OPTS -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" 'bash -se'
             then
               echo "[deploy] remote deployment failed for ${TARGET}"
               DEPLOY_FAILED=1
