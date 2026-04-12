@@ -1,9 +1,16 @@
 <style scoped>
     .layout-nav {
-        width: 420px;
-        margin: 0 auto;
-        margin-right: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 12px;
+        margin-left: auto;
         color: white;
+    }
+
+    .layout-user {
+        color: white;
+        font-size: 13px;
     }
 
     .layout-logo {
@@ -18,6 +25,8 @@
                 <i-menu mode="horizontal" theme="dark" active-name="1" :style="{background:'#000'}" >
                     <h2 class="layout-logo" id="appName" style="color:white;">gotun</h2>
                     <div class="layout-nav">
+                        <span class="layout-user" v-if="sessionUsername">{{sessionUsername}}</span>
+                        <i-button size="small" type="default" @click="invokeLogout">退出</i-button>
                     </div>
                 </i-menu>
             </i-header>
@@ -48,10 +57,185 @@
     </div>
 </template>
 <script>
+    (function(global) {
+        if (global.TunnelFormHelper) {
+            return;
+        }
+
+        const modeOptions = [
+            {label: 'default', value: 'default'},
+            {label: 'frpc', value: 'frpc'},
+            {label: 'frps', value: 'frps'},
+        ];
+        const cryptModeOptions = [
+            {label: 'none', value: 'none'},
+            {label: 'gcm', value: 'gcm'},
+        ];
+        const inputProtoOptions = [
+            {label: 'tcp', value: 'tcp'},
+            {label: 'tcp_mux', value: 'tcp_mux'},
+            {label: 'udp', value: 'udp'},
+            {label: 'quic', value: 'quic'},
+            {label: 'kcp', value: 'kcp'},
+            {label: 'kcp_mux', value: 'kcp_mux'},
+            {label: 'kcpx', value: 'kcpx'},
+            {label: 'kcpx_mux', value: 'kcpx_mux'},
+            {label: 'socks5x', value: 'socks5x'},
+        ];
+        const outputProtoOptions = [
+            {label: 'tcp', value: 'tcp'},
+            {label: 'tcp_mux', value: 'tcp_mux'},
+            {label: 'udp', value: 'udp'},
+            {label: 'quic', value: 'quic'},
+            {label: 'kcp', value: 'kcp'},
+            {label: 'kcp_mux', value: 'kcp_mux'},
+            {label: 'kcpx', value: 'kcpx'},
+            {label: 'kcpx_mux', value: 'kcpx_mux'},
+        ];
+
+        function buildMuxFrameExtend() {
+            return JSON.stringify({
+                mux_conn: 10,
+                frame_header_enable: true,
+            });
+        }
+
+        function normalizeProto(proto) {
+            proto = String(proto || '').toLowerCase();
+            if (proto === 'tcpmux') {
+                return 'tcp_mux';
+            }
+            if (proto === 'kcpmux') {
+                return 'kcp_mux';
+            }
+            return proto || '';
+        }
+
+        function normalizeMode(mode) {
+            mode = String(mode || '').toLowerCase();
+            if (mode === 'frpc' || mode === 'frps' || mode === 'default') {
+                return mode;
+            }
+            return 'default';
+        }
+
+        function normalizeCryptMode(mode) {
+            mode = String(mode || '').toLowerCase();
+            if (mode === 'gcm' || mode === 'none') {
+                return mode;
+            }
+            return 'none';
+        }
+
+        function splitEndpoint(value, fallbackProto) {
+            const raw = String(value || '');
+            const idx = raw.indexOf('@');
+            if (idx < 0) {
+                return {
+                    proto: normalizeProto(fallbackProto || ''),
+                    addr: raw,
+                };
+            }
+            return {
+                proto: normalizeProto(raw.slice(0, idx)),
+                addr: raw.slice(idx + 1),
+            };
+        }
+
+        function buildEndpoint(proto, addr) {
+            return normalizeProto(proto) + '@' + String(addr || '').trim();
+        }
+
+        function getDefaultInAddr(proto) {
+            proto = normalizeProto(proto);
+            if (proto === 'socks5x') {
+                return '0.0.0.0:1080';
+            }
+            return '0.0.0.0:4000';
+        }
+
+        function getInputDefaults(proto, kcpxProtoCfg) {
+            proto = normalizeProto(proto);
+            switch (proto) {
+                case 'tcp':
+                case 'tcp_mux':
+                    return {protoCfg: '{"head":""}', extend: ''};
+                case 'udp':
+                    return {protoCfg: '{"timeout":90}', extend: ''};
+                case 'quic':
+                    return {protoCfg: '', extend: ''};
+                case 'kcp':
+                case 'kcp_mux':
+                    return {protoCfg: '{"write_delay":true,"mtu":990,"sndwnd":1024,"rcvwnd":1024,"datashard":0,"parityshard":0,"dscp":46,"acknodelay":false,"nodelay":1,"interval":30,"resend":2,"nc":0,"sockbuf":16777217,"streambuf":4194304}', extend: ''};
+                case 'kcpx':
+                case 'kcpx_mux':
+                    return {protoCfg: kcpxProtoCfg, extend: ''};
+                case 'socks5x':
+                    return {protoCfg: '{"username":"","password":"","tcp_timeout":500,"udp_advertised_ip":"","udp_advertised_port":0}', extend: ''};
+                default:
+                    return {protoCfg: '', extend: ''};
+            }
+        }
+
+        function getOutputDefaults(proto, kcpxProtoCfg, muxFrameExtend) {
+            proto = normalizeProto(proto);
+            switch (proto) {
+                case 'tcp':
+                    return {protoCfg: '{"head":""}', extend: ''};
+                case 'tcp_mux':
+                    return {protoCfg: '{"head":""}', extend: muxFrameExtend};
+                case 'udp':
+                    return {protoCfg: '{"timeout":90}', extend: ''};
+                case 'quic':
+                    return {protoCfg: '', extend: muxFrameExtend};
+                case 'kcp':
+                    return {protoCfg: '{"write_delay":true,"mtu":990,"sndwnd":2048,"rcvwnd":1024,"datashard":0,"parityshard":0,"dscp":46,"acknodelay":false,"nodelay":1,"interval":30,"resend":2,"nc":0,"sockbuf":16777217,"streambuf":4194304}', extend: ''};
+                case 'kcp_mux':
+                    return {protoCfg: '{"write_delay":true,"mtu":990,"sndwnd":2048,"rcvwnd":1024,"datashard":0,"parityshard":0,"dscp":46,"acknodelay":false,"nodelay":1,"interval":30,"resend":2,"nc":0,"sockbuf":16777217,"streambuf":4194304}', extend: muxFrameExtend};
+                case 'kcpx':
+                    return {protoCfg: kcpxProtoCfg, extend: ''};
+                case 'kcpx_mux':
+                    return {protoCfg: kcpxProtoCfg, extend: muxFrameExtend};
+                default:
+                    return {protoCfg: '', extend: ''};
+            }
+        }
+
+        function getSideDefaults(side, proto, mode, kcpxProtoCfg, muxFrameExtend) {
+            side = side === 'out' ? 'out' : 'in';
+            mode = normalizeMode(mode);
+            if (side === 'in' && mode === 'frpc') {
+                return getOutputDefaults(proto, kcpxProtoCfg, muxFrameExtend);
+            }
+            if (side === 'out' && mode === 'frps') {
+                return getInputDefaults(proto, kcpxProtoCfg);
+            }
+            if (side === 'in') {
+                return getInputDefaults(proto, kcpxProtoCfg);
+            }
+            return getOutputDefaults(proto, kcpxProtoCfg, muxFrameExtend);
+        }
+
+        global.TunnelFormHelper = {
+            modeOptions: modeOptions,
+            cryptModeOptions: cryptModeOptions,
+            inputProtoOptions: inputProtoOptions,
+            outputProtoOptions: outputProtoOptions,
+            buildMuxFrameExtend: buildMuxFrameExtend,
+            normalizeProto: normalizeProto,
+            normalizeMode: normalizeMode,
+            normalizeCryptMode: normalizeCryptMode,
+            splitEndpoint: splitEndpoint,
+            buildEndpoint: buildEndpoint,
+            getDefaultInAddr: getDefaultInAddr,
+            getSideDefaults: getSideDefaults,
+        };
+    })(window);
 
     module.exports = {
         data: function () {
             return {
+                sessionUsername: '',
                 // config global menu list
                 menu:[{
                     icon: 'ios-people',
@@ -96,6 +280,46 @@
                 }
         },
         methods: {
+            ensureAuthInterceptor: function() {
+                if(window.__gotunAuthInterceptorInstalled) {
+                    return
+                }
+                window.__gotunAuthInterceptorInstalled = true
+                this.axios.interceptors.response.use((response) => {
+                    return response
+                }, (error) => {
+                    if(this.$Spin && this.$Spin.hide) {
+                        this.$Spin.hide()
+                    }
+                    if(error && error.response && error.response.status === 401) {
+                        if(!window.__gotunAuthRedirecting) {
+                            window.__gotunAuthRedirecting = true
+                            window.location.replace('/login')
+                        }
+                    }
+                    return Promise.reject(error)
+                })
+            },
+            fetchSession: function() {
+                this.axios.get('/api/auth/session')
+                    .then((response) => {
+                        const payload = response.data && response.data.data ? response.data.data : {}
+                        this.sessionUsername = payload.username || ''
+                        if(payload.authenticated === false && !window.__gotunAuthRedirecting) {
+                            window.__gotunAuthRedirecting = true
+                            window.location.replace('/login')
+                        }
+                    })
+                    .catch(() => {
+                    })
+            },
+            invokeLogout: function() {
+                this.axios.post('/api/auth/logout')
+                    .finally(() => {
+                        window.__gotunAuthRedirecting = true
+                        window.location.replace('/login')
+                    })
+            },
             getRoutePath: function(name) {
                 var routes = this.routes
                 for (var i in routes) {
@@ -104,10 +328,11 @@
                     }
                 }
                 return ''
-            },
-            created: function() {
-                console.info("hello world");
             }
+        },
+        created: function() {
+            this.ensureAuthInterceptor()
+            this.fetchSession()
         }
     }
 </script>

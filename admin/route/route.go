@@ -33,8 +33,20 @@ func Register(assets embed.FS, listen string, mgr *tun.Manager, authMgr *AuthMan
 	// Static file
 	h.Handle("/go_sword_public/", http.StripPrefix("/go_sword_public/",
 		http.FileServer(http.FS(assets))))
+	h.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
+		if !authMgr.IsEnabled() || authMgr.IsAuthenticated(r) {
+			http.Redirect(w, r, "/", http.StatusFound)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write(readFile(assets, "admin/view/login.html"))
+	})
+	h.HandleFunc("/api/auth/challenge", authMgr.HandleChallenge)
+	h.HandleFunc("/api/auth/login", authMgr.HandleLogin)
+	h.HandleFunc("/api/auth/logout", authMgr.HandleLogout)
+	h.HandleFunc("/api/auth/session", authMgr.HandleSession)
 	// Default index.html
-	h.HandleFunc("/", authMgr.JustCheck(func(w http.ResponseWriter, r *http.Request) {
+	h.HandleFunc("/", authMgr.RequirePageAuth(func(w http.ResponseWriter, r *http.Request) {
 		//Static file route
 		fsys, _ := fs.Sub(assets, "admin/resource/dist")
 		handle := http.FileServer(http.FS(fsys))
@@ -50,20 +62,21 @@ func Register(assets embed.FS, listen string, mgr *tun.Manager, authMgr *AuthMan
 		handle.ServeHTTP(newWriter, r)
 	}))
 	// Render Vue html component
-	h.HandleFunc("/render", authMgr.JustCheck(renderWithAssets(assets)))
+	h.HandleFunc("/render", authMgr.RequireAuth(renderWithAssets(assets)))
 	// ----Route-begin----
 
 	// Route tag tunnel
-	h.HandleFunc("/api/tunnel/list", authMgr.JustCheck(tunnel.List(mgr, version)))
-	h.HandleFunc("/api/tunnel/delete", authMgr.JustCheck(tunnel.Delete(mgr)))
-	h.HandleFunc("/api/tunnel/create", authMgr.JustCheck(tunnel.Create(mgr)))
-	h.HandleFunc("/api/tunnel/edit", authMgr.JustCheck(tunnel.Edit(mgr)))
-	h.HandleFunc("/api/tunnel/import", authMgr.JustCheck(tunnel.Import(mgr)))
-	h.HandleFunc("/api/tunnel/export", authMgr.JustCheck(tunnel.Export(mgr)))
-	h.HandleFunc("/api/tunnel/check_server", authMgr.JustCheck(tunnel.CheckServer(mgr)))
-	h.HandleFunc("/api/tunnel/quality", authMgr.JustCheck(tunnel.Quality(mgr)))
-	h.HandleFunc("/api/tunnel/probe", authMgr.JustCheck(tunnel.Probe(mgr)))
-	h.HandleFunc("/api/tunnel/bandwidth", authMgr.JustCheck(tunnel.Bandwidth(mgr)))
+	h.HandleFunc("/api/tunnel/list", authMgr.RequireAuth(tunnel.List(mgr, version)))
+	h.HandleFunc("/api/tunnel/delete", authMgr.RequireAuth(tunnel.Delete(mgr)))
+	h.HandleFunc("/api/tunnel/create", authMgr.RequireAuth(tunnel.Create(mgr)))
+	h.HandleFunc("/api/tunnel/edit", authMgr.RequireAuth(tunnel.Edit(mgr)))
+	h.HandleFunc("/api/tunnel/import", authMgr.RequireAuth(tunnel.Import(mgr)))
+	h.HandleFunc("/api/tunnel/export", authMgr.RequireAuth(tunnel.Export(mgr)))
+	h.HandleFunc("/api/tunnel/check_server", authMgr.RequireAuth(tunnel.CheckServer(mgr)))
+	h.HandleFunc("/api/tunnel/quality", authMgr.RequireAuth(tunnel.Quality(mgr)))
+	h.HandleFunc("/api/tunnel/probe", authMgr.RequireAuth(tunnel.Probe(mgr)))
+	h.HandleFunc("/api/tunnel/bandwidth", authMgr.RequireAuth(tunnel.Bandwidth(mgr)))
+	h.HandleFunc("/api/tunnel/mtr/stream", authMgr.RequireAuth(tunnel.MTRStream(mgr)))
 	// ----Route-end----
 
 	go func() {
