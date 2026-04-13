@@ -58,6 +58,10 @@ func MTRStream(mgr *tun.Manager) func(w http.ResponseWriter, request *http.Reque
 			writeSSE(writer, flusher, "error", map[string]string{"message": "tun not exist"})
 			return
 		}
+		if service.Cfg().Disabled {
+			writeSSE(writer, flusher, "error", map[string]string{"message": "tunnel disabled"})
+			return
+		}
 
 		spec, err := buildMTRSpec(name, service.Cfg().Output)
 		if err != nil {

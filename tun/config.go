@@ -3,17 +3,20 @@ package tun
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"time"
 )
 
 const TUN_CONFIG_SUFFIX = ".tun"
 
 type Config struct {
-	UUID string `json:"uuid"`
-	Name string `json:"name"`
-	Mode string `json:"mode""` //工作模式 nil|frpc|frps frpc模式下 Input为worker,配置是输出模式;frps模式下 output为worker,配置是输入模式
+	UUID     string `json:"uuid"`
+	Name     string `json:"name"`
+	Disabled bool   `json:"disabled"`
+	Mode     string `json:"mode""` //工作模式 nil|frpc|frps frpc模式下 Input为worker,配置是输出模式;frps模式下 output为worker,配置是输入模式
 
 	Input         string `json:"input"`
 	InProtoCfg    string `json:"in_proto_cfg"`
@@ -114,29 +117,7 @@ type UDPConfig struct {
 }
 
 func createServiceFile(dir string, cfg Config) error {
-	cfgData, err := json.Marshal(cfg)
-	if err != nil {
-		return err
-	}
-
-	filename := serviceFile(dir, cfg.Name)
-	os.Mkdir(dir, os.ModePerm)
-
-	if isFileExist(filename) {
-		return errors.New("tun already exist")
-	}
-
-	f, err := os.Create(filename)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	_, err = f.Write(cfgData)
-	if err != nil {
-		return err
-	}
-	return nil
+	return writeServiceFileAtomic(dir, cfg)
 }
 
 func deleteServiceFile(dir string, name string) error {
@@ -153,6 +134,95 @@ func deleteServiceFile(dir string, name string) error {
 
 func serviceFile(dir string, name string) string {
 	return dir + "/" + name + TUN_CONFIG_SUFFIX
+}
+
+func replaceServiceFile(dir string, oldCfg Config, newCfg Config) error {
+	stageDir, err := serviceStageDir(dir)
+	if err != nil {
+		return err
+	}
+
+	newTemp, err := writeTempServiceFile(stageDir, newCfg)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(newTemp)
+
+	oldPath := serviceFile(dir, oldCfg.Name)
+	newPath := serviceFile(dir, newCfg.Name)
+	backupPath := filepath.Join(stageDir, fmt.Sprintf("%s-%d.bak", oldCfg.Name, time.Now().UnixNano()))
+
+	oldExists := isFileExist(oldPath)
+	if oldExists {
+		if err := os.Rename(oldPath, backupPath); err != nil {
+			return err
+		}
+	}
+
+	if err := os.Rename(newTemp, newPath); err != nil {
+		if oldExists {
+			_ = os.Rename(backupPath, oldPath)
+		}
+		return err
+	}
+
+	if oldExists {
+		_ = os.Remove(backupPath)
+	}
+	return nil
+}
+
+func writeServiceFileAtomic(dir string, cfg Config) error {
+	if _, err := serviceStageDir(dir); err != nil {
+		return err
+	}
+
+	filename := serviceFile(dir, cfg.Name)
+	if isFileExist(filename) {
+		return errors.New("tun already exist")
+	}
+
+	stageDir := filepath.Join(dir, ".staging")
+	tempFile, err := writeTempServiceFile(stageDir, cfg)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tempFile)
+
+	return os.Rename(tempFile, filename)
+}
+
+func serviceStageDir(dir string) (string, error) {
+	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+		return "", err
+	}
+
+	stageDir := filepath.Join(dir, ".staging")
+	if err := os.MkdirAll(stageDir, os.ModePerm); err != nil {
+		return "", err
+	}
+	return stageDir, nil
+}
+
+func writeTempServiceFile(stageDir string, cfg Config) (string, error) {
+	cfgData, err := json.Marshal(cfg)
+	if err != nil {
+		return "", err
+	}
+
+	f, err := os.CreateTemp(stageDir, cfg.Name+".*.tmp")
+	if err != nil {
+		return "", err
+	}
+
+	if _, err := f.Write(cfgData); err != nil {
+		f.Close()
+		return "", err
+	}
+	if err := f.Close(); err != nil {
+		return "", err
+	}
+	return f.Name(), nil
 }
 
 func loadAllServiceFile(dir string) ([]Config, error) {

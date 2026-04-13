@@ -68,6 +68,7 @@ func Register(assets embed.FS, listen string, mgr *tun.Manager, authMgr *AuthMan
 	// Route tag tunnel
 	h.HandleFunc("/api/tunnel/list", authMgr.RequireAuth(tunnel.List(mgr, version)))
 	h.HandleFunc("/api/tunnel/delete", authMgr.RequireAuth(tunnel.Delete(mgr)))
+	h.HandleFunc("/api/tunnel/set_disabled", authMgr.RequireAuth(tunnel.SetDisabled(mgr)))
 	h.HandleFunc("/api/tunnel/create", authMgr.RequireAuth(tunnel.Create(mgr)))
 	h.HandleFunc("/api/tunnel/edit", authMgr.RequireAuth(tunnel.Edit(mgr)))
 	h.HandleFunc("/api/tunnel/import", authMgr.RequireAuth(tunnel.Import(mgr)))

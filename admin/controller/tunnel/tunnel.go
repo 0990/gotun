@@ -306,9 +306,6 @@ func addTunByModel(mgr *tun.Manager, m model.Tunnel) error {
 		return err
 	}
 
-	now := time.Now()
-	cfg.CreatedAt = now
-
 	err = mgr.AddService(*cfg, true)
 	if err != nil {
 		return err
@@ -320,6 +317,7 @@ func Model2Config(ls *model.Tunnel) (*tun.Config, error) {
 	return &tun.Config{
 		UUID:          ls.UUID,
 		Name:          ls.Name,
+		Disabled:      ls.Disabled,
 		Input:         ls.Input,
 		Output:        ls.Output,
 		Mode:          ls.Mode,
@@ -338,6 +336,7 @@ func Config2Model(ls tun.Config) model.Tunnel {
 	return model.Tunnel{
 		UUID:          ls.UUID,
 		Name:          ls.Name,
+		Disabled:      ls.Disabled,
 		Input:         ls.Input,
 		Output:        ls.Output,
 		Mode:          ls.Mode,
@@ -397,12 +396,7 @@ func Edit(mgr *tun.Manager) func(writer http.ResponseWriter, request *http.Reque
 			panic(err.Error())
 		}
 
-		err = mgr.RemoveServiceByUUID(cfg.UUID)
-		if err != nil {
-			panic(err.Error())
-		}
-
-		err = addTunByModel(mgr, data)
+		err = mgr.ReplaceServiceByUUID(*cfg)
 		if err != nil {
 			panic(err.Error())
 		}
@@ -460,6 +454,62 @@ func Delete(mgr *tun.Manager) func(writer http.ResponseWriter, request *http.Req
 		ret := response.Ret{
 			Code: http.StatusOK,
 			Msg:  "success",
+		}
+
+		d, err := json.Marshal(&ret)
+		if err != nil {
+			panic(err.Error())
+		}
+
+		_, err = writer.Write(d)
+		if err != nil {
+			panic(err.Error())
+		}
+	}
+}
+
+func SetDisabled(mgr *tun.Manager) func(writer http.ResponseWriter, request *http.Request) {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		defer func() {
+			if err := recover(); err != nil {
+				msg, _ := json.Marshal(response.Ret{
+					Code: http.StatusInternalServerError,
+					Msg:  fmt.Sprintf("%v", err),
+				})
+				writer.Write(msg)
+			}
+		}()
+
+		body, err := io.ReadAll(request.Body)
+		if err != nil {
+			panic(err.Error())
+		}
+
+		payload := struct {
+			Name     string `json:"name"`
+			Disabled bool   `json:"disabled"`
+		}{}
+		err = json.Unmarshal(body, &payload)
+		if err != nil {
+			panic(err.Error())
+		}
+		if payload.Name == "" {
+			panic(errors.New("lose name"))
+		}
+
+		err = mgr.SetServiceDisabled(payload.Name, payload.Disabled)
+		if err != nil {
+			panic(err.Error())
+		}
+
+		msg := "enabled"
+		if payload.Disabled {
+			msg = "disabled"
+		}
+
+		ret := response.Ret{
+			Code: http.StatusOK,
+			Msg:  msg,
 		}
 
 		d, err := json.Marshal(&ret)

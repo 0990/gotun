@@ -20,6 +20,13 @@
                 </i-col>
             </i-row>
             <i-row type="flex" justify="start" align="middle" :gutter="16" :style="{margin:'20px 0'}">
+                <i-col span="2" :style="{textAlign:'right'}">disabled</i-col>
+                <i-col span="6">
+                    <i-switch v-model="form.disabled">
+                    </i-switch>
+                </i-col>
+            </i-row>
+            <i-row type="flex" justify="start" align="middle" :gutter="16" :style="{margin:'20px 0'}">
                 <i-col span="2" :style="{textAlign:'right'}">in_proto</i-col>
                 <i-col span="6">
                     <i-select v-model="form.in_proto" @on-change="handleInputProtoChange">
@@ -125,6 +132,7 @@
                 outputProtoOptions: TunnelFormHelper.outputProtoOptions,
                 form: {
                     name:'tcp客户端',
+                    disabled:false,
                     mode:'default',
                     in_proto:'tcp',
                     in_addr:'0.0.0.0:4000',
@@ -170,6 +178,7 @@
             buildPayload() {
                 return {
                     name: String(this.form.name || ''),
+                    disabled: !!this.form.disabled,
                     mode: String(this.form.mode || ''),
                     input: this.buildEndpoint(this.form.in_proto, this.form.in_addr),
                     in_proto_cfg: String(this.form.in_proto_cfg || ''),
