@@ -1,3 +1,68 @@
+<style>
+    .mtr-modal-shell .ivu-modal {
+        top: 0;
+        max-width: calc(100vw - 48px);
+    }
+
+    .mtr-modal-shell .ivu-modal-body {
+        height: calc(100vh - 220px);
+        min-height: 320px;
+        max-height: calc(100vh - 220px);
+        overflow: hidden;
+    }
+
+    .mtr-modal-content {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 0;
+    }
+
+    .mtr-modal-meta {
+        flex: 0 0 auto;
+        margin-bottom: 12px;
+        word-break: break-all;
+    }
+
+    .mtr-terminal-panel {
+        flex: 1 1 auto;
+        min-height: 0;
+        background: #111;
+        border-radius: 4px;
+        padding: 8px;
+        overflow: hidden;
+    }
+
+    .mtr-terminal-host {
+        width: 100%;
+        height: 100%;
+    }
+
+    .mtr-modal-errors {
+        flex: 0 0 auto;
+        margin-top: 8px;
+        color: #d93025;
+        white-space: pre-wrap;
+        overflow: auto;
+        max-height: 96px;
+    }
+
+    @media (max-height: 760px) {
+        .mtr-modal-shell .ivu-modal {
+            max-width: calc(100vw - 24px);
+        }
+
+        .mtr-modal-shell .ivu-modal-body {
+            height: calc(100vh - 168px);
+            min-height: 240px;
+            max-height: calc(100vh - 168px);
+        }
+
+        .mtr-modal-errors {
+            max-height: 72px;
+        }
+    }
+</style>
 <template>
     <div class="layout">
         <i-breadcrumb :style="{margin: '24px 24px'}">
@@ -64,15 +129,17 @@
                     </i-row>
                 </div>
             </i-modal>
-            <i-modal v-model="mtrModal" title="mtr" :width="78" @on-visible-change="handleMTRModalVisibleChange">
-                <div :style="{marginBottom:'12px'}">
-                    <div><b>name:</b> {{mtrMeta.name || '-'}}</div>
-                    <div><b>command:</b> {{mtrMeta.command || '-'}}</div>
+            <i-modal v-model="mtrModal" title="mtr" :width="78" class-name="mtr-modal-shell" @on-visible-change="handleMTRModalVisibleChange">
+                <div class="mtr-modal-content">
+                    <div class="mtr-modal-meta">
+                        <div><b>name:</b> {{mtrMeta.name || '-'}}</div>
+                        <div><b>command:</b> {{mtrMeta.command || '-'}}</div>
+                    </div>
+                    <div class="mtr-terminal-panel">
+                        <div ref="mtrTerminal" class="mtr-terminal-host"></div>
+                    </div>
+                    <div v-if="mtrErrors" class="mtr-modal-errors">{{mtrErrors}}</div>
                 </div>
-                <div :style="{background:'#111', minHeight:'420px', height:'560px', borderRadius:'4px', padding:'8px', overflow:'hidden'}">
-                    <div ref="mtrTerminal" :style="{width:'100%', height:'100%'}"></div>
-                </div>
-                <div v-if="mtrErrors" :style="{marginTop:'8px', color:'#d93025', whiteSpace:'pre-wrap'}">{{mtrErrors}}</div>
                 <div slot="footer">
                     <i-button @click="invokeClearMTR">清空</i-button>
                     <i-button type="warning" @click="invokeStopMTR" :disabled="!mtrSource">停止</i-button>
@@ -108,6 +175,7 @@
                 mtrSource:null,
                 mtrTerminal:null,
                 mtrTerminalLoader:null,
+                mtrResizeTimer:null,
                 viewModal:false,
                 viewModalData:{},
                 deleteModal:false,
@@ -466,6 +534,7 @@ created_at:'string',
                                 terminal.open(el);
                                 terminal.reset();
                                 this.mtrTerminal = terminal;
+                                this.refreshMTRTerminalLayout();
                                 resolve();
                             } catch (e) {
                                 reject(e);
@@ -473,6 +542,68 @@ created_at:'string',
                         });
                     });
                 });
+            },
+            getMTRTerminalCellSize: function() {
+                if(!this.mtrTerminal) {
+                    return null;
+                }
+                try {
+                    const core = this.mtrTerminal._core;
+                    const dims = core && core._renderService && core._renderService.dimensions && core._renderService.dimensions.css;
+                    const cell = dims && dims.cell;
+                    if(cell && cell.width && cell.height) {
+                        return {
+                            width: cell.width,
+                            height: cell.height,
+                        };
+                    }
+                } catch (e) {
+                }
+                const fontSize = Number(this.mtrTerminal.options && this.mtrTerminal.options.fontSize) || 15;
+                return {
+                    width: Math.max(fontSize * 0.62, 8),
+                    height: Math.max(Math.round(fontSize * 1.5), 18),
+                };
+            },
+            refreshMTRTerminalLayout: function() {
+                this.$nextTick(() => {
+                    if(!this.mtrModal || !this.mtrTerminal) {
+                        return
+                    }
+                    const el = this.$refs.mtrTerminal;
+                    const cell = this.getMTRTerminalCellSize();
+                    if(!el || !cell) {
+                        return
+                    }
+                    const width = el.clientWidth;
+                    const height = el.clientHeight;
+                    if(!width || !height) {
+                        return
+                    }
+                    const cols = Math.max(80, Math.floor(width / cell.width));
+                    const rows = Math.max(12, Math.floor(height / cell.height));
+                    if(typeof this.mtrTerminal.resize === 'function' && (this.mtrTerminal.cols !== cols || this.mtrTerminal.rows !== rows)) {
+                        this.mtrTerminal.resize(cols, rows);
+                    }
+                    if(typeof this.mtrTerminal.refresh === 'function' && this.mtrTerminal.rows > 0) {
+                        this.mtrTerminal.refresh(0, this.mtrTerminal.rows - 1);
+                    }
+                });
+            },
+            scheduleMTRTerminalLayoutRefresh: function() {
+                if(this.mtrResizeTimer) {
+                    clearTimeout(this.mtrResizeTimer);
+                }
+                this.mtrResizeTimer = setTimeout(() => {
+                    this.mtrResizeTimer = null;
+                    this.refreshMTRTerminalLayout();
+                }, 50);
+            },
+            handleMTRWindowResize: function() {
+                if(!this.mtrModal) {
+                    return
+                }
+                this.scheduleMTRTerminalLayoutRefresh();
             },
             startMTRStream: function(row) {
                 if(this.mtrTerminal) {
@@ -494,6 +625,7 @@ created_at:'string',
                         mode: payload.mode || '',
                         command: payload.command || '',
                     };
+                    this.scheduleMTRTerminalLayoutRefresh();
                 });
 
                 source.addEventListener('terminal', (event) => {
@@ -542,6 +674,7 @@ created_at:'string',
             },
             appendMTRError: function(line) {
                 this.mtrErrors = this.mtrErrors ? (this.mtrErrors + '\n' + line) : line;
+                this.scheduleMTRTerminalLayoutRefresh();
             },
             decodeBase64Chunk: function(base64) {
                 const binary = window.atob(base64);
@@ -575,9 +708,11 @@ created_at:'string',
             },
             invokeClearMTR: function() {
                 this.resetMTRView();
+                this.scheduleMTRTerminalLayoutRefresh();
             },
             handleMTRModalVisibleChange: function(visible) {
                 if(visible) {
+                    this.scheduleMTRTerminalLayoutRefresh();
                     return
                 }
                 if(this.mtrSource) {
@@ -586,6 +721,10 @@ created_at:'string',
                 if(this.mtrTerminal) {
                     this.mtrTerminal.dispose();
                     this.mtrTerminal = null;
+                }
+                if(this.mtrResizeTimer) {
+                    clearTimeout(this.mtrResizeTimer);
+                    this.mtrResizeTimer = null;
                 }
             },
             invokeExport: function(row) {
@@ -726,6 +865,7 @@ created_at:'string',
             }
         },
         created: function() {
+            window.addEventListener('resize', this.handleMTRWindowResize);
             this.tableData();
         },
         beforeRouteUpdate: function(to, from ,next) {
@@ -739,6 +879,11 @@ created_at:'string',
             next()
         },
         beforeDestroy: function() {
+            window.removeEventListener('resize', this.handleMTRWindowResize);
+            if(this.mtrResizeTimer) {
+                clearTimeout(this.mtrResizeTimer);
+                this.mtrResizeTimer = null;
+            }
             this.stopProbeLoop();
             this.closeMTRSource();
         }
