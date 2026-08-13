@@ -1,0 +1,41 @@
+schema: spec-driven
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+context: |
+  项目：gotun —— Go 编写的隧道/代理管理工具，带基于 net/http + Vue 2（http-vue-loader，
+  经 /render 加载 SFC）的管理后台。tunnel 以 JSON 文件持久化，由 tun.Manager 在内存中
+  以名称（name）为键管理；每个输出的健康度（RTT / 丢包 / up-down）由现有探测机制计算。
+  约定：提交信息使用中文、conventional commits 风格（例如 "feat:..."）。
+
+  【强制】所有 OpenSpec 规划文档——proposal.md、design.md、tasks.md、以及 specs/**
+  下的 spec.md（含增量 delta）——必须用【简体中文】撰写。解释性正文、标题描述、
+  理由、影响、决策、风险等一律使用中文。
+
+  例外（保持英文/原样）：OpenSpec 校验所依赖的结构性关键字不得翻译，包括
+  spec 增量中的 `## ADDED Requirements`/`## MODIFIED Requirements` 等小节标题、
+  `### Requirement:` 与 `#### Scenario:` 标签、以及 `- **WHEN**` / `- **THEN**`
+  标记。代码标识符、文件路径、API 路由、配置键、Go 结构体/接口名等技术内容也保
+  持原文。
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+rules:
+  proposal:
+    - "全文用简体中文撰写；仅结构标记、代码标识符与路径保持原文。"
+  specs:
+    - "用简体中文撰写需求与场景描述。"
+    - "必须保留 `## ADDED/MODIFIED/REMOVED/RENAMED Requirements`、`### Requirement:`、`#### Scenario:`（恰好 4 个 #）、`- **WHEN**`/`- **THEN**` 等结构关键字不译，否则 openspec validate 会失败。"
+  design:
+    - "全文用简体中文撰写；技术决策与理由用中文表达，代码标识符保持原文。"
+  tasks:
+    - "任务描述用简体中文；保持 `- [ ]` 复选框格式不变。"
+
+# Per-operation guidance (optional)
+operations:
+  apply:
+    guidance:
+      - "代码注释与日志信息使用中文，与现有代码风格一致。"
+  archive:
+    guidance:
+      - "归档前用中文总结归档结果。"

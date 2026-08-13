@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/0990/gotun/admin/controller/tunnel"
+	routectl "github.com/0990/gotun/admin/controller/route"
 	"github.com/0990/gotun/admin/response"
 	"github.com/0990/gotun/tun"
 	"io/fs"
@@ -78,6 +79,20 @@ func Register(assets embed.FS, listen string, mgr *tun.Manager, authMgr *AuthMan
 	h.HandleFunc("/api/tunnel/probe", authMgr.RequireAuth(tunnel.Probe(mgr)))
 	h.HandleFunc("/api/tunnel/bandwidth", authMgr.RequireAuth(tunnel.Bandwidth(mgr)))
 	h.HandleFunc("/api/tunnel/mtr/stream", authMgr.RequireAuth(tunnel.MTRStream(mgr)))
+
+	// Route tag smartrouting（智能路由-出口 output 模式）
+	h.HandleFunc("/api/route_output/list", authMgr.RequireAuth(routectl.List(mgr, tun.RouteModeOutput, version)))
+	h.HandleFunc("/api/route_output/create", authMgr.RequireAuth(routectl.Create(mgr, tun.RouteModeOutput)))
+	h.HandleFunc("/api/route_output/edit", authMgr.RequireAuth(routectl.Edit(mgr, tun.RouteModeOutput)))
+	h.HandleFunc("/api/route_output/delete", authMgr.RequireAuth(routectl.Delete(mgr, tun.RouteModeOutput)))
+	h.HandleFunc("/api/route_output/set_disabled", authMgr.RequireAuth(routectl.SetDisabled(mgr, tun.RouteModeOutput)))
+
+	// Route tag smartrouting（智能路由-入口 input 模式，透明转发）
+	h.HandleFunc("/api/route_input/list", authMgr.RequireAuth(routectl.List(mgr, tun.RouteModeInput, version)))
+	h.HandleFunc("/api/route_input/create", authMgr.RequireAuth(routectl.Create(mgr, tun.RouteModeInput)))
+	h.HandleFunc("/api/route_input/edit", authMgr.RequireAuth(routectl.Edit(mgr, tun.RouteModeInput)))
+	h.HandleFunc("/api/route_input/delete", authMgr.RequireAuth(routectl.Delete(mgr, tun.RouteModeInput)))
+	h.HandleFunc("/api/route_input/set_disabled", authMgr.RequireAuth(routectl.SetDisabled(mgr, tun.RouteModeInput)))
 	// ----Route-end----
 
 	go func() {

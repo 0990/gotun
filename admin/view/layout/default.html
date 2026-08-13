@@ -242,6 +242,8 @@
                     title: 'Menu',
                     sub_menu:[
                         {icon: 'ios-people',title: 'tunnel',name:'tunnel_list'},
+                        {icon: 'ios-swap',title: '智能路由-出口',name:'route_output_list'},
+                        {icon: 'ios-git-merge',title: '智能路由-入口',name:'route_input_list'},
 	                    // ----Menus-Add-----
                         // Do not modify the notes '----Menus-Add-----'
                     ]
@@ -268,6 +270,14 @@
                     name: 'tunnel_edit',
                     path: '/tunnel/edit',
                     url: '/render?path=/tunnel/edit'
+                },{
+                    name: 'route_output_list',
+                    path: '/route_output/list',
+                    url: '/render?path=/route_output/list'
+                },{
+                    name: 'route_input_list',
+                    path: '/route_input/list',
+                    url: '/render?path=/route_input/list'
                 },
                 // ----Routes-Add-----
                 // Do not modify the notes '----Routes-Add-----'

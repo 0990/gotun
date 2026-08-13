@@ -229,6 +229,113 @@ func loadAllServiceFile(dir string) ([]Config, error) {
 	return loadAllFile[Config](dir, TUN_CONFIG_SUFFIX)
 }
 
+// routeFile 返回某智能路由入口的持久化文件路径
+func routeFile(dir string, name string) string {
+	return dir + "/" + name + ROUTE_CONFIG_SUFFIX
+}
+
+// createRouteFile 原子写入 route 配置文件（已存在则报错）
+func createRouteFile(dir string, cfg RouteConfig) error {
+	return writeRouteFileAtomic(dir, cfg)
+}
+
+// deleteRouteFile 删除 route 配置文件（不存在则视为成功）
+func deleteRouteFile(dir string, name string) error {
+	err := os.Remove(routeFile(dir, name))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
+// writeRouteFileAtomic 原子写入 route 配置文件（先写临时文件再 rename）
+func writeRouteFileAtomic(dir string, cfg RouteConfig) error {
+	if _, err := serviceStageDir(dir); err != nil {
+		return err
+	}
+
+	filename := routeFile(dir, cfg.Name)
+	if isFileExist(filename) {
+		return errors.New("route already exist")
+	}
+
+	stageDir := filepath.Join(dir, ".staging")
+	tempFile, err := writeTempRouteFile(stageDir, cfg)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tempFile)
+
+	return os.Rename(tempFile, filename)
+}
+
+// replaceRouteFile 用新配置替换旧配置（带 .bak 备份与回滚）
+func replaceRouteFile(dir string, oldCfg RouteConfig, newCfg RouteConfig) error {
+	stageDir, err := serviceStageDir(dir)
+	if err != nil {
+		return err
+	}
+
+	newTemp, err := writeTempRouteFile(stageDir, newCfg)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(newTemp)
+
+	oldPath := routeFile(dir, oldCfg.Name)
+	newPath := routeFile(dir, newCfg.Name)
+	backupPath := filepath.Join(stageDir, fmt.Sprintf("%s-%d.route.bak", oldCfg.Name, time.Now().UnixNano()))
+
+	oldExists := isFileExist(oldPath)
+	if oldExists {
+		if err := os.Rename(oldPath, backupPath); err != nil {
+			return err
+		}
+	}
+
+	if err := os.Rename(newTemp, newPath); err != nil {
+		if oldExists {
+			_ = os.Rename(backupPath, oldPath)
+		}
+		return err
+	}
+
+	if oldExists {
+		_ = os.Remove(backupPath)
+	}
+	return nil
+}
+
+// writeTempRouteFile 把 route 配置写入临时文件，返回临时文件路径
+func writeTempRouteFile(stageDir string, cfg RouteConfig) (string, error) {
+	cfgData, err := json.Marshal(cfg)
+	if err != nil {
+		return "", err
+	}
+
+	f, err := os.CreateTemp(stageDir, cfg.Name+".*.route.tmp")
+	if err != nil {
+		return "", err
+	}
+
+	if _, err := f.Write(cfgData); err != nil {
+		f.Close()
+		return "", err
+	}
+	if err := f.Close(); err != nil {
+		return "", err
+	}
+	return f.Name(), nil
+}
+
+// loadAllRouteFile 加载目录下所有 .route 配置
+func loadAllRouteFile(dir string) ([]RouteConfig, error) {
+	return loadAllFile[RouteConfig](dir, ROUTE_CONFIG_SUFFIX)
+}
+
 func loadAllFile[T any](dir string, suffix string) ([]T, error) {
 	rd, err := os.ReadDir(dir)
 	if err != nil {
@@ -245,8 +352,8 @@ func loadAllFile[T any](dir string, suffix string) ([]T, error) {
 		}
 		name := v.Name()
 
-		suffix := path.Ext(name)
-		if suffix != suffix {
+		// 只加载指定后缀的文件（原代码误写成 suffix != suffix，恒为假，需修正）
+		if path.Ext(name) != suffix {
 			continue
 		}
 
