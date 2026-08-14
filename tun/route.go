@@ -74,11 +74,11 @@ func (s *routeService) buildOutputMode() error {
 	if err != nil {
 		return err
 	}
-	// 复用普通 tunnel 的 input 配置形态（proto@addr），InProtoCfg 为空
+	// 复用普通 tunnel 的 input 配置形态（proto@addr + InProtoCfg）
 	_ = proto
 	_ = addr
 
-	input, err := newInput(s.cfg.Listen, "", NewUplinkCounter(s.cfg.Name, s.cfg.Listen), NewDownlinkCounter(s.cfg.Name, s.cfg.Listen))
+	input, err := newInput(s.cfg.Listen, s.cfg.InProtoCfg, NewUplinkCounter(s.cfg.Name, s.cfg.Listen), NewDownlinkCounter(s.cfg.Name, s.cfg.Listen))
 	if err != nil {
 		return err
 	}

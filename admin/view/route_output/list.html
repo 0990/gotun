@@ -39,9 +39,17 @@
                     <i-form-item label="名称">
                         <i-input v-model="editModalData.name" placeholder="如 web-out"></i-input>
                     </i-form-item>
-                    <i-form-item label="监听地址">
-                        <i-input v-model="editModalData.listen" placeholder="proto@host:port，如 tcp@0.0.0.0:1000"></i-input>
-                        <div :style="{color:'#999', fontSize:'12px'}">出口模式需带协议（tcp/socks5x 等），由客户端协议决定；流量经所选 member 的 output 发出。</div>
+                    <i-form-item label="in_proto">
+                        <i-select v-model="editModalData.in_proto" @on-change="handleInputProtoChange">
+                            <i-option v-for="item in inputProtoOptions" :key="item.value" :value="item.value">{{ item.label }}</i-option>
+                        </i-select>
+                    </i-form-item>
+                    <i-form-item label="in_addr">
+                        <i-input v-model="editModalData.in_addr" placeholder="0.0.0.0:1000"></i-input>
+                        <div :style="{color:'#999', fontSize:'12px'}">出口监听 = in_proto + in_addr，由客户端协议决定；流量经所选 member 的 output 发出。</div>
+                    </i-form-item>
+                    <i-form-item label="in_proto_cfg">
+                        <i-input v-model="editModalData.in_proto_cfg"></i-input>
                     </i-form-item>
                     <i-form-item label="member(按优先级)">
                         <i-select v-model="editModalData.members" multiple filterable placeholder="选择 tunnel，顺序即优先级">
@@ -81,6 +89,8 @@
     </div>
 </template>
 <script type="text/javascript">
+    const TunnelFormHelper = window.TunnelFormHelper;
+
     module.exports = {
         data: function() {
             return {
@@ -88,8 +98,9 @@
                 pageTotal: 0,
                 pageSize: 0,
                 tunnelOptions: [],
+                inputProtoOptions: TunnelFormHelper.inputProtoOptions,
                 editModal: false,
-                editModalData: {uuid:'', name:'', listen:'', members:[], disabled:false},
+                editModalData: {uuid:'', name:'', in_proto:'socks5x', in_addr:'0.0.0.0:1080', in_proto_cfg:'', members:[], disabled:false},
                 editModalEnabled: true,
                 deleteModal: false,
                 deleteModalData: {},
@@ -137,14 +148,35 @@
                     this.tunnelOptions = (response.data.data.list || []).map(t => t.name);
                 })
             },
+            blankForm: function() {
+                return {uuid:'', name:'', in_proto:'socks5x', in_addr:'0.0.0.0:1080', in_proto_cfg:'', members:[], disabled:false};
+            },
+            handleInputProtoChange: function() {
+                this.editModalData.in_addr = TunnelFormHelper.getDefaultInAddr(this.editModalData.in_proto);
+                this.syncInputDefaults();
+            },
+            syncInputDefaults: function() {
+                var defaults = TunnelFormHelper.getSideDefaults('in', this.editModalData.in_proto, 'default', '', '');
+                this.editModalData.in_proto_cfg = defaults.protoCfg;
+            },
             invokeChangePage: function(page) { this.$router.push({query:{page:page}}) },
             invokeCreate: function() {
-                this.editModalData = {uuid:'', name:'', listen:'', members:[], disabled:false};
+                this.editModalData = this.blankForm();
+                this.syncInputDefaults();
                 this.editModalEnabled = true;
                 this.editModal = true;
             },
             invokeEdit: function(row) {
-                this.editModalData = {uuid: row.uuid, name: row.name, listen: row.listen, members: (row.members||[]).slice(), disabled: row.disabled};
+                var ep = TunnelFormHelper.splitEndpoint(row.listen, 'socks5x');
+                this.editModalData = {
+                    uuid: row.uuid,
+                    name: row.name,
+                    in_proto: ep.proto,
+                    in_addr: ep.addr,
+                    in_proto_cfg: row.in_proto_cfg || '',
+                    members: (row.members||[]).slice(),
+                    disabled: row.disabled
+                };
                 this.editModalEnabled = !row.disabled;
                 this.editModal = true;
             },
@@ -153,7 +185,8 @@
                 var payload = {
                     uuid: this.editModalData.uuid,
                     name: this.editModalData.name,
-                    listen: this.editModalData.listen,
+                    listen: TunnelFormHelper.buildEndpoint(this.editModalData.in_proto, this.editModalData.in_addr),
+                    in_proto_cfg: this.editModalData.in_proto_cfg || '',
                     members: this.editModalData.members,
                     disabled: !this.editModalEnabled,
                 };

@@ -47,6 +47,7 @@ func routeToModel(rs tun.RouteService) model.Route {
 		Disabled:        cfg.Disabled,
 		Mode:            cfg.Mode,
 		Listen:          cfg.Listen,
+		InProtoCfg:      cfg.InProtoCfg,
 		Members:         cfg.Members,
 		Policy:          cfg.Policy,
 		Status:          status,
@@ -60,13 +61,14 @@ func routeToModel(rs tun.RouteService) model.Route {
 
 func modelToRoute(m *model.Route) tun.RouteConfig {
 	return tun.RouteConfig{
-		UUID:     m.UUID,
-		Name:     m.Name,
-		Disabled: m.Disabled,
-		Mode:     m.Mode,
-		Listen:   m.Listen,
-		Members:  m.Members,
-		Policy:   m.Policy,
+		UUID:       m.UUID,
+		Name:       m.Name,
+		Disabled:   m.Disabled,
+		Mode:       m.Mode,
+		Listen:     m.Listen,
+		InProtoCfg: m.InProtoCfg,
+		Members:    m.Members,
+		Policy:     m.Policy,
 	}
 }
 

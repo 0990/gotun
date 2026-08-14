@@ -20,14 +20,17 @@ const (
 // RouteConfig 智能路由入口配置
 // Members 数组顺序即优先级，索引 0 最高
 type RouteConfig struct {
-	UUID     string    `json:"uuid"`
-	Name     string    `json:"name"`
-	Disabled bool      `json:"disabled"`
-	Mode     string    `json:"mode"`    // output|input
-	Listen   string    `json:"listen"`  // output 模式: "proto@host:port"；input 模式: "host:port"
-	Members  []string  `json:"members"` // member tunnel 名称，按优先级排序
-	Policy   string    `json:"policy"`  // 故障转移策略，v1 仅支持 "priority"
-	CreatedAt time.Time `json:"create_at"`
+	UUID     string `json:"uuid"`
+	Name     string `json:"name"`
+	Disabled bool   `json:"disabled"`
+	Mode     string `json:"mode"`   // output|input
+	Listen   string `json:"listen"` // output 模式: "proto@host:port"；input 模式: "host:port"
+	// InProtoCfg 入口监听协议的扩展配置（如 socks5x 的认证/超时），仅 output 模式使用；
+	// input 模式为裸 TCP 透明转发，无此配置
+	InProtoCfg string    `json:"in_proto_cfg"`
+	Members    []string  `json:"members"` // member tunnel 名称，按优先级排序
+	Policy     string    `json:"policy"`  // 故障转移策略，v1 仅支持 "priority"
+	CreatedAt  time.Time `json:"create_at"`
 }
 
 // normalize 填充默认值并规范化

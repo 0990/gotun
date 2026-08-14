@@ -14,10 +14,34 @@ type streamDialer interface {
 	GetBandwidthStream() (core.IStream, error)
 }
 
+// memberOutput 包装 *Server，使 failoverOutput 既能拿到 output 的拨号能力，
+// 又能拿到该 member 自己的 output 侧加密配置（CryptoHelper），
+// 供出口模式路由按「选中的同一个 member」套用其加密/帧头。
+type memberOutput struct {
+	srv *Server
+}
+
+func (m *memberOutput) GetStream() (core.IStream, error) {
+	return m.srv.output.GetStream()
+}
+
+func (m *memberOutput) GetProbeStream() (core.IStream, error) {
+	return m.srv.output.GetProbeStream()
+}
+
+func (m *memberOutput) GetBandwidthStream() (core.IStream, error) {
+	return m.srv.output.GetBandwidthStream()
+}
+
+// CryptoHelper 返回该 member 的 output 侧加密助手
+func (m *memberOutput) CryptoHelper() *CryptoHelper {
+	return m.srv.cryptoHelper
+}
+
 // dialerOf 从 member Service 取出其拨号器（仅 *Server 具备 output；frpc/frps 等不具备）
 func dialerOf(svc Service) (streamDialer, bool) {
 	if srv, ok := svc.(*Server); ok {
-		return srv.output, true
+		return &memberOutput{srv: srv}, true
 	}
 	return nil, false
 }
@@ -84,6 +108,38 @@ func (f *failoverOutput) GetStream() (core.IStream, error) {
 	return f.getStream(func(d streamDialer) (core.IStream, error) {
 		return d.GetStream()
 	})
+}
+
+// GetStreamWithCrypto 选址并拨号，同时返回所选 member 的 output 侧 CryptoHelper。
+// 流与加密助手来自同一次选址命中的同一个 member，
+// 避免 failover 顺延到下一 member 时流和加密配置不一致。
+func (f *failoverOutput) GetStreamWithCrypto() (core.IStream, *CryptoHelper, error) {
+	var lastErr error
+	cands := f.selector.candidates()
+	if len(cands) == 0 {
+		return nil, nil, errors.New("没有可用的 member（全部禁用/未运行/健康为 down）")
+	}
+	for _, svc := range cands {
+		d, ok := dialerOf(svc)
+		if !ok {
+			lastErr = errors.New("member 非 Server 类型，无 output 可拨号: " + svc.Cfg().Name)
+			continue
+		}
+		stream, err := d.GetStream()
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		var ch *CryptoHelper
+		if cp, ok := d.(interface{ CryptoHelper() *CryptoHelper }); ok {
+			ch = cp.CryptoHelper()
+		}
+		return stream, ch, nil
+	}
+	if lastErr == nil {
+		lastErr = errors.New("所有可用 member 拨号均失败")
+	}
+	return nil, nil, lastErr
 }
 
 func (f *failoverOutput) GetProbeStream() (core.IStream, error) {
