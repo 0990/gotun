@@ -50,6 +50,13 @@ const (
 	QualityStatusDown     = "down"
 )
 
+// 探测参数的内置默认值（仅在 Extend 中对应字段为零值时生效）
+const (
+	defaultProbeIntervalSec = 2    // 探测节奏：默认每 2s 一次
+	defaultProbeTimeoutMS   = 1500 // 单次探测失败判定超时：默认 1500ms
+	defaultProbeWindowSize  = 5    // 滑动窗口样本数：默认 5
+)
+
 type QualitySummary struct {
 	Status    string  `json:"status"`
 	RTTMs     int64   `json:"rtt_ms"`
@@ -106,9 +113,9 @@ type QualityTracker struct {
 
 func NewQualityTracker(service, output string, readCounter, writeCounter stats.Counter, enabled bool, windowSize int) *QualityTracker {
 	if windowSize <= 0 {
-		windowSize = 20
+		windowSize = defaultProbeWindowSize
 	}
-	return &QualityTracker{
+	q := &QualityTracker{
 		service:      service,
 		output:       output,
 		readCounter:  readCounter,
@@ -116,6 +123,20 @@ func NewQualityTracker(service, output string, readCounter, writeCounter stats.C
 		enabled:      enabled,
 		windowSize:   windowSize,
 	}
+	// 创建即写入初始状态指标，使每个 tunnel 在 Prometheus 中始终可查（含未探测/未开帧头情形）。
+	// 空标签（内部兜底 tracker）不产生无意义序列。
+	if service != "" || output != "" {
+		q.initStatusMetric()
+	}
+	return q
+}
+
+// initStatusMetric 按当前可判定状态写入一次 gotun_probe_status 初值：
+// 未开帧头(disabled) → -1；已开帧头但尚无样本(down) → 0。后续探测按真实状态刷新。
+func (q *QualityTracker) initStatusMetric() {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	q.updatePrometheusLocked()
 }
 
 func (q *QualityTracker) Enabled() bool {

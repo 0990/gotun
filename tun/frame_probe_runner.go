@@ -69,7 +69,7 @@ func (r *FrameProbeRunner) maybeProbe(now time.Time, force bool) {
 
 	interval := time.Duration(r.cfg.ProbeIntervalSec) * time.Second
 	if interval <= 0 {
-		interval = 10 * time.Second
+		interval = time.Duration(defaultProbeIntervalSec) * time.Second
 	}
 
 	if !force && !r.lastProbe.IsZero() && now.Sub(r.lastProbe) < interval {
@@ -83,7 +83,7 @@ func (r *FrameProbeRunner) maybeProbe(now time.Time, force bool) {
 func (r *FrameProbeRunner) probeOnce() {
 	timeout := time.Duration(r.cfg.ProbeTimeoutMS) * time.Millisecond
 	if timeout <= 0 {
-		timeout = 5 * time.Second
+		timeout = time.Duration(defaultProbeTimeoutMS) * time.Millisecond
 	}
 	rtt, err := r.channel.Probe(timeout)
 	if err != nil {

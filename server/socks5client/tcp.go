@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/0990/socks5"
 	"io"
 	"net"
 	"net/http"
 	"time"
+
+	"github.com/0990/socks5"
 )
 
 const defaultTestWebUrl = "http://ipinfo.io"
