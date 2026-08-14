@@ -371,14 +371,14 @@ created_at:'string',
                     .then(response=>{
                         const msg = (response.data && response.data.msg) ? response.data.msg : '';
                         if(response.data && response.data.code === 200 && msg.indexOf('failed') < 0) {
-                            this.$Notice.success({title: title, desc: msg, duration: 20});
+                            this.$Notice.success({title: title, desc: msg, duration: 10});
                         } else {
-                            this.$Notice.warning({title: title, desc: msg, duration: 20});
+                            this.$Notice.warning({title: title, desc: msg, duration: 10});
                         }
                     })
                     .catch(error=>{
                         const msg = error && error.message ? error.message : 'check request failed';
-                        this.$Notice.error({title: title, desc: msg, duration: 20});
+                        this.$Notice.error({title: title, desc: msg, duration: 10});
                     })
             },
 
