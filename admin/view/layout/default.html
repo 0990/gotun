@@ -100,6 +100,13 @@
             });
         }
 
+        // 接收侧（in）没有 mux 连接池，mux_conn 无意义，仅需开启帧头以对齐拨出侧
+        function buildFrameOnlyExtend() {
+            return JSON.stringify({
+                frame_header_enable: true,
+            });
+        }
+
         function normalizeProto(proto) {
             proto = String(proto || '').toLowerCase();
             if (proto === 'tcpmux') {
@@ -154,22 +161,26 @@
             return '0.0.0.0:4000';
         }
 
-        function getInputDefaults(proto, kcpxProtoCfg) {
+        function getInputDefaults(proto, kcpxProtoCfg, frameExtend) {
+            frameExtend = frameExtend || '';
             proto = normalizeProto(proto);
             switch (proto) {
                 case 'tcp':
-                case 'tcp_mux':
                     return {protoCfg: '{"head":""}', extend: ''};
+                case 'tcp_mux':
+                    return {protoCfg: '{"head":""}', extend: frameExtend};
                 case 'udp':
                     return {protoCfg: '{"timeout":90}', extend: ''};
                 case 'quic':
-                    return {protoCfg: '', extend: ''};
+                    return {protoCfg: '', extend: frameExtend};
                 case 'kcp':
-                case 'kcp_mux':
                     return {protoCfg: '{"write_delay":true,"mtu":990,"sndwnd":1024,"rcvwnd":1024,"datashard":0,"parityshard":0,"dscp":46,"acknodelay":false,"nodelay":1,"interval":30,"resend":2,"nc":0,"sockbuf":16777217,"streambuf":4194304}', extend: ''};
+                case 'kcp_mux':
+                    return {protoCfg: '{"write_delay":true,"mtu":990,"sndwnd":1024,"rcvwnd":1024,"datashard":0,"parityshard":0,"dscp":46,"acknodelay":false,"nodelay":1,"interval":30,"resend":2,"nc":0,"sockbuf":16777217,"streambuf":4194304}', extend: frameExtend};
                 case 'kcpx':
-                case 'kcpx_mux':
                     return {protoCfg: kcpxProtoCfg, extend: ''};
+                case 'kcpx_mux':
+                    return {protoCfg: kcpxProtoCfg, extend: frameExtend};
                 case 'socks5x':
                     return {protoCfg: '{"username":"","password":"","tcp_timeout":500,"udp_advertised_ip":"","udp_advertised_port":0}', extend: ''};
                 default:
@@ -208,10 +219,10 @@
                 return getOutputDefaults(proto, kcpxProtoCfg, muxFrameExtend);
             }
             if (side === 'out' && mode === 'frps') {
-                return getInputDefaults(proto, kcpxProtoCfg);
+                return getInputDefaults(proto, kcpxProtoCfg, buildFrameOnlyExtend());
             }
             if (side === 'in') {
-                return getInputDefaults(proto, kcpxProtoCfg);
+                return getInputDefaults(proto, kcpxProtoCfg, buildFrameOnlyExtend());
             }
             return getOutputDefaults(proto, kcpxProtoCfg, muxFrameExtend);
         }
@@ -222,6 +233,7 @@
             inputProtoOptions: inputProtoOptions,
             outputProtoOptions: outputProtoOptions,
             buildMuxFrameExtend: buildMuxFrameExtend,
+            buildFrameOnlyExtend: buildFrameOnlyExtend,
             normalizeProto: normalizeProto,
             normalizeMode: normalizeMode,
             normalizeCryptMode: normalizeCryptMode,
