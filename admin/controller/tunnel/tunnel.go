@@ -667,21 +667,29 @@ func CheckServer(mgr *tun.Manager) func(w http.ResponseWriter, request *http.Req
 				break
 			}
 
-			response, err := socks5client.CheckTCP(clientCfg, testWebUrl, time.Second*2)
-			elapseMS := time.Since(now).Milliseconds()
-			if err != nil {
-				result += fmt.Sprintf("tcp failed:%s,elapse:%dms \n", err.Error(), elapseMS)
-			} else {
-				result += fmt.Sprintf("tcp passed,elapse:%dms,%s\n", elapseMS, response)
+			// phase 为空时同时检测 tcp+udp；否则只检测指定阶段，
+			// 用于前端先展示耗时较短的 tcp 结果，再展示 udp 结果
+			phase := request.FormValue("phase")
+
+			if phase == "" || phase == "tcp" {
+				response, err := socks5client.CheckTCP(clientCfg, testWebUrl, time.Second*2)
+				elapseMS := time.Since(now).Milliseconds()
+				if err != nil {
+					result += fmt.Sprintf("tcp failed:%s,elapse:%dms \n", err.Error(), elapseMS)
+				} else {
+					result += fmt.Sprintf("tcp passed,elapse:%dms,%s\n", elapseMS, response)
+				}
 			}
 
-			now = time.Now()
-			advertisedUDPAddr, response, err := socks5client.CheckUDP(clientCfg, time.Second*5)
-			elapseMS = time.Since(now).Milliseconds()
-			if err != nil {
-				result += fmt.Sprintf("udp failed,elapse:%dms,\nadvertised_addr:%s,err:%s", elapseMS, advertisedUDPAddr, err.Error())
-			} else {
-				result += fmt.Sprintf("udp passed,elapse:%dms,\nadvertised_addr:%s,rsp(8.8.8.8):%s", elapseMS, advertisedUDPAddr, response)
+			if phase == "" || phase == "udp" {
+				now = time.Now()
+				advertisedUDPAddr, response, err := socks5client.CheckUDP(clientCfg, time.Second*5)
+				elapseMS := time.Since(now).Milliseconds()
+				if err != nil {
+					result += fmt.Sprintf("udp failed,elapse:%dms,\nadvertised_addr:%s,err:%s", elapseMS, advertisedUDPAddr, err.Error())
+				} else {
+					result += fmt.Sprintf("udp passed,elapse:%dms,\nadvertised_addr:%s,rsp(8.8.8.8):%s", elapseMS, advertisedUDPAddr, response)
+				}
 			}
 		case "httpproxy":
 			response, err := httpproxy.Check(targetAddr, time.Second*2)

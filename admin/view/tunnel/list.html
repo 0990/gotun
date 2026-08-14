@@ -1,4 +1,11 @@
 <style>
+    /* 检测结果飘窗内容包含换行符，按原样换行展示 */
+    .ivu-notice-desc {
+        white-space: pre-wrap;
+        word-break: break-all;
+        text-align: left;
+    }
+
     .mtr-modal-shell .ivu-modal {
         top: 0;
         max-width: calc(100vw - 48px);
@@ -345,11 +352,33 @@ created_at:'string',
             invokeCheckServer: function(serverType) {
                 const targetAddr = document.getElementById('target_addr').value;
 
-                var paramStr = '?serverType='+serverType+'&targetAddr='+targetAddr;
+                if(serverType === 'socks5') {
+                    // tcp 检测耗时短，与 udp 并行请求，tcp 结果先出来先飘窗展示
+                    this.invokeCheckServerPhase(serverType, targetAddr, 'tcp');
+                    this.invokeCheckServerPhase(serverType, targetAddr, 'udp');
+                    return
+                }
+                this.invokeCheckServerPhase(serverType, targetAddr, '');
+            },
+            invokeCheckServerPhase: function(serverType, targetAddr, phase) {
+                var paramStr = '?serverType='+serverType+'&targetAddr='+encodeURIComponent(targetAddr);
+                if(phase) {
+                    paramStr += '&phase='+phase;
+                }
+                const title = serverType+(phase ? ' '+phase : '')+' 检测结果';
                 this.axios
                     .post('/api/tunnel/check_server'+paramStr)
                     .then(response=>{
-                        alert(response.data.msg);
+                        const msg = (response.data && response.data.msg) ? response.data.msg : '';
+                        if(response.data && response.data.code === 200 && msg.indexOf('failed') < 0) {
+                            this.$Notice.success({title: title, desc: msg, duration: 20});
+                        } else {
+                            this.$Notice.warning({title: title, desc: msg, duration: 20});
+                        }
+                    })
+                    .catch(error=>{
+                        const msg = error && error.message ? error.message : 'check request failed';
+                        this.$Notice.error({title: title, desc: msg, duration: 20});
                     })
             },
 

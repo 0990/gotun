@@ -28,8 +28,8 @@ web_password: admin
 web_login_fail_limit_in_hour: 10
 # 日志等级:debug/info/warn/error
 log_level: info
-# pprof监听地址,可为空
-pprof_port: ""
+# 监控监听地址(pprof与prometheus共用),为空则不开启
+metrics_listen: ""
 ```
 访问[127.0.0.1:8080](http://127.0.0.1:8080),输入默认账号密码admin/admin登录,登录后页面：<br>
 ![tunnel](doc/tunnel.png)
