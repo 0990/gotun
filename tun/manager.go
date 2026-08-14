@@ -522,6 +522,7 @@ type RouteService interface {
 	RouteCfg() RouteConfig
 	PreferredMember() string
 	MemberHealth() map[string]string
+	SwitchEvents() []RouteSwitchEvent
 }
 
 // AllRoute 返回全部智能路由入口（按模式过滤，mode 为空则全部）

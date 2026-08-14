@@ -18,3 +18,10 @@ type Route struct {
 	CreatedAt       string                 `json:"created_at"`
 	MemberNoHealth  []string               `json:"member_no_health"` // 无健康数据(未开帧头探测)的 member，供 UI 提示
 }
+
+// RouteSwitchEvent 一次首选 member 切换记录（管理 API DTO）
+type RouteSwitchEvent struct {
+	Time string `json:"time"`
+	From string `json:"from"` // 原首选 member，空串表示此前无可用 member
+	To   string `json:"to"`   // 新首选 member，空串表示全部 member 不可用
+}

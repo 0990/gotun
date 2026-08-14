@@ -6,10 +6,17 @@ import (
 	"io"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/0990/gotun/core"
 	"github.com/sirupsen/logrus"
 )
+
+// cryptoOutput 是 failoverOutput 为出口模式额外提供的「带加密」取流能力：
+// 取流的同时返回所选 member 的 output 侧加密助手。
+type cryptoOutput interface {
+	GetStreamWithCrypto() (core.IStream, *CryptoHelper, error)
+}
 
 // routeService 智能路由入口 service，同时承载出口(output)/入口(input)两种模式。
 // 与 Server/Frpc/Frps 并列，是一个受 manager 管理的 Service。
@@ -29,6 +36,10 @@ type routeService struct {
 	bandwidth *BandwidthTracker
 	closeOnce sync.Once
 
+	// 首选 member 切换记录（watcher 轮询 selector，变化时写入环形缓冲）
+	switchLog *routeSwitchLog
+	watchStop chan struct{}
+
 	StatusX
 }
 
@@ -43,6 +54,8 @@ func newRouteService(cfg RouteConfig, mgr *Manager) (*routeService, error) {
 		mgr:       mgr,
 		selector:  newRouteSelector(mgr, cfg.Members),
 		bandwidth: NewBandwidthTracker(false), // 智能路由自身不做带宽测试
+		switchLog: &routeSwitchLog{},
+		watchStop: make(chan struct{}),
 	}
 	s.SetStatus("init")
 
@@ -83,6 +96,9 @@ func (s *routeService) buildOutputMode() error {
 }
 
 func (s *routeService) Run() error {
+	// 无论启用与否都跟踪首选 member 变化（选址随 member 健康实时变化，禁用期间也记录）
+	go s.watchSwitch()
+
 	if s.cfg.Disabled {
 		// 禁用入口不监听
 		s.SetStatus("disabled")
@@ -92,6 +108,29 @@ func (s *routeService) Run() error {
 		return s.runInputMode()
 	}
 	return s.runOutputMode()
+}
+
+// watchSwitch 轮询首选 member，发现变化时写入切换记录，直至 Close
+func (s *routeService) watchSwitch() {
+	last := s.selector.preferred()
+	if last != "" {
+		// 启动时的初始选中也记一条（From 为空表示此前无可用 member）
+		s.switchLog.record("", last)
+	}
+	t := time.NewTicker(time.Second)
+	defer t.Stop()
+	for {
+		select {
+		case <-s.watchStop:
+			return
+		case <-t.C:
+			cur := s.selector.preferred()
+			if cur != last {
+				s.switchLog.record(last, cur)
+				last = cur
+			}
+		}
+	}
 }
 
 // runOutputMode 出口模式：与普通 Server 相同的 input->output 数据路径
@@ -114,24 +153,39 @@ func (s *routeService) runOutputMode() error {
 }
 
 // handleOutputStream 出口模式数据面：与 Server.handleInputStream 同构，
-// 只是 output 换成了 failoverOutput（内部已做选址+顺延）
+// 区别在于 output 是 failoverOutput，且出站流用「所选 member 自己的 output 侧加密」包裹，
+// 使整条「客户端 -> 路由入口 -> member.output(加密+帧头) -> 出口解密 -> 目标」链路走通。
 func (s *routeService) handleOutputStream(src core.IStream) {
 	defer src.Close()
 
+	// 路由入口保持明文：客户端直接对路由讲 socks5，不做加解密
 	srcStream, err := s.cryptoHelper.WrapSrc(src)
 	if err != nil {
 		logrus.WithError(err).Error("wrap src")
 		return
 	}
 
-	dst, err := s.output.GetStream()
+	co, ok := s.output.(cryptoOutput)
+	if !ok {
+		// 出口模式 s.output 恒为 *failoverOutput，正常不会走到；兜底按原逻辑处理
+		logrus.Error("route output 非 failoverOutput，无法套用 member 加密")
+		return
+	}
+
+	// 选址 + 取流 + 取该 member 的 output 侧加密助手，三者对应同一个 member
+	dst, dstCrypto, err := co.GetStreamWithCrypto()
 	if err != nil {
 		logrus.WithError(err).Error("route output openStream")
 		return
 	}
 	defer dst.Close()
 
-	dstStream, err := s.cryptoHelper.WrapDst(dst)
+	if dstCrypto == nil {
+		// 防御：仅当未来出现非 *Server 的 streamDialer 时才可能为 nil
+		dstCrypto = s.cryptoHelper
+	}
+
+	dstStream, err := dstCrypto.WrapDst(dst)
 	if err != nil {
 		logrus.WithError(err).Error("wrap dst")
 		return
@@ -217,6 +271,7 @@ func relayConn(a, b net.Conn) {
 
 func (s *routeService) Close() error {
 	s.closeOnce.Do(func() {
+		close(s.watchStop)
 		if s.cfg.Mode == RouteModeOutput {
 			if s.input != nil {
 				s.input.Close()
@@ -255,6 +310,11 @@ func (s *routeService) PreferredMember() string {
 		return ""
 	}
 	return s.selector.preferred()
+}
+
+// SwitchEvents 返回最近的首选 member 切换记录（最新在前，最多 routeSwitchLogMax 条）
+func (s *routeService) SwitchEvents() []RouteSwitchEvent {
+	return s.switchLog.list()
 }
 
 // MemberHealth 返回各 member 的健康状态（member 名称 -> up/degraded/down/disabled）

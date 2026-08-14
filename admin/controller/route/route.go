@@ -129,6 +129,49 @@ func List(mgr *tun.Manager, mode string, version string) func(http.ResponseWrite
 	}
 }
 
+// SwitchLog 返回指定入口的最近 member 切换记录（最新在前）
+func SwitchLog(mgr *tun.Manager, mode string) func(http.ResponseWriter, *http.Request) {
+	h := &handler{mgr: mgr, mode: mode}
+	return func(writer http.ResponseWriter, request *http.Request) {
+		defer func() {
+			if err := recover(); err != nil {
+				msg, _ := json.Marshal(response.Ret{Code: http.StatusInternalServerError, Msg: fmt.Sprintf("%v", err)})
+				writer.Write(msg)
+			}
+		}()
+
+		if err := request.ParseForm(); err != nil {
+			panic(err.Error())
+		}
+		name := request.FormValue("name")
+		if name == "" {
+			panic("lose name")
+		}
+
+		svc, ok := h.mgr.GetRoute(name)
+		if !ok || svc.RouteCfg().Mode != h.mode {
+			panic("route not exist")
+		}
+
+		records := []model.RouteSwitchEvent{}
+		for _, e := range svc.SwitchEvents() {
+			records = append(records, model.RouteSwitchEvent{
+				Time: e.Time.Format("2006-01-02 15:04:05"),
+				From: e.From,
+				To:   e.To,
+			})
+		}
+
+		d, err := json.Marshal(&response.Ret{Code: http.StatusOK, Data: records})
+		if err != nil {
+			panic(err.Error())
+		}
+		if _, err := writer.Write(d); err != nil {
+			panic(err.Error())
+		}
+	}
+}
+
 // Create 新建入口（禁用态可直接创建；启用态创建失败会返回校验错误）
 func Create(mgr *tun.Manager, mode string) func(http.ResponseWriter, *http.Request) {
 	h := &handler{mgr: mgr, mode: mode}
