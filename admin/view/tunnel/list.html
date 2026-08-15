@@ -201,6 +201,7 @@
                 deleteModalData: {},
                 currentRow: null,
                 clonePending: false,
+                listRefreshTimer:null,
                 col_list: [
                     {title:'name', key:'name'},
                     {title:'status', slot:'status_slot'},
@@ -300,6 +301,17 @@ created_at:'string',
             },
             invokeFlushList:function (){
                 this.tableData()
+            },
+            // 启用/新建/编辑/删除/导入/克隆等操作后，后端会异步重建并启动 Service，
+            // 立即刷新会抓到 output run... 等启动中间态；延迟片刻再刷新，等服务进入 running。
+            refreshListDelayed: function(delayMS) {
+                if(this.listRefreshTimer) {
+                    clearTimeout(this.listRefreshTimer);
+                }
+                this.listRefreshTimer = setTimeout(() => {
+                    this.listRefreshTimer = null;
+                    this.tableData();
+                }, delayMS || 300);
             },
             invokeProbeToggle: function() {
                 if (this.probeEnabled) {
@@ -424,7 +436,7 @@ created_at:'string',
                         row.disabled = nextDisabled;
                         this.normalizeTunnelRow(row);
                         this.$Message.success(row.name + (nextDisabled ? ' 已禁用' : ' 已启用'));
-                        this.tableData();
+                        this.refreshListDelayed();
                     })
                     .catch(error => {
                         row.disabled = previousDisabled;
@@ -815,7 +827,7 @@ created_at:'string',
                             return
                         }
                         this.$Message.success('已克隆为 ' + payload.name + '（默认禁用）');
-                        this.tableData();
+                        this.refreshListDelayed();
                     })
                     .catch(error => {
                         const msg = error && error.message ? error.message : 'clone request failed';
@@ -897,7 +909,7 @@ created_at:'string',
                 }).catch(function(error) {
                     self.$Message.error(error && error.message ? error.message : '导入失败');
                 }).then(function() {
-                    self.tableData();
+                    self.refreshListDelayed();
                     if(inputEl) {
                         inputEl.value = '';
                     }
@@ -922,7 +934,7 @@ created_at:'string',
                         }
                         this.deleteModal = false
                         this.deleteModalData = {}
-                        this.tableData()
+                        this.refreshListDelayed()
                     })
             },
             invokeView:function(row) {
@@ -989,7 +1001,8 @@ created_at:'string',
         },
         created: function() {
             window.addEventListener('resize', this.handleMTRWindowResize);
-            this.tableData();
+            // 覆盖从 新建/编辑 页返回的场景：后端异步启动 Service，延迟刷新避免抓到启动中间态
+            this.refreshListDelayed();
         },
         beforeRouteUpdate: function(to, from ,next) {
             this.routePage = to.query.page
@@ -1006,6 +1019,10 @@ created_at:'string',
             if(this.mtrResizeTimer) {
                 clearTimeout(this.mtrResizeTimer);
                 this.mtrResizeTimer = null;
+            }
+            if(this.listRefreshTimer) {
+                clearTimeout(this.listRefreshTimer);
+                this.listRefreshTimer = null;
             }
             this.stopProbeLoop();
             this.closeMTRSource();
