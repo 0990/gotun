@@ -14,7 +14,7 @@ tcp/udp转发器，可将明文流量转换为加密流量在公网上传输，�
 * 支持构建加密安全通道，可使用tcp,udp,quic,kcp,kcpx作通道传输协议
 * 支持内网穿透式安全通道
 * web界面管理
-* 内置测试工具（支持socks5,http代理）
+* 内置echo,http代理,socks5,socks5x服务，可在web界面独立启停
 ## 使用
 点此下载二进制文件，启动即可（会自动生成配置app.yaml）,最简配置:
 ```yaml
@@ -35,22 +35,11 @@ metrics_listen: ""
 ![tunnel](doc/tunnel.png)
 
 ## 内置服务
-为了方便测试和部署，内置了一些服务，可通过配置文件启用(设置enable为true即可）
-```yaml
-# 内置服务配置
-build-in:
-    # 是否启用内置服务,总开关，false情况下不启用(会忽略下面的配置)
-    enable: false
-    # echo服务监听地址,用于测试，客户端向此端口发送什么就回什么，为空则不启动
-    echo_listen: 0.0.0.0:8081
-    # http代理服务监听地址,为空则不启动
-    http_proxy_listen: 0.0.0.0:3128
-    # socks5x服务配置,为空则不启动
-    socks5x_server:
-        listen_port: 1080
-        udp_timeout: 120
-        tcp_timeout: 120
-```
+为了方便测试和部署，内置了 echo、http 代理、socks5、socks5x 四类服务。
+在 web 界面左侧菜单"内置服务"中新建实例即可，支持独立启停、编辑、删除，
+配置保存在 `tunnel/` 目录下（每个实例一个 `.service` 文件），改动即时生效、无需重启。
+
+旧版 `app.yaml` 中的 `build-in` 配置已废弃，首次启动会自动迁移为内置服务实例。
 
 ## 安全通道服务
 ### 需求
@@ -103,15 +92,7 @@ stclient将流量加密，传输至44.55.66.77:B,stserver接收流量，进行�
 * 加密通道协议可以是tcp,tcpmux,quic,kcp,kcpmux,kcpx,kcpx_mux
 
 ## 测试
-为了测试方便，可开启内置的echo服务（端口改为9999），模拟成44.55.66.77:9999的服务<br>
-```yaml
-# 内置服务配置
-build-in:
-    # 是否启用内置服务,总开关，false情况下不启用(会忽略下面的配置)
-    enable: true
-    # echo服务监听地址,用于测试，客户端向此端口发送什么就回什么，为空则不启动
-    echo_listen: 0.0.0.0:9999
-```
+为了测试方便，可在 web 界面"内置服务"中新建一个 echo 服务（监听端口设为 9999），模拟成 44.55.66.77:9999 的服务<br>
 
 1. 测试echo服务：输入任意字符，收到相同的字符,代表echo服务正常运行<br>
 ```bash
