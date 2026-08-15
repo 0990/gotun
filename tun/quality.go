@@ -144,7 +144,7 @@ func NewQualityTracker(service, output string, readCounter, writeCounter stats.C
 }
 
 // initStatusMetric 按当前可判定状态写入一次 gotun_probe_status 初值：
-// 未开帧头(disabled) → -1；已开帧头但尚无样本(down) → 0。后续探测按真实状态刷新。
+// 未开帧头或尚无探测样本(均视为 disabled/未探测) → -1。后续探测按真实状态刷新。
 func (q *QualityTracker) initStatusMetric() {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -248,8 +248,10 @@ func (q *QualityTracker) calcStatusLocked() string {
 	if !q.enabled {
 		return QualityStatusDisabled
 	}
+	// 已开帧头但尚无探测样本（如刚启用、首次探测未完成）时按"未探测"处理，
+	// 避免误报为 down；待首次探测写入样本后再按真实状态判定。
 	if len(q.samples) == 0 {
-		return QualityStatusDown
+		return QualityStatusDisabled
 	}
 
 	var hasSuccess bool

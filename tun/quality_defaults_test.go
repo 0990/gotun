@@ -25,14 +25,14 @@ func Test_ProbeDefaults(t *testing.T) {
 	}
 }
 
-// 创建即写入 gotun_probe_status 初值：开帧头未探测 → down(0)
+// 创建即写入 gotun_probe_status 初值：开帧头但尚无探测样本 → 未探测，按 disabled(-1) 处理
 func Test_QualityTrackerInitMetric_Enabled(t *testing.T) {
 	service, output := "init-enabled-svc", "init-enabled-out"
 	NewQualityTracker(service, output, nil, nil, true, 0)
 
 	got := testutil.ToFloat64(probeStatusGauge.WithLabelValues(service, output))
-	if got != 0 {
-		t.Fatalf("开帧头未探测初值 = %v, 期望 0(down)", got)
+	if got != -1 {
+		t.Fatalf("开帧头未探测初值 = %v, 期望 -1(未探测/disabled)", got)
 	}
 }
 
