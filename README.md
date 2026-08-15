@@ -43,13 +43,11 @@ metrics_listen: ""
 
 ## 安全通道服务
 ### 需求
-假设远程主机有个服务Server，IP:44.55.66.77 监听端口9999，本地有Client与之非加密通信</br>
-![connection](doc/connection.png)<br>
-为了保证数据安全,远程主机部署gotun(stserver),监听端口B,客户端主机部署gotun(stclient),监听端口A<br>
-stclient将流量加密，传输至44.55.66.77:B,stserver接收流量，进行解密，将流量传送至端口9999<br>
-![connection_with_stunnel](doc/connection_with_stunnel.png)<br>
-现在localhost:A已“伪装”成44.55.66.77:9999服务了，本地Client只需要和localhost:A通信即可<br>
-走在外网的全是加密流量，此时远程主机也不用暴露9999端口，只需要开放端口B
+远程主机有个服务 Server（44.55.66.77:9999），本地 Client 与之通信。<br>
+为保证数据安全，在远程主机部署 gotun 作为服务端（stserver，监听端口 B），
+本地部署 gotun 作为客户端（stclient，监听端口 A）：<br>
+stclient 把流量加密后经公网发往 44.55.66.77:B，stserver 解密后转发给 127.0.0.1:9999。<br>
+这样本地 Client 只需访问 localhost:A 即可，公网上传输的全是加密流量，远程也只需开放端口 B。
 
 ### 创建
 希望通过tcpMux作为加密通道，加密方式为gcm，加密key为goodweather<br>
@@ -91,26 +89,11 @@ stclient将流量加密，传输至44.55.66.77:B,stserver接收流量，进行�
 * 客户端的output需要指向服务端的input，两边的协议、加密方式和加密key需要一致
 * 加密通道协议可以是tcp,tcpmux,quic,kcp,kcpmux,kcpx,kcpx_mux
 
-## 测试
-为了测试方便，可在 web 界面"内置服务"中新建一个 echo 服务（监听端口设为 9999），模拟成 44.55.66.77:9999 的服务<br>
-
-1. 测试echo服务：输入任意字符，收到相同的字符,代表echo服务正常运行<br>
-```bash
-nc 44.55.66.77:9999
-```
-2. 测试转发服务：输入任意字符，会收到相同的字符,代表转发服务OK<br>
-```bash
-nc 127.0.0.1:A
-```
-
-## 更方便的测试
-web页面右上角是测试工具区，支持httpproxy,socks5,echo协议测试：<br>
-比如上面的echo服务，
-输入框填入127.0.0.1:A，点击"echo检测"按钮,出现"tcp passed",代表成功
 ## 更多
 * [简单转发服务](doc/简单转发服务.md)
 * [内置socks5安全通道](doc/内置socks5安全通道.md)
 * [内网穿透式安全通道](doc/内网穿透式安全通道.md)
+* [测试](doc/测试.md)
 * [其它](doc/其它.md)
 
 
