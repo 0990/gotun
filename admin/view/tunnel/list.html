@@ -93,15 +93,17 @@
                 </i-col>
             </i-row>
             <i-row :style="{marginTop:'10px'}">
-                <i-col span="24" :style="{textAlign:'left', background:'#f8f8f9', border:'1px solid #e8eaec', borderRadius:'4px', padding:'8px 12px', display:'flex', alignItems:'center'}">
-                    <span :style="{marginRight:'12px', color:'#515a6e', fontWeight:'600'}">当前选中：{{ currentRow ? currentRow.name : '未选择' }}</span>
-                    <i-button type="primary" ghost :disabled="!currentRow" @click="invokeView(currentRow)">查看</i-button>
-                    <i-button type="primary" ghost :disabled="!currentRow" @click="invokeEdit(currentRow)">编辑</i-button>
-                    <i-button type="primary" ghost :disabled="!currentRow || currentRow.disabled" :loading="currentRow && bandwidthPendingName === currentRow.name" @click="invokeBandwidthTest(currentRow)">宽带</i-button>
-                    <i-button type="primary" ghost :disabled="!currentRow || currentRow.disabled" :loading="currentRow && mtrPendingName === currentRow.name" @click="invokeMTR(currentRow)">mtr</i-button>
-                    <i-button type="primary" ghost :disabled="!currentRow" @click="invokeExport(currentRow)">导出</i-button>
-                    <i-button type="primary" ghost :disabled="!currentRow" :loading="clonePending" @click="invokeClone(currentRow)">克隆</i-button>
-                    <i-button type="error" ghost :disabled="!currentRow" @click="invokeDelete(currentRow)">删除</i-button>
+                <i-col span="24" :style="{textAlign:'left', background:'#f8f8f9', border:'1px solid #e8eaec', borderRadius:'4px', padding:'8px 12px', display:'flex', alignItems:'center', justifyContent:'space-between'}">
+                    <span :style="{color:'#515a6e', fontWeight:'600'}">当前选中：{{ currentRow ? currentRow.name : '未选择' }}</span>
+                    <span>
+                        <i-button type="primary" ghost :disabled="!currentRow" @click="invokeView(currentRow)">查看</i-button>
+                        <i-button type="primary" ghost :disabled="!currentRow" @click="invokeEdit(currentRow)">编辑</i-button>
+                        <i-button type="primary" ghost :disabled="!currentRow || currentRow.disabled" :loading="currentRow && bandwidthPendingName === currentRow.name" @click="invokeBandwidthTest(currentRow)">宽带</i-button>
+                        <i-button type="primary" ghost :disabled="!currentRow || currentRow.disabled" :loading="currentRow && mtrPendingName === currentRow.name" @click="invokeMTR(currentRow)">mtr</i-button>
+                        <i-button type="primary" ghost :disabled="!currentRow" @click="invokeExport(currentRow)">导出</i-button>
+                        <i-button type="primary" ghost :disabled="!currentRow" :loading="clonePending" @click="invokeClone(currentRow)">克隆</i-button>
+                        <i-button type="error" ghost :disabled="!currentRow" @click="invokeDelete(currentRow)">删除</i-button>
+                    </span>
                 </i-col>
             </i-row>
             <br>
