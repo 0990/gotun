@@ -96,7 +96,7 @@
             <i-table :columns="col_list" :data="main_data"  @on-selection-change="table_selection_change">
                 <template slot-scope="{row}" slot="status_slot">
                     <span>{{ row.status }}</span>
-                    <i-tag :style="{marginLeft:'6px'}" :color="healthColor(row.quality_status)">{{ row.quality_status || 'unknown' }}</i-tag>
+                    <i-tag :style="{marginLeft:'6px'}" :color="healthColor(row.quality_status)">{{ healthLabel(row.quality_status) }}</i-tag>
                 </template>
                 <template slot-scope="{row}" slot="detail_button">
                     <span :style="{display:'inline-flex', width:'45px', justifyContent:'center', verticalAlign:'middle', marginRight:'6px'}">
@@ -238,6 +238,10 @@ created_at:'string',
                 if(h === 'degraded') return 'orange';
                 if(h === 'down') return 'red';
                 return 'default';
+            },
+            healthLabel: function(h) {
+                if(h === 'disabled') return '未探测';
+                return h || 'unknown';
             },
             normalizeTunnelRow: function(item) {
                 item.disabled = !!item.disabled;
