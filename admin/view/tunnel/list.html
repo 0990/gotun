@@ -94,6 +94,10 @@
             </i-row>
             <br>
             <i-table :columns="col_list" :data="main_data"  @on-selection-change="table_selection_change">
+                <template slot-scope="{row}" slot="status_slot">
+                    <span>{{ row.status }}</span>
+                    <i-tag :style="{marginLeft:'6px'}" :color="healthColor(row.quality_status)">{{ row.quality_status || 'unknown' }}</i-tag>
+                </template>
                 <template slot-scope="{row}" slot="detail_button">
                     <span :style="{display:'inline-flex', width:'45px', justifyContent:'center', verticalAlign:'middle', marginRight:'6px'}">
                         <i-switch :value="!row.disabled" @on-change="invokeSetDisabled(row, $event)">
@@ -192,7 +196,7 @@
                 col_list: [
                     {type:'selection',width:60,align:'center'},
                     {title:'name', key:'name'},
-                    {title:'status', key:'status'},
+                    {title:'status', slot:'status_slot'},
                     {title:'bw_rtt_loss', key:'stats_display'},
                     {title:'input', key:'input'},
                     {title:'output', key:'output'},
@@ -229,6 +233,12 @@ created_at:'string',
             }
         },
         methods: {
+            healthColor: function(h) {
+                if(h === 'up') return 'green';
+                if(h === 'degraded') return 'orange';
+                if(h === 'down') return 'red';
+                return 'default';
+            },
             normalizeTunnelRow: function(item) {
                 item.disabled = !!item.disabled;
                 const quality = item.quality_summary || {};
