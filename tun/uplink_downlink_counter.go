@@ -11,16 +11,20 @@ import (
 var (
 	connBytesUplinkTotal = promauto.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "conn_bytes_uplink_total",
-			Help: "Total bytes uplink from connections",
+			Namespace: "gotun",
+			Subsystem: "conn",
+			Name:      "bytes_uplink_total",
+			Help:      "Total bytes uplink from connections",
 		},
 		[]string{"name", "io"},
 	)
 
 	connBytesDownlinkTotal = promauto.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "conn_bytes_downlink_total",
-			Help: "Total bytes downlink to connections",
+			Namespace: "gotun",
+			Subsystem: "conn",
+			Name:      "bytes_downlink_total",
+			Help:      "Total bytes downlink to connections",
 		},
 		[]string{"name", "io"},
 	)
@@ -28,8 +32,10 @@ var (
 	//暂未分类的使用这个
 	connBytesCommonTotal = promauto.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "conn_bytes_common_total",
-			Help: "Total bytes common to connections",
+			Namespace: "gotun",
+			Subsystem: "conn",
+			Name:      "bytes_common_total",
+			Help:      "Total bytes common to connections",
 		},
 		[]string{"name", "io"},
 	)

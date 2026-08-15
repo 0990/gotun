@@ -13,33 +13,45 @@ import (
 
 var (
 	probeRTTGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "gotun_probe_rtt_ms",
-		Help: "Average probe RTT in milliseconds.",
+		Namespace: "gotun",
+		Subsystem: "probe",
+		Name:      "rtt_ms",
+		Help:      "Average probe RTT in milliseconds.",
 	}, []string{"service", "output"})
 
 	probeLossGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "gotun_probe_loss_ratio",
-		Help: "Probe loss ratio in the rolling window.",
+		Namespace: "gotun",
+		Subsystem: "probe",
+		Name:      "loss_ratio",
+		Help:      "Probe loss ratio in the rolling window.",
 	}, []string{"service", "output"})
 
 	probeJitterGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "gotun_probe_jitter_ms",
-		Help: "Average probe jitter in milliseconds.",
+		Namespace: "gotun",
+		Subsystem: "probe",
+		Name:      "jitter_ms",
+		Help:      "Average probe jitter in milliseconds.",
 	}, []string{"service", "output"})
 
 	probeStatusGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "gotun_probe_status",
-		Help: "Probe status: up=1, degraded=0.5, down=0, disabled=-1.",
+		Namespace: "gotun",
+		Subsystem: "probe",
+		Name:      "status",
+		Help:      "Probe status: up=1, degraded=0.5, down=0, disabled=-1.",
 	}, []string{"service", "output"})
 
 	probeSuccessCounter = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "gotun_probe_success_total",
-		Help: "Total successful probe count.",
+		Namespace: "gotun",
+		Subsystem: "probe",
+		Name:      "success_total",
+		Help:      "Total successful probe count.",
 	}, []string{"service", "output"})
 
 	probeFailureCounter = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "gotun_probe_failure_total",
-		Help: "Total failed probe count.",
+		Namespace: "gotun",
+		Subsystem: "probe",
+		Name:      "failure_total",
+		Help:      "Total failed probe count.",
 	}, []string{"service", "output"})
 )
 

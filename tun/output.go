@@ -15,13 +15,17 @@ import (
 
 var (
 	connStreamGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name:        "output_idx_get_total",
+		Namespace:   "gotun",
+		Subsystem:   "output",
+		Name:        "pool_get_total",
 		Help:        "The total number of processed events",
 		ConstLabels: nil,
 	}, []string{"idx"})
 
 	openStreamHistogram = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name:        "open_stream_duration_seconds",
+		Namespace:   "gotun",
+		Subsystem:   "stream",
+		Name:        "open_duration_seconds",
 		Help:        "Time taken to open stream.",
 		Buckets:     []float64{0.01, 0.05, 0.2, 0.5, 2, 4, 10},
 		ConstLabels: nil,
