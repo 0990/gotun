@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"github.com/0990/gotun/admin/route"
 	"github.com/0990/gotun/admin/sword"
-	"github.com/0990/gotun/server/echo"
-	"github.com/0990/gotun/server/socks5x"
+	"github.com/0990/gotun/server/service"
 	"github.com/0990/gotun/tun"
-	"github.com/0990/httpproxy"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 	"net/http"
@@ -69,21 +67,28 @@ func Run(fileName string, tunDir string) error {
 		}
 	})
 
-	err = startBuildInServer(appCfg.BuildIn)
-	if err != nil {
-		return fmt.Errorf("startBuildInServer fail:%w", err)
-	}
-
 	mgr := tun.NewManager(tunDir)
 	err = mgr.Run()
 	if err != nil {
 		return err
 	}
 
+	// 内置服务实例管理（echo/http_proxy/socks5/socks5x，配置存于 tunnel 目录 .service 文件）
+	svcMgr := service.NewManager(tunDir)
+
+	// 旧版 app.yaml 的 build-in 配置一次性迁移为 .service 实例，并从 app.yaml 移除该块
+	if err := migrateBuildInConfig(fileName, svcMgr); err != nil {
+		logrus.WithError(err).Warn("migrate build-in config failed")
+	}
+
+	if err := svcMgr.Run(); err != nil {
+		return err
+	}
+
 	authMgr := route.NewAuthManager(fileName, appCfg.WebUsername, appCfg.WebPassword, appCfg.WebLoginFailLimitInHour)
 
 	// 核心2：启动CRUD服务
-	sword.Run(assets, appCfg.WebListen, mgr, authMgr, Version)
+	sword.Run(assets, appCfg.WebListen, mgr, svcMgr, authMgr, Version)
 
 	Welcome(appCfg)
 
@@ -93,41 +98,5 @@ func Run(fileName string, tunDir string) error {
 	fmt.Printf("receive signal %v,quit... \n", signal)
 
 	closeLogger()
-	return nil
-}
-
-func startBuildInServer(in BuiltIn) error {
-	if !in.Enable {
-		return nil
-	}
-
-	if len(in.EchoListen) > 0 {
-		err := echo.StartEchoServer(in.EchoListen)
-		if err != nil {
-			return err
-		}
-	}
-
-	if len(in.HttpProxyListen) > 0 {
-		s := httpproxy.NewServer(httpproxy.Config{
-			BindAddr: in.HttpProxyListen,
-			Hosts:    []string{"*"},
-			Verbose:  false,
-		})
-
-		go s.ListenAndServe()
-	}
-
-	if in.Socks5XServer.ListenPort > 0 {
-		s, err := socks5x.NewServer(in.Socks5XServer.ListenPort, in.Socks5XServer.TCPTimeout, in.Socks5XServer.UDPTimout)
-		if err != nil {
-			return err
-		}
-		err = s.Run()
-		if err != nil {
-			return err
-		}
-	}
-
 	return nil
 }

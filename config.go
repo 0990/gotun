@@ -15,21 +15,6 @@ type AppConfig struct {
 
 	LogLevel      string `yaml:"log_level"`
 	MetricsListen string `yaml:"metrics_listen"` // pprof与prometheus共用的监控监听地址,为空则不开启
-
-	BuildIn BuiltIn `yaml:"build-in"` //内置的服务
-}
-
-type BuiltIn struct {
-	Enable          bool                `yaml:"enable"`
-	EchoListen      string              `yaml:"echo_listen"`
-	HttpProxyListen string              `yaml:"http_proxy_listen"`
-	Socks5XServer   Socks5XServerConfig `yaml:"socks5x_server"`
-}
-
-type Socks5XServerConfig struct {
-	ListenPort int `yaml:"listen_port"`
-	UDPTimout  int `yaml:"udp_timeout"`
-	TCPTimeout int `yaml:"tcp_timeout"`
 }
 
 func parseAppConfigFile(fileName string) (*AppConfig, error) {
@@ -46,17 +31,6 @@ func parseAppConfigFile(fileName string) (*AppConfig, error) {
 }
 
 func createAppConfigFile(fileName string) (*AppConfig, error) {
-	buildIn := BuiltIn{
-		Enable:          false,
-		EchoListen:      "0.0.0.0:8081",
-		HttpProxyListen: "0.0.0.0:3128",
-		Socks5XServer: Socks5XServerConfig{
-			ListenPort: 1080,
-			UDPTimout:  120,
-			TCPTimeout: 300,
-		},
-	}
-
 	cfg := AppConfig{
 		WebListen:               "0.0.0.0:8080",
 		WebUsername:             "admin",
@@ -64,7 +38,6 @@ func createAppConfigFile(fileName string) (*AppConfig, error) {
 		WebLoginFailLimitInHour: 10,
 		LogLevel:                "info",
 		MetricsListen:           "",
-		BuildIn:                 buildIn,
 	}
 
 	node := &yaml.Node{
@@ -107,23 +80,6 @@ func addComments(node *yaml.Node) {
 			key.HeadComment = "日志等级:debug/info/warn/error"
 		case "metrics_listen":
 			key.HeadComment = "监控监听地址(pprof与prometheus共用),为空则不开启"
-		case "build-in":
-			key.HeadComment = "内置服务配置"
-
-			subNode := node.Content[i+1]
-			for j := 0; j < len(subNode.Content); j += 2 {
-				key2 := subNode.Content[j]
-				switch key2.Value {
-				case "enable":
-					key2.HeadComment = "是否启用内置服务,总开关，false情况下不启用(会忽略下面的配置)"
-				case "socks5x_server":
-					key2.HeadComment = "socks5x服务配置,为空则不启动"
-				case "echo_listen":
-					key2.HeadComment = "echo服务监听地址,用于测试，客户端向此端口发送什么就回什么，为空则不启动"
-				case "http_proxy_listen":
-					key2.HeadComment = "http代理服务监听地址,为空则不启动"
-				}
-			}
 		}
 	}
 }

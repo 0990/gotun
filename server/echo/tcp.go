@@ -9,11 +9,23 @@ import (
 )
 
 func StartTCPEchoServer(addr string) error {
+	_, err := startTCPEcho(addr)
+	return err
+}
+
+// tcpEchoServer 可关闭的 TCP echo 监听
+type tcpEchoServer struct {
+	listener net.Listener
+}
+
+// startTCPEcho 启动 TCP echo 监听并返回可关闭句柄
+func startTCPEcho(addr string) (*tcpEchoServer, error) {
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
+	s := &tcpEchoServer{listener: listener}
 	go func() {
 		for {
 			conn, err := listener.Accept()
@@ -47,7 +59,12 @@ func StartTCPEchoServer(addr string) error {
 			}(conn)
 		}
 	}()
-	return nil
+	return s, nil
+}
+
+// Close 关闭 TCP 监听
+func (s *tcpEchoServer) Close() error {
+	return s.listener.Close()
 }
 
 func CheckTCP(targetAddr string, req string, timeout time.Duration) (string, error) {

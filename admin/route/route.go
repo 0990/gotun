@@ -12,7 +12,9 @@ import (
 	"fmt"
 	"github.com/0990/gotun/admin/controller/tunnel"
 	routectl "github.com/0990/gotun/admin/controller/route"
+	svcctl "github.com/0990/gotun/admin/controller/service"
 	"github.com/0990/gotun/admin/response"
+	"github.com/0990/gotun/server/service"
 	"github.com/0990/gotun/tun"
 	"io/fs"
 	"log"
@@ -29,7 +31,7 @@ func (u *gZipWriter) Write(p []byte) (int, error) {
 	return u.gz.Write(p)
 }
 
-func Register(assets embed.FS, listen string, mgr *tun.Manager, authMgr *AuthManager, version string) {
+func Register(assets embed.FS, listen string, mgr *tun.Manager, svcMgr *service.Manager, authMgr *AuthManager, version string) {
 	h := http.NewServeMux()
 	// Static file
 	h.Handle("/go_sword_public/", http.StripPrefix("/go_sword_public/",
@@ -95,6 +97,13 @@ func Register(assets embed.FS, listen string, mgr *tun.Manager, authMgr *AuthMan
 	h.HandleFunc("/api/route_input/delete", authMgr.RequireAuth(routectl.Delete(mgr, tun.RouteModeInput)))
 	h.HandleFunc("/api/route_input/set_disabled", authMgr.RequireAuth(routectl.SetDisabled(mgr, tun.RouteModeInput)))
 	h.HandleFunc("/api/route_input/switch_log", authMgr.RequireAuth(routectl.SwitchLog(mgr, tun.RouteModeInput)))
+
+	// Route tag service（内置服务实例）
+	h.HandleFunc("/api/service/list", authMgr.RequireAuth(svcctl.List(svcMgr, version)))
+	h.HandleFunc("/api/service/create", authMgr.RequireAuth(svcctl.Create(svcMgr)))
+	h.HandleFunc("/api/service/edit", authMgr.RequireAuth(svcctl.Edit(svcMgr)))
+	h.HandleFunc("/api/service/delete", authMgr.RequireAuth(svcctl.Delete(svcMgr)))
+	h.HandleFunc("/api/service/set_disabled", authMgr.RequireAuth(svcctl.SetDisabled(svcMgr)))
 	// ----Route-end----
 
 	go func() {

@@ -1,0 +1,233 @@
+<template>
+    <div class="layout">
+        <i-breadcrumb :style="{margin: '24px 24px'}">
+            <i-breadcrumb-item>内置服务</i-breadcrumb-item>
+            <i-breadcrumb-item>list</i-breadcrumb-item>
+        </i-breadcrumb>
+        <i-content :style="{padding: '24px', minHeight: '280px', background: '#fff'}">
+            <i-row>
+                <i-col span="12" :style="{textAlign:'left'}">
+                    <i-button type="info" @click="invokeCreate">新建服务</i-button>
+                </i-col>
+                <i-col span="12" :style="{textAlign:'right'}">
+                    <i-button type="default" @click="tableData">刷新列表</i-button>
+                </i-col>
+            </i-row>
+            <br>
+            <i-table :columns="col_list" :data="main_data">
+                <template slot-scope="{row}" slot="type_slot">
+                    <i-tag>{{ typeLabel(row.type) }}</i-tag>
+                </template>
+                <template slot-scope="{row}" slot="listen_slot">
+                    <span>{{ listenText(row) }}</span>
+                </template>
+                <template slot-scope="{row}" slot="operate_slot">
+                    <span :style="{display:'inline-flex', width:'45px', justifyContent:'center', verticalAlign:'middle', marginRight:'6px'}">
+                        <i-switch :value="!row.disabled" @on-change="invokeSetDisabled(row, $event)"></i-switch>
+                    </span>
+                    <i-button type="info" size="small" @click="invokeEdit(row)">编辑</i-button>
+                    <i-button type="default" size="small" @click="invokeDelete(row)">删除</i-button>
+                </template>
+            </i-table>
+            <i-page :styles="{margin:'20px'}" :total="pageTotal" :page-size="pageSize" show-elevator show-total @on-change="invokeChangePage"></i-page>
+
+            <i-modal v-model="editModal" :title="editModalData.uuid ? '编辑服务' : '新建服务'" :width="560" @on-ok="invokeSave">
+                <i-form :label-width="110">
+                    <i-form-item label="名称">
+                        <i-input v-model="editModalData.name" placeholder="如 my-echo"></i-input>
+                    </i-form-item>
+                    <i-form-item label="类型">
+                        <i-select v-model="editModalData.type" @on-change="handleTypeChange" :disabled="!!editModalData.uuid">
+                            <i-option v-for="item in typeOptions" :key="item.value" :value="item.value">{{ item.label }}</i-option>
+                        </i-select>
+                    </i-form-item>
+
+                    <!-- echo / http_proxy 监听地址 -->
+                    <i-form-item v-if="isAddrType" label="监听地址">
+                        <i-input v-model="editModalData.listen" placeholder="0.0.0.0:8081"></i-input>
+                    </i-form-item>
+
+                    <!-- socks5 / socks5x 监听端口与超时 -->
+                    <i-form-item v-if="isSocksType" label="监听端口">
+                        <i-input-number v-model="editModalData.listen_port" :min="1" :max="65535" style="width:100%"></i-input-number>
+                    </i-form-item>
+                    <i-form-item v-if="isSocksType" label="tcp超时(秒)">
+                        <i-input-number v-model="editModalData.tcp_timeout" :min="0" style="width:100%"></i-input-number>
+                    </i-form-item>
+                    <i-form-item v-if="isSocksType" label="udp超时(秒)">
+                        <i-input-number v-model="editModalData.udp_timeout" :min="0" style="width:100%"></i-input-number>
+                    </i-form-item>
+
+                    <!-- 仅 socks5 可选认证 -->
+                    <i-form-item v-if="editModalData.type === 'socks5_server'" label="用户名(可空)">
+                        <i-input v-model="editModalData.username" placeholder="留空则不启用认证"></i-input>
+                    </i-form-item>
+                    <i-form-item v-if="editModalData.type === 'socks5_server'" label="密码(可空)">
+                        <i-input v-model="editModalData.password" type="password" placeholder="留空则不启用认证"></i-input>
+                    </i-form-item>
+
+                    <i-form-item label="启用">
+                        <i-switch v-model="editModalEnabled"></i-switch>
+                    </i-form-item>
+                </i-form>
+            </i-modal>
+
+            <i-modal v-model="deleteModal" title="删除确认">
+                <p>确认删除服务「{{ deleteModalData.name }}」？</p>
+                <div slot="footer">
+                    <i-button @click="deleteModal=false">取消</i-button>
+                    <i-button type="error" @click="invokeConfirmDelete">删除</i-button>
+                </div>
+            </i-modal>
+        </i-content>
+    </div>
+</template>
+<script type="text/javascript">
+    module.exports = {
+        data: function() {
+            return {
+                main_data: [],
+                pageTotal: 0,
+                pageSize: 0,
+                editModal: false,
+                editModalData: this.blankForm(),
+                editModalEnabled: true,
+                deleteModal: false,
+                deleteModalData: {},
+                typeOptions: [
+                    {value:'echo', label:'echo'},
+                    {value:'http_proxy', label:'http_proxy'},
+                    {value:'socks5_server', label:'socks5_server'},
+                    {value:'socks5x_server', label:'socks5x_server'},
+                ],
+                routePage: this.page ? this.page : '',
+                col_list: [
+                    {title:'名称', key:'name'},
+                    {title:'类型', slot:'type_slot'},
+                    {title:'监听', slot:'listen_slot'},
+                    {title:'状态', key:'status'},
+                    {title:'操作', slot:'operate_slot', width: 220}
+                ],
+            }
+        },
+        props: ['page'],
+        computed: {
+            isAddrType: function() {
+                return this.editModalData.type === 'echo' || this.editModalData.type === 'http_proxy';
+            },
+            isSocksType: function() {
+                return this.editModalData.type === 'socks5_server' || this.editModalData.type === 'socks5x_server';
+            },
+        },
+        methods: {
+            typeLabel: function(t) {
+                var map = {echo:'echo', http_proxy:'http_proxy', socks5_server:'socks5', socks5x_server:'socks5x'};
+                return map[t] || t;
+            },
+            listenText: function(row) {
+                if(row.type === 'echo' || row.type === 'http_proxy') {
+                    return row.listen || '-';
+                }
+                return ':' + (row.listen_port || 0);
+            },
+            blankForm: function() {
+                return {
+                    uuid:'', name:'', type:'echo', disabled:false,
+                    listen:'0.0.0.0:8081', listen_port:1080,
+                    tcp_timeout:300, udp_timeout:120,
+                    username:'', password:'',
+                };
+            },
+            handleTypeChange: function() {
+                // 切换类型时给监听默认值
+                if(this.editModalData.type === 'echo') {
+                    this.editModalData.listen = '0.0.0.0:8081';
+                } else if(this.editModalData.type === 'http_proxy') {
+                    this.editModalData.listen = '0.0.0.0:3128';
+                } else {
+                    this.editModalData.listen_port = 1080;
+                    if(!this.editModalData.tcp_timeout) this.editModalData.tcp_timeout = 300;
+                    if(!this.editModalData.udp_timeout) this.editModalData.udp_timeout = 120;
+                }
+            },
+            tableData: function() {
+                var pageStr = this.routePage ? '?page='+this.routePage : '';
+                this.axios.post('/api/service/list'+pageStr, {}).then(response=>{
+                    if(response.data.code !== 200) { alert(response.data.msg); return }
+                    this.main_data = (response.data.data.list || []).map(item => {
+                        item.disabled = !!item.disabled;
+                        return item;
+                    });
+                    this.pageTotal = response.data.data.pagination.total_nums;
+                    this.pageSize = response.data.data.pagination.page_size;
+                })
+            },
+            invokeChangePage: function(page) { this.$router.push({query:{page:page}}) },
+            invokeCreate: function() {
+                this.editModalData = this.blankForm();
+                this.editModalEnabled = true;
+                this.editModal = true;
+            },
+            invokeEdit: function(row) {
+                this.editModalData = {
+                    uuid: row.uuid,
+                    name: row.name,
+                    type: row.type,
+                    disabled: row.disabled,
+                    listen: row.listen || '',
+                    listen_port: row.listen_port || 1080,
+                    tcp_timeout: row.tcp_timeout || 300,
+                    udp_timeout: row.udp_timeout || 120,
+                    username: row.username || '',
+                    password: row.password || '',
+                };
+                this.editModalEnabled = !row.disabled;
+                this.editModal = true;
+            },
+            invokeSave: function() {
+                var url = this.editModalData.uuid ? '/api/service/edit' : '/api/service/create';
+                var payload = {
+                    uuid: this.editModalData.uuid,
+                    name: this.editModalData.name,
+                    type: this.editModalData.type,
+                    disabled: !this.editModalEnabled,
+                    listen: this.editModalData.listen,
+                    listen_port: this.editModalData.listen_port,
+                    tcp_timeout: this.editModalData.tcp_timeout,
+                    udp_timeout: this.editModalData.udp_timeout,
+                    username: this.editModalData.username,
+                    password: this.editModalData.password,
+                };
+                this.axios.post(url, payload).then(response=>{
+                    if(response.data.code !== 200) { alert(response.data.msg); return }
+                    this.$Message.success('已保存');
+                    this.editModal = false;
+                    this.tableData();
+                })
+            },
+            invokeSetDisabled: function(row, enabled) {
+                var disabled = !enabled;
+                this.axios.post('/api/service/set_disabled', {name: row.name, disabled: disabled}).then(response=>{
+                    if(response.data.code !== 200) { alert(response.data.msg); return }
+                    this.$Message.success(row.name + (disabled ? ' 已禁用' : ' 已启用'));
+                    this.tableData();
+                })
+            },
+            invokeDelete: function(row) {
+                this.deleteModalData = row;
+                this.deleteModal = true;
+            },
+            invokeConfirmDelete: function() {
+                this.axios.post('/api/service/delete', {name: this.deleteModalData.name}).then(response=>{
+                    if(response.data.code !== 200) { alert(response.data.msg); return }
+                    this.$Message.success('已删除');
+                    this.deleteModal = false;
+                    this.tableData();
+                })
+            },
+        },
+        mounted: function() {
+            this.tableData();
+        }
+    }
+</script>

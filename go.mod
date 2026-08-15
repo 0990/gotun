@@ -4,10 +4,10 @@ module github.com/0990/gotun
 go 1.26.1
 
 require (
-	github.com/0990/httpproxy v0.0.1
+	github.com/0990/httpproxy v0.0.2-0.20260815132003-deb03d1eb3f0
 	github.com/0990/kcp-go v0.0.0-20260320123648-2a37fc38f6cd
 	github.com/0990/kcpx-go v0.0.0-20260401104805-c93ebf0b98ed
-	github.com/0990/socks5 v1.0.9
+	github.com/0990/socks5 v1.0.10-0.20260815131729-5a981a697ab0
 	github.com/creack/pty v1.1.9
 	github.com/fatedier/golib v0.5.1
 	github.com/go-sql-driver/mysql v1.9.3

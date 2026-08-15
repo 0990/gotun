@@ -15,6 +15,8 @@ type Server struct {
 	listenPort int
 	tcpTimeout int
 	udpTimeout int
+
+	s5 socks5.Server
 }
 
 func NewServer(listenPort int, tcpTimeout int, udpTimeout int) (*Server, error) {
@@ -42,7 +44,16 @@ func (s *Server) Run() error {
 	if err != nil {
 		return err
 	}
+	s.s5 = s5
 	return nil
+}
+
+// Close 关闭 socks5x 监听（TCP+UDP），释放端口
+func (s *Server) Close() error {
+	if s.s5 == nil {
+		return nil
+	}
+	return s.s5.Close()
 }
 
 func (s *Server) handleConn(conn *net.TCPConn) {

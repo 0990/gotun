@@ -1,7 +1,6 @@
 package echo
 
 import (
-	"fmt"
 	"github.com/0990/gotun/core"
 	"github.com/sirupsen/logrus"
 	"net"
@@ -9,21 +8,32 @@ import (
 )
 
 func StartUDPEchoServer(address string) error {
+	_, err := startUDPEcho(address)
+	return err
+}
+
+// udpEchoServer 可关闭的 UDP echo 监听
+type udpEchoServer struct {
+	conn *net.UDPConn
+}
+
+// startUDPEcho 启动 UDP echo 监听并返回可关闭句柄
+func startUDPEcho(address string) (*udpEchoServer, error) {
 	addr, err := net.ResolveUDPAddr("udp", address)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	listen, err := net.ListenUDP("udp", addr)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
+	s := &udpEchoServer{conn: listen}
 	go func() {
 		for {
 			var data [core.MaxSegmentSize]byte
 			n, addr, err := listen.ReadFromUDP(data[:])
 			if err != nil {
-				fmt.Println(err)
 				break
 			}
 
@@ -39,7 +49,12 @@ func StartUDPEchoServer(address string) error {
 			}
 		}
 	}()
-	return nil
+	return s, nil
+}
+
+// Close 关闭 UDP 监听
+func (s *udpEchoServer) Close() error {
+	return s.conn.Close()
 }
 
 func CheckUDP(targetAddr string, req string, timeout time.Duration) (string, error) {
