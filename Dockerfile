@@ -1,4 +1,4 @@
-FROM golang:1.26.1 AS builder
+FROM golang:1.26.6 AS builder
 ARG VERSION=dev
 WORKDIR /src/gotun
 COPY . .
