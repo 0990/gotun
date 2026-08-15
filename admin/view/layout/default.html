@@ -32,18 +32,18 @@
             </i-header>
             <i-layout>
                 <i-sider hide-trigger :style="{ height: '100vh',background:'#fff'}">
-                    <i-menu theme="light" width="auto" :active-name="getActiveName" :open-names="['1']">
+                    <i-menu theme="light" width="auto" :active-name="getActiveName" :open-names="['1']" @on-select="invokeMenuSelect">
                         <template v-for="item in menu" >
                             <i-menu-item v-if="typeof(item.sub_menu) == 'undefined'" :name="item.name">
                                 <i-icon :type="item.icon"></i-icon>
-                                <router-link :to="getRoutePath(item.name)" tag="span">{{item.title}}</router-link>
+                                <span>{{item.title}}</span>
                             </i-menu-item>
                             <i-submenu v-if="typeof(item.sub_menu) != 'undefined'" name="1">
                                 <template slot="title">
                                     <i-icon :type="item.icon"></i-icon>{{item.title}}
                                 </template>
                                 <i-menu-item v-for="sub in item.sub_menu" :name="sub.name">
-                                    <router-link :to="getRoutePath(sub.name)" tag="span">{{sub.title}}</router-link>
+                                    <span>{{sub.title}}</span>
                                 </i-menu-item>
                             </i-submenu>
                         </template>
@@ -350,6 +350,14 @@
                     }
                 }
                 return ''
+            },
+            // 菜单整项（含图标与留白）点击都会触发 on-select，统一在此跳转，
+            // 避免之前 router-link 只包裹文字导致点偏时高亮变了但页面不切换
+            invokeMenuSelect: function(name) {
+                var path = this.getRoutePath(name)
+                if(path && path !== this.$route.path) {
+                    this.$router.push(path).catch(function() {})
+                }
             }
         },
         created: function() {
