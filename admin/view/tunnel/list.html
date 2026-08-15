@@ -100,6 +100,7 @@
                     <i-button type="primary" ghost :disabled="!currentRow || currentRow.disabled" :loading="currentRow && bandwidthPendingName === currentRow.name" @click="invokeBandwidthTest(currentRow)">宽带</i-button>
                     <i-button type="primary" ghost :disabled="!currentRow || currentRow.disabled" :loading="currentRow && mtrPendingName === currentRow.name" @click="invokeMTR(currentRow)">mtr</i-button>
                     <i-button type="primary" ghost :disabled="!currentRow" @click="invokeExport(currentRow)">导出</i-button>
+                    <i-button type="primary" ghost :disabled="!currentRow" :loading="clonePending" @click="invokeClone(currentRow)">克隆</i-button>
                     <i-button type="error" ghost :disabled="!currentRow" @click="invokeDelete(currentRow)">删除</i-button>
                 </i-col>
             </i-row>
@@ -197,6 +198,7 @@
                 deleteModal:false,
                 deleteModalData: {},
                 currentRow: null,
+                clonePending: false,
                 col_list: [
                     {title:'name', key:'name'},
                     {title:'status', slot:'status_slot'},
@@ -780,6 +782,69 @@ created_at:'string',
                     window.open(url)
                 }).catch(() => {
                 })
+            },
+            // 克隆：复制选中行配置，生成新 uuid、唯一名称，并默认禁用，复用 import 接口
+            invokeClone: function(row) {
+                if(!row || this.clonePending) {
+                    return
+                }
+                this.clonePending = true;
+                const payload = {
+                    uuid: this.newUUID(),
+                    name: this.uniqueCloneName(row.name),
+                    disabled: true,
+                    mode: row.mode,
+                    input: row.input,
+                    in_proto_cfg: row.in_proto_cfg,
+                    in_decrypt_mode: row.in_decrypt_mode,
+                    in_decrypt_key: row.in_decrypt_key,
+                    in_extend: row.in_extend,
+                    output: row.output,
+                    out_proto_cfg: row.out_proto_cfg,
+                    out_crypt_mode: row.out_crypt_mode,
+                    out_crypt_key: row.out_crypt_key,
+                    out_extend: row.out_extend,
+                };
+                this.axios
+                    .post('/api/tunnel/import', JSON.stringify(payload), {headers:{'Content-Type':'application/json'}})
+                    .then(response => {
+                        if(response.data.code !== 200) {
+                            this.$Message.error(response.data.msg);
+                            return
+                        }
+                        this.$Message.success('已克隆为 ' + payload.name + '（默认禁用）');
+                        this.tableData();
+                    })
+                    .catch(error => {
+                        const msg = error && error.message ? error.message : 'clone request failed';
+                        this.$Message.error(msg);
+                    })
+                    .finally(() => {
+                        this.clonePending = false;
+                    })
+            },
+            // 生成 RFC4122 v4 uuid
+            newUUID: function() {
+                if(window.crypto && window.crypto.randomUUID) {
+                    return window.crypto.randomUUID();
+                }
+                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                    const r = Math.random() * 16 | 0;
+                    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                    return v.toString(16);
+                });
+            },
+            // 基于原名生成未被占用的克隆名：xxx-copy、xxx-copy2 ...
+            uniqueCloneName: function(base) {
+                const names = {};
+                (this.main_data || []).forEach(item => { names[item.name] = true; });
+                let candidate = base + '-copy';
+                let i = 2;
+                while(names[candidate]) {
+                    candidate = base + '-copy' + i;
+                    i++;
+                }
+                return candidate;
             },
             invokeImport: function(){
                 var self = this;
