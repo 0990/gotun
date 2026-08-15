@@ -27,7 +27,7 @@ func Test_Tcp(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s.Run()
+	runServer(t, s)
 	time.Sleep(time.Second * 2)
 	echoTCP(t, relayAddr)
 }
@@ -51,7 +51,7 @@ func Test_TcpTun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c.Run()
+	runServer(t, c)
 
 	s, err := NewServer(Config{
 		Name:          "tcp",
@@ -66,7 +66,7 @@ func Test_TcpTun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s.Run()
+	runServer(t, s)
 	time.Sleep(time.Second * 2)
 	echoTCP(t, relayClientAddr)
 }
@@ -91,7 +91,7 @@ func Test_TcpMuxTun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s.Run()
+	runServer(t, s)
 
 	c, err := NewServer(Config{
 
@@ -103,23 +103,26 @@ func Test_TcpMuxTun(t *testing.T) {
 
 		OutCryptKey:  "111111",
 		OutCryptMode: "gcm",
+		OutExtend:    muxConnExtend(10),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	c.Run()
+	runServer(t, c)
 
 	time.Sleep(time.Second * 2)
 	echoTCP(t, relayClientAddr)
 }
 
 func Test_QUICTun(t *testing.T) {
-	targetAddr := "127.0.0.1:7007"
+	// 使用独立端口组：QUIC 监听在连接未完全排空时底层 UDP socket 会延迟释放，
+	// 与后续 KCP 用例共用 6001 会导致 bind 冲突
+	targetAddr := "127.0.0.1:7110"
 	echo.StartTCPEchoServer(targetAddr)
 
-	relayClientAddr := "127.0.0.1:6000"
-	relayServerAddr := "127.0.0.1:6001"
+	relayClientAddr := "127.0.0.1:6106"
+	relayServerAddr := "127.0.0.1:6107"
 
 	s, err := NewServer(Config{
 
@@ -136,7 +139,7 @@ func Test_QUICTun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s.Run()
+	runServer(t, s)
 
 	c, err := NewServer(Config{
 
@@ -154,7 +157,7 @@ func Test_QUICTun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c.Run()
+	runServer(t, c)
 
 	time.Sleep(time.Second * 2)
 	echoTCP(t, relayClientAddr)
@@ -180,7 +183,7 @@ func Test_KCPTun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s.Run()
+	runServer(t, s)
 
 	c, err := NewServer(Config{
 
@@ -198,7 +201,7 @@ func Test_KCPTun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c.Run()
+	runServer(t, c)
 
 	time.Sleep(time.Second * 2)
 	echoTCP(t, relayClientAddr)
@@ -226,7 +229,7 @@ func Test_KCPMuxTun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s.Run()
+	runServer(t, s)
 
 	c, err := NewServer(Config{
 		Name:          "",
@@ -244,7 +247,7 @@ func Test_KCPMuxTun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c.Run()
+	runServer(t, c)
 
 	time.Sleep(time.Second * 2)
 	echoTCP(t, relayClientAddr)
@@ -270,7 +273,7 @@ func Test_KCPXTun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s.Run()
+	runServer(t, s)
 
 	c, err := NewServer(Config{
 		Name:          "",
@@ -285,7 +288,7 @@ func Test_KCPXTun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c.Run()
+	runServer(t, c)
 
 	time.Sleep(time.Second * 2)
 	echoTCP(t, relayClientAddr)
@@ -311,7 +314,7 @@ func Test_KCPXMuxTun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s.Run()
+	runServer(t, s)
 
 	c, err := NewServer(Config{
 		Name:          "",
@@ -327,7 +330,7 @@ func Test_KCPXMuxTun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c.Run()
+	runServer(t, c)
 
 	time.Sleep(time.Second * 2)
 	echoTCP(t, relayClientAddr)
@@ -346,6 +349,16 @@ func echoTCP(t *testing.T, clientAddr string) error {
 	}
 	fmt.Println("latency:", time.Since(before).Milliseconds())
 	return nil
+}
+
+// runServer 启动服务并检查错误，同时注册测试结束时的 Close 清理，
+// 避免固定端口上的监听器泄漏到后续用例造成跨用例串扰
+func runServer(t *testing.T, s Service) {
+	t.Helper()
+	if err := s.Run(); err != nil {
+		t.Fatalf("run service: %v", err)
+	}
+	t.Cleanup(func() { s.Close() })
 }
 
 func checkEchoReplyTCP(conn net.Conn) error {

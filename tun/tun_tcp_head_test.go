@@ -36,7 +36,7 @@ func Test_TcpTunHead(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c.Run()
+	runServer(t, c)
 
 	s, err := NewServer(Config{
 		Name:          "tcp",
@@ -52,7 +52,7 @@ func Test_TcpTunHead(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s.Run()
+	runServer(t, s)
 	time.Sleep(time.Second * 2)
 	echoTCP(t, relayClientAddr)
 }
@@ -87,7 +87,7 @@ func Test_TcpMuxTunHead(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s.Run()
+	runServer(t, s)
 
 	c, err := NewServer(Config{
 		Name:          "tcp",
@@ -104,7 +104,7 @@ func Test_TcpMuxTunHead(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c.Run()
+	runServer(t, c)
 
 	time.Sleep(time.Second * 2)
 	echoTCP(t, relayClientAddr)

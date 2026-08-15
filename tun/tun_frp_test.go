@@ -29,7 +29,7 @@ func TestFrp_Run(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c.Run()
+	runServer(t, c)
 
 	s, err := NewService(Config{
 		Name:          "tcp",
@@ -45,7 +45,7 @@ func TestFrp_Run(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s.Run()
+	runServer(t, s)
 	time.Sleep(time.Second * 2)
 	echoTCP(t, relayClientAddr)
 }
@@ -74,7 +74,7 @@ func Test_Frp_KCPMuxTun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s.Run()
+	runServer(t, s)
 
 	c, err := NewService(Config{
 		Name:          "",
@@ -93,7 +93,7 @@ func Test_Frp_KCPMuxTun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c.Run()
+	runServer(t, c)
 
 	time.Sleep(time.Second * 2)
 	echoTCP(t, relayClientAddr)
@@ -122,7 +122,7 @@ func Test_Frp_KCPXMuxTun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c.Run()
+	runServer(t, c)
 
 	s, err := NewService(Config{
 		Name:          "",
@@ -139,13 +139,12 @@ func Test_Frp_KCPXMuxTun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s.Run()
+	runServer(t, s)
 
 	time.Sleep(time.Second * 2)
 	echoTCP(t, relayClientAddr)
 }
 
-// 测试未通过 udp内网穿透模式暂不支持
 func Test_Frp_UDPTun(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
@@ -168,7 +167,7 @@ func Test_Frp_UDPTun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c.Run()
+	runServer(t, c)
 	time.Sleep(time.Second)
 
 	s, err := NewService(Config{
@@ -185,7 +184,7 @@ func Test_Frp_UDPTun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s.Run()
+	runServer(t, s)
 	time.Sleep(time.Second)
 	err = echoUDP(relayClientAddr)
 	if err != nil {

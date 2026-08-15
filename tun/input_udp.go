@@ -21,6 +21,11 @@ type inputUDP struct {
 	writeCounter stats.Counter
 }
 
+// defaultUDPTimeout 是未配置 in_proto_cfg 时 UDP 会话的默认空闲超时（秒），
+// 与管理后台前端默认值保持一致。timeout 为 0 会导致 UDPWorker.Read 立即失败，
+// 数据根本无法转发。
+const defaultUDPTimeout = 90
+
 func NewInputUDP(addr string, extra string, readCounter, writeCounter stats.Counter) (*inputUDP, error) {
 	var cfg UDPConfig
 
@@ -29,6 +34,9 @@ func NewInputUDP(addr string, extra string, readCounter, writeCounter stats.Coun
 		if err != nil {
 			return nil, err
 		}
+	}
+	if cfg.Timeout <= 0 {
+		cfg.Timeout = defaultUDPTimeout
 	}
 
 	return &inputUDP{

@@ -36,6 +36,8 @@ func (f *frpsControllerManager) Set(ctl *frpsController) {
 }
 
 func (f *frpsControllerManager) Close() {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
 	if f.ctl != nil {
 		f.ctl.Close()
 	}
@@ -46,6 +48,11 @@ type frpsController struct {
 	sendCh  chan (msg.Message)
 	readCh  chan (msg.Message)
 	workers chan core.IStream
+
+	// mu 保护 closed 及三个 channel 的关闭：发送方持读锁，
+	// Close 持写锁关闭 channel，避免 send on closed channel panic
+	mu     sync.RWMutex
+	closed bool
 }
 
 func NewFrpsController(ctrl io.ReadWriteCloser) *frpsController {
@@ -60,6 +67,12 @@ func (f *frpsController) Run() {
 }
 
 func (f *frpsController) Close() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.closed {
+		return
+	}
+	f.closed = true
 	f.ctl.Close()
 	close(f.workers)
 	close(f.sendCh)
@@ -67,6 +80,11 @@ func (f *frpsController) Close() {
 }
 
 func (f *frpsController) RegisterWorker(worker core.IStream) error {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	if f.closed {
+		return fmt.Errorf("controller is closed")
+	}
 	select {
 	case f.workers <- worker:
 		logrus.Debug("register worker")
@@ -113,6 +131,11 @@ func (f *frpsController) doWriteLoop() {
 }
 
 func (f *frpsController) Write(msg msg.Message) error {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	if f.closed {
+		return fmt.Errorf("controller is closed")
+	}
 	select {
 	case f.sendCh <- msg:
 		return nil
@@ -130,7 +153,13 @@ func (f *frpsController) doReadLoop() {
 			logrus.Errorf("frps controller read msg err:%s", err.Error())
 			return
 		}
+		f.mu.RLock()
+		if f.closed {
+			f.mu.RUnlock()
+			return
+		}
 		f.readCh <- m
+		f.mu.RUnlock()
 	}
 }
 

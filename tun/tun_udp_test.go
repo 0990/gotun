@@ -28,7 +28,7 @@ func Test_UDP(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s.Run()
+	runServer(t, s)
 	time.Sleep(time.Second)
 	err = echoUDP(relayAddr)
 	if err != nil {
@@ -57,7 +57,7 @@ func Test_UDPTun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c.Run()
+	runServer(t, c)
 
 	s, err := NewServer(Config{
 		Name:          "udp_tun_server",
@@ -72,7 +72,7 @@ func Test_UDPTun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s.Run()
+	runServer(t, s)
 	time.Sleep(time.Second)
 	err = echoUDP(relayClientAddr)
 	if err != nil {
@@ -101,7 +101,7 @@ func Test_UDPTunTCP(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c.Run()
+	runServer(t, c)
 
 	s, err := NewServer(Config{
 		Name:          "udp_tun_server",
@@ -116,7 +116,7 @@ func Test_UDPTunTCP(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s.Run()
+	runServer(t, s)
 	time.Sleep(time.Second)
 	err = echoUDP(relayClientAddr)
 	if err != nil {
@@ -159,7 +159,7 @@ func checkEchoReplyUDP(conn net.Conn) error {
 		return err
 	}
 
-	//conn.SetReadDeadline(time.Now().Add(time.Second * 2))
+	conn.SetReadDeadline(time.Now().Add(time.Second * 5))
 	buf := make([]byte, core.MaxSegmentSize)
 	n, err := conn.Read(buf)
 	if err != nil {
@@ -172,6 +172,7 @@ func checkEchoReplyUDP(conn net.Conn) error {
 		return fmt.Errorf("echo send:%s receive:%s", send1, buf[0:n])
 	}
 
+	conn.SetReadDeadline(time.Now().Add(time.Second * 5))
 	n, err = conn.Read(buf)
 	if err != nil {
 		return err

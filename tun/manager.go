@@ -255,13 +255,29 @@ func prepareManagedService(config Config) (Service, error) {
 	return NewService(config)
 }
 
+// runStartWaitTimeout 是等待 Service.Run 首次返回的时长。
+// 部分实现的 Run 会阻塞在对端连接建立上（如 mux 模式的 Output.Run 会重试直到连上），
+// 超时后直接视为已转入后台运行，与历史异步行为一致。
+const runStartWaitTimeout = 2 * time.Second
+
+// runPreparedService 启动服务并同步返回启动错误（如监听端口被占用）。
+// Run 在超时未返回时仍在后台继续执行，之后的运行错误仅记录日志。
 func runPreparedService(s Service) error {
+	done := make(chan error, 1)
 	go func() {
-		if err := s.Run(); err != nil {
+		err := s.Run()
+		if err != nil {
 			logrus.WithError(err).WithField("name", s.Cfg().Name).Error("runPreparedService")
 		}
+		done <- err
 	}()
-	return nil
+
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(runStartWaitTimeout):
+		return nil
+	}
 }
 
 func normalizeConfig(config Config) Config {
