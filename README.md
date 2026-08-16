@@ -90,6 +90,7 @@ stclient 把流量加密后经公网发往 44.55.66.77:B，stserver 解密后转
 * 加密通道协议可以是tcp,tcpmux,quic,kcp,kcpmux,kcpx,kcpx_mux
 
 ## 更多
+* [配置参考](doc/配置参考.md)（app.yaml/tunnel/智能路由/内置服务各字段说明与场景）
 * [简单转发服务](doc/简单转发服务.md)
 * [内置socks5安全通道](doc/内置socks5安全通道.md)
 * [内网穿透式安全通道](doc/内网穿透式安全通道.md)
