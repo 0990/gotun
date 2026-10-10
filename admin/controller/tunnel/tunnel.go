@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/0990/gotun/pkg/util"
 	"github.com/0990/gotun/server/echo"
 	"github.com/0990/gotun/server/httpproxy"
 	"github.com/0990/gotun/server/socks5client"
@@ -139,12 +140,17 @@ func Quality(mgr *tun.Manager) func(w http.ResponseWriter, request *http.Request
 			panic(errors.New("tun not exist"))
 		}
 
+		details := make(map[string]tun.QualitySnapshot)
+		for key, snapshot := range service.QualityDetails() {
+			snapshot.LastOKAt = snapshot.LastOKAt.In(util.BeijingLocation)
+			details[key] = snapshot
+		}
 		ret := response.Ret{
 			Code: http.StatusOK,
 			Data: map[string]interface{}{
 				"name":    name,
 				"summary": service.QualitySummary(),
-				"details": service.QualityDetails(),
+				"details": details,
 			},
 		}
 
@@ -365,7 +371,7 @@ func ParseTime2String(t time.Time) string {
 	if t.IsZero() {
 		return ""
 	}
-	return t.Format(time.RFC3339)
+	return util.FormatBeijingTime(t, time.RFC3339)
 }
 
 func Edit(mgr *tun.Manager) func(writer http.ResponseWriter, request *http.Request) {

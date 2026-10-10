@@ -9,11 +9,26 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/0990/gotun/admin/model"
 	"github.com/0990/gotun/admin/response"
 	"github.com/0990/gotun/tun"
 )
+
+func TestDisplayTimesBeijing(t *testing.T) {
+	instant := time.Date(2026, 10, 9, 18, 6, 13, 0, time.UTC)
+	want := "2026-10-10T02:06:13+08:00"
+	if got := Config2Model(tun.Config{CreatedAt: instant}).CreatedAt; got != want {
+		t.Fatalf("创建时间应使用北京时间：%s", got)
+	}
+	if got := bandwidthSummaryToModel(tun.BandwidthSummary{TestedAt: instant}).TestedAt; got != want {
+		t.Fatalf("测速时间应使用北京时间：%s", got)
+	}
+	if got := ParseTime2String(time.Time{}); got != "" {
+		t.Fatalf("空时间应保持为空：%s", got)
+	}
+}
 
 func TestCreateReturnsErrorWithoutDirtyState(t *testing.T) {
 	blockPath := filepath.Join(t.TempDir(), "not-a-dir")

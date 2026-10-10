@@ -109,11 +109,36 @@ func TestSwitchLogHandler(t *testing.T) {
 			if events[0].Time == "" {
 				t.Fatal("时间字段不应为空")
 			}
+			svc, _ := mgr.GetRoute("r1")
+			want := svc.SwitchEvents()[0].Time.In(time.FixedZone("UTC+8", 8*60*60)).Format("2006-01-02 15:04:05")
+			if events[0].Time != want {
+				t.Fatalf("切换记录应使用北京时间：得到 %s，期望 %s", events[0].Time, want)
+			}
 			return
 		}
 		if time.Now().After(deadline) {
 			t.Fatal("等待初始选中记录超时")
 		}
 		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+type routeTimeStub struct {
+	tun.RouteService
+	cfg tun.RouteConfig
+}
+
+func (s routeTimeStub) RouteCfg() tun.RouteConfig          { return s.cfg }
+func (s routeTimeStub) Status() string                     { return "disabled" }
+func (s routeTimeStub) MemberHealth() map[string]string    { return nil }
+func (s routeTimeStub) PreferredMember() string            { return "" }
+func (s routeTimeStub) QualitySummary() tun.QualitySummary { return tun.QualitySummary{} }
+
+func TestRouteCreatedAtBeijing(t *testing.T) {
+	rs := routeTimeStub{cfg: tun.RouteConfig{
+		CreatedAt: time.Date(2026, 10, 9, 18, 6, 13, 0, time.UTC),
+	}}
+	if got := routeToModel(rs).CreatedAt; got != "2026-10-10 02:06:13" {
+		t.Fatalf("创建时间应使用北京时间：%s", got)
 	}
 }

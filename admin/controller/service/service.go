@@ -11,6 +11,7 @@ import (
 	"strconv"
 
 	"github.com/0990/gotun/admin/response"
+	"github.com/0990/gotun/pkg/util"
 	"github.com/0990/gotun/server/service"
 )
 
@@ -50,8 +51,10 @@ func List(mgr *service.Manager, version string) func(writer http.ResponseWriter,
 		ss := mgr.AllService()
 		var records []Record
 		for _, v := range ss {
+			cfg := v.Cfg()
+			cfg.CreatedAt = cfg.CreatedAt.In(util.BeijingLocation)
 			records = append(records, Record{
-				Config: v.Cfg(),
+				Config: cfg,
 				Status: v.Status(),
 			})
 		}

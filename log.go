@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/0990/gotun/pkg/util"
 	rotatelogs "github.com/lestrrat/go-file-rotatelogs"
 	"github.com/natefinch/lumberjack"
 	"github.com/sirupsen/logrus"
@@ -47,7 +48,7 @@ func InitLog(logpath string, name string, useJSON bool, rotate bool, maxSize int
 		funcname := s[len(s)-1]
 		return funcname + " " + fileName, ""
 	}
-	logrus.SetFormatter(text)
+	logrus.SetFormatter(beijingFormatter{Formatter: text})
 
 	hook, close, err := NewFileLogHook(logpath, name, useJSON, rotate, maxSize)
 	if err != nil {
@@ -88,6 +89,7 @@ func NewFileLogHook(dir string, filename string, useJSONFormat bool, rotate bool
 				//rotatelogs.WithLinkName(dir+filename+".log"),
 				rotatelogs.WithMaxAge(15*24*time.Hour),
 				rotatelogs.WithRotationTime(24*time.Hour),
+				rotatelogs.WithLocation(util.BeijingLocation),
 				//rotatelogs.WithRotationTime(time.Minute),
 			)
 			if err != nil {
@@ -131,7 +133,7 @@ type Hook struct {
 func NewHook(bufSize int, w io.Writer, fmtt logrus.Formatter) *Hook {
 	h := new(Hook)
 	h.w = w
-	h.fmt = fmtt
+	h.fmt = beijingFormatter{Formatter: fmtt}
 	h.pool.New = func() interface{} {
 		return new(bytes.Buffer)
 	}
@@ -188,6 +190,17 @@ func (h *Hook) WriteEntry(entry *logrus.Entry) error {
 	entry.Buffer = nil
 	_, err = h.w.Write(serialized)
 	return err
+}
+
+// beijingFormatter 统一控制台和文件日志的时间展示，不修改原始日志时间。
+type beijingFormatter struct {
+	logrus.Formatter
+}
+
+func (f beijingFormatter) Format(entry *logrus.Entry) ([]byte, error) {
+	copyEntry := *entry
+	copyEntry.Time = entry.Time.In(util.BeijingLocation)
+	return f.Formatter.Format(&copyEntry)
 }
 
 func Recover() {

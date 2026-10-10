@@ -13,6 +13,7 @@ import (
 
 	"github.com/0990/gotun/admin/model"
 	"github.com/0990/gotun/admin/response"
+	"github.com/0990/gotun/pkg/util"
 	"github.com/0990/gotun/tun"
 )
 
@@ -54,7 +55,7 @@ func routeToModel(rs tun.RouteService) model.Route {
 		PreferredMember: rs.PreferredMember(),
 		MemberHealth:    health,
 		QualitySummary:  model.QualitySummary(rs.QualitySummary()),
-		CreatedAt:       cfg.CreatedAt.Format("2006-01-02 15:04:05"),
+		CreatedAt:       util.FormatBeijingTime(cfg.CreatedAt, "2006-01-02 15:04:05"),
 		MemberNoHealth:  noHealth,
 	}
 }
@@ -158,7 +159,7 @@ func SwitchLog(mgr *tun.Manager, mode string) func(http.ResponseWriter, *http.Re
 		records := []model.RouteSwitchEvent{}
 		for _, e := range svc.SwitchEvents() {
 			records = append(records, model.RouteSwitchEvent{
-				Time: e.Time.Format("2006-01-02 15:04:05"),
+				Time: util.FormatBeijingTime(e.Time, "2006-01-02 15:04:05"),
 				From: e.From,
 				To:   e.To,
 			})
