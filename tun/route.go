@@ -58,6 +58,9 @@ func newRouteService(cfg RouteConfig, mgr *Manager) (*routeService, error) {
 		watchStop: make(chan struct{}),
 	}
 	s.SetStatus("init")
+	if cfg.Policy == "quality" {
+		s.selector.quality = newRouteQualityMonitor(cfg, mgr, s.switchLog)
+	}
 
 	if cfg.Mode == RouteModeOutput {
 		if err := s.buildOutputMode(); err != nil {
@@ -97,7 +100,9 @@ func (s *routeService) buildOutputMode() error {
 
 func (s *routeService) Run() error {
 	// 无论启用与否都跟踪首选 member 变化（选址随 member 健康实时变化，禁用期间也记录）
-	go s.watchSwitch()
+	if s.selector.quality == nil {
+		go s.watchSwitch()
+	}
 
 	if s.cfg.Disabled {
 		// 禁用入口不监听
@@ -205,6 +210,9 @@ func (s *routeService) runInputMode() error {
 	s.listener = lis
 	s.SetStatus("running")
 	go s.serveInput()
+	if s.selector.quality != nil {
+		go s.selector.quality.run()
+	}
 	return nil
 }
 
@@ -271,6 +279,9 @@ func relayConn(a, b net.Conn) {
 
 func (s *routeService) Close() error {
 	s.closeOnce.Do(func() {
+		if s.selector.quality != nil {
+			s.selector.quality.cancel()
+		}
 		close(s.watchStop)
 		if s.cfg.Mode == RouteModeOutput {
 			if s.input != nil {
@@ -333,7 +344,15 @@ func (s *routeService) MemberHealth() map[string]string {
 	return out
 }
 
-// QualitySummary 入口健康 = 当前首选 member 的健康；无可用 member 报 down
+// MemberQuality 返回完整业务路径快照，priority 策略没有此数据。
+func (s *routeService) MemberQuality() map[string]RouteMemberQuality {
+	if s.selector.quality == nil {
+		return nil
+	}
+	return s.selector.quality.snapshot()
+}
+
+// QualitySummary 保留单跳健康兼容字段，完整路径评估由 MemberQuality 提供。
 func (s *routeService) QualitySummary() QualitySummary {
 	for _, svc := range s.selector.candidates() {
 		return svc.QualitySummary()

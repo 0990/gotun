@@ -12,6 +12,7 @@ import (
 type routeSelector struct {
 	mgr     *Manager
 	members []string
+	quality *routeQualityMonitor
 }
 
 func newRouteSelector(mgr *Manager, members []string) *routeSelector {
@@ -46,8 +47,22 @@ func (r *routeSelector) candidates() []Service {
 		if !ok {
 			continue
 		}
-		if memberAlive(svc) {
+		if (r.quality == nil && memberAlive(svc)) || (r.quality != nil && memberRunning(svc)) {
 			out = append(out, svc)
+		}
+	}
+	if r.quality != nil {
+		names := make([]string, 0, len(out))
+		for _, svc := range out {
+			names = append(names, svc.Cfg().Name)
+		}
+		preferred := r.quality.preferred(names)
+		for i, svc := range out {
+			if svc.Cfg().Name == preferred {
+				copy(out[1:i+1], out[:i])
+				out[0] = svc
+				break
+			}
 		}
 	}
 	return out
@@ -55,6 +70,12 @@ func (r *routeSelector) candidates() []Service {
 
 // preferred 返回当前首选（优先级最高且可用）的 member 名称；无可用 member 时返回空串
 func (r *routeSelector) preferred() string {
+	if r.quality != nil {
+		if cands := r.candidates(); len(cands) > 0 {
+			return cands[0].Cfg().Name
+		}
+		return ""
+	}
 	for _, name := range r.members {
 		svc, ok := r.mgr.GetService(name)
 		if !ok {

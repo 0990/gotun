@@ -1,5 +1,7 @@
 package model
 
+import "github.com/0990/gotun/tun"
+
 // Route 智能路由入口（管理 API DTO）
 type Route struct {
 	UUID     string `json:"uuid"`
@@ -8,9 +10,11 @@ type Route struct {
 	Mode     string `json:"mode"` // output|input
 	Listen   string `json:"listen"`
 	// InProtoCfg 出口模式的入口监听协议扩展配置（如 socks5x 认证/超时）；input 模式为空
-	InProtoCfg string   `json:"in_proto_cfg"`
-	Members    []string `json:"members"`
-	Policy     string   `json:"policy"`
+	InProtoCfg    string                            `json:"in_proto_cfg"`
+	Members       []string                          `json:"members"`
+	Policy        string                            `json:"policy"`
+	Quality       tun.RouteQualityConfig            `json:"quality"`
+	MemberQuality map[string]tun.RouteMemberQuality `json:"member_quality,omitempty"`
 
 	// 运行态（仅 List 返回）
 	Status          string            `json:"status"`           // running/init/... 或 disabled
@@ -23,7 +27,8 @@ type Route struct {
 
 // RouteSwitchEvent 一次首选 member 切换记录（管理 API DTO）
 type RouteSwitchEvent struct {
-	Time string `json:"time"`
-	From string `json:"from"` // 原首选 member，空串表示此前无可用 member
-	To   string `json:"to"`   // 新首选 member，空串表示全部 member 不可用
+	Time   string `json:"time"`
+	From   string `json:"from"` // 原首选 member，空串表示此前无可用 member
+	To     string `json:"to"`   // 新首选 member，空串表示全部 member 不可用
+	Reason string `json:"reason,omitempty"`
 }

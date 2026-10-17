@@ -314,6 +314,11 @@ func (m *Manager) validateRouteLocked(cfg *RouteConfig, excludeUUID string) erro
 		if _, ok := m.services[member]; !ok {
 			return fmt.Errorf("member 不存在:%s", member)
 		}
+		if cfg.Policy == "quality" {
+			if _, _, err := routeQualityProxy(m.services[member].Cfg()); err != nil {
+				return fmt.Errorf("member %s: %w", member, err)
+			}
+		}
 	}
 
 	// 入口模式：所有 member 的 input 协议需一致

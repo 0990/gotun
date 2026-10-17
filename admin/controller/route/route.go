@@ -51,6 +51,8 @@ func routeToModel(rs tun.RouteService) model.Route {
 		InProtoCfg:      cfg.InProtoCfg,
 		Members:         cfg.Members,
 		Policy:          cfg.Policy,
+		Quality:         cfg.Quality,
+		MemberQuality:   memberQuality(rs),
 		Status:          status,
 		PreferredMember: rs.PreferredMember(),
 		MemberHealth:    health,
@@ -58,6 +60,20 @@ func routeToModel(rs tun.RouteService) model.Route {
 		CreatedAt:       util.FormatBeijingTime(cfg.CreatedAt, "2006-01-02 15:04:05"),
 		MemberNoHealth:  noHealth,
 	}
+}
+
+func memberQuality(rs tun.RouteService) map[string]tun.RouteMemberQuality {
+	if s, ok := rs.(interface {
+		MemberQuality() map[string]tun.RouteMemberQuality
+	}); ok {
+		out := s.MemberQuality()
+		for name, v := range out {
+			v.LastProbeAt = v.LastProbeAt.In(util.BeijingLocation)
+			out[name] = v
+		}
+		return out
+	}
+	return nil
 }
 
 func modelToRoute(m *model.Route) tun.RouteConfig {
@@ -70,6 +86,7 @@ func modelToRoute(m *model.Route) tun.RouteConfig {
 		InProtoCfg: m.InProtoCfg,
 		Members:    m.Members,
 		Policy:     m.Policy,
+		Quality:    m.Quality,
 	}
 }
 
@@ -159,9 +176,10 @@ func SwitchLog(mgr *tun.Manager, mode string) func(http.ResponseWriter, *http.Re
 		records := []model.RouteSwitchEvent{}
 		for _, e := range svc.SwitchEvents() {
 			records = append(records, model.RouteSwitchEvent{
-				Time: util.FormatBeijingTime(e.Time, "2006-01-02 15:04:05"),
-				From: e.From,
-				To:   e.To,
+				Time:   util.FormatBeijingTime(e.Time, "2006-01-02 15:04:05"),
+				From:   e.From,
+				To:     e.To,
+				Reason: e.Reason,
 			})
 		}
 

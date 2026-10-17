@@ -93,7 +93,21 @@ func startSocks5X(t *testing.T) (*socks5x.Server, int) {
 	t.Helper()
 	var lastErr error
 	for i := 0; i < 10; i++ {
-		port := reserveTCPPort(t)
+		// 服务同时监听 TCP 和 UDP；仅选择空闲 TCP 端口可能命中 Windows 的 UDP 保留段。
+		udp, err := net.ListenPacket("udp", ":0")
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		port := udp.LocalAddr().(*net.UDPAddr).Port
+		tcp, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+		if err != nil {
+			_ = udp.Close()
+			lastErr = err
+			continue
+		}
+		_ = tcp.Close()
+		_ = udp.Close()
 		s, err := socks5x.NewServer(port, 300, 200)
 		if err != nil {
 			lastErr = err

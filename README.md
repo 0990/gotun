@@ -3,11 +3,11 @@ tcp/udp转发器，可将明文流量转换为加密流量在公网上传输，�
 
 明文在公网上传输
 
-![tunnel](doc/unencrypted.png)
+![tunnel](docs/unencrypted.png)
 
 加密流量在公网上传输
 
-![tunnel](doc/encrypted.png)
+![tunnel](docs/encrypted.png)
 
 ## Feature
 * 支持tcp,udp,quic,kcp,kcpx流量转发
@@ -32,7 +32,7 @@ log_level: info
 metrics_listen: ""
 ```
 访问[127.0.0.1:8080](http://127.0.0.1:8080),输入默认账号密码admin/admin登录,登录后页面：<br>
-![tunnel](doc/tunnel.png)
+![tunnel](docs/tunnel.png)
 
 ## 内置服务
 为了方便测试和部署，内置了 echo、http 代理、socks5、socks5x 四类服务。
@@ -90,12 +90,15 @@ stclient 把流量加密后经公网发往 44.55.66.77:B，stserver 解密后转
 * 加密通道协议可以是tcp,tcpmux,quic,kcp,kcpmux,kcpx,kcpx_mux
 
 ## 更多
-* [配置参考](doc/配置参考.md)（app.yaml/tunnel/智能路由/内置服务各字段说明与场景）
-* [简单转发服务](doc/简单转发服务.md)
-* [内置socks5安全通道](doc/内置socks5安全通道.md)
-* [内网穿透式安全通道](doc/内网穿透式安全通道.md)
-* [测试](doc/测试.md)
-* [其它](doc/其它.md)
+* [配置参考](docs/配置参考.md)（app.yaml/tunnel/智能路由/内置服务各字段说明与场景）
+* [质量选路使用说明](docs/route-quality.md)
+* [Prometheus 指标](docs/Prometheus指标.md)
+* [管理后台界面](docs/admin-ui.md)
+* [简单转发服务](docs/简单转发服务.md)
+* [内置socks5安全通道](docs/内置socks5安全通道.md)
+* [内网穿透式安全通道](docs/内网穿透式安全通道.md)
+* [测试](docs/测试.md)
+* [其它](docs/其它.md)
 
 
 

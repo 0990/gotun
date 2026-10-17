@@ -24,7 +24,6 @@ go build -o bin/gotun.exe ./cmd
 
 ```powershell
 go test ./... -timeout 120s
-openspec validate redesign-responsive-admin --strict
 ```
 
 浏览器回归脚本使用真实启动包与动态模板，并提供内存接口，不会修改运行实例的隧道或服务。需本机 Chrome（可用 `PLAYWRIGHT_CHANNEL` 改为 `msedge`）和可解析的 Playwright 模块：

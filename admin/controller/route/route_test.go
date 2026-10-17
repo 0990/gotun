@@ -142,3 +142,56 @@ func TestRouteCreatedAtBeijing(t *testing.T) {
 		t.Fatalf("创建时间应使用北京时间：%s", got)
 	}
 }
+
+func TestQualityConfigAPIEditAndValidation(t *testing.T) {
+	mgr := tun.NewManager(t.TempDir())
+	member := tun.Config{Name: "socks", Input: "socks5x@127.0.0.1:1080", Disabled: true}
+	if err := mgr.AddService(member, true); err != nil {
+		t.Fatal(err)
+	}
+	cfg := tun.RouteConfig{Name: "quality", Mode: tun.RouteModeInput, Listen: "127.0.0.1:0", Members: []string{"socks"}, Policy: "quality", Disabled: true}
+	if err := mgr.AddRoute(cfg, true); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = mgr.RemoveRoute("quality") })
+	rs, _ := mgr.GetRoute("quality")
+	view := routeToModel(rs)
+	if view.Quality.DownloadBytes != 16384 || view.MemberQuality["socks"].Status != "evaluating" {
+		t.Fatalf("默认配置和评估状态缺失: %+v", view)
+	}
+	view.Quality.DownloadURL = "https://download.example.com/file"
+	view.Quality.ConnectivityURL = "https://check.example.com/ok"
+	view.Quality.IntervalSec = 60
+	invoke := func(v model.Route) int {
+		body, err := json.Marshal(v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req := httptest.NewRequest("POST", "/api/route_input/edit", strings.NewReader(string(body)))
+		recorder := httptest.NewRecorder()
+		Edit(mgr, tun.RouteModeInput)(recorder, req)
+		var response struct {
+			Code int
+			Msg  string
+		}
+		if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+			t.Fatal(err)
+		}
+		return response.Code
+	}
+	if code := invoke(view); code != 200 {
+		t.Fatalf("保存失败: %d", code)
+	}
+	rs, _ = mgr.GetRoute("quality")
+	if got := routeToModel(rs); got.Quality != view.Quality || got.Policy != "quality" {
+		t.Fatalf("编辑往返失败: %+v", got)
+	}
+	view.Quality.DownloadURL = "http://insecure.example.com"
+	if code := invoke(view); code == 200 {
+		t.Fatal("不应接受非 HTTPS 目标")
+	}
+	rs, _ = mgr.GetRoute("quality")
+	if rs.RouteCfg().Quality.DownloadURL != "https://download.example.com/file" {
+		t.Fatal("保存失败应保留原配置")
+	}
+}

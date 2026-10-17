@@ -27,10 +27,11 @@ type RouteConfig struct {
 	Listen   string `json:"listen"` // output 模式: "proto@host:port"；input 模式: "host:port"
 	// InProtoCfg 入口监听协议的扩展配置（如 socks5x 的认证/超时），仅 output 模式使用；
 	// input 模式为裸 TCP 透明转发，无此配置
-	InProtoCfg string    `json:"in_proto_cfg"`
-	Members    []string  `json:"members"` // member tunnel 名称，按优先级排序
-	Policy     string    `json:"policy"`  // 故障转移策略，v1 仅支持 "priority"
-	CreatedAt  time.Time `json:"create_at"`
+	InProtoCfg string             `json:"in_proto_cfg"`
+	Members    []string           `json:"members"` // member tunnel 名称，按优先级排序
+	Policy     string             `json:"policy"`  // priority 故障转移；quality 完整链路质量选路
+	Quality    RouteQualityConfig `json:"quality"`
+	CreatedAt  time.Time          `json:"create_at"`
 }
 
 // normalize 填充默认值并规范化
@@ -40,6 +41,9 @@ func (r *RouteConfig) normalize() {
 	}
 	if r.Mode == "" {
 		r.Mode = RouteModeOutput
+	}
+	if r.Policy == "quality" {
+		r.Quality.normalize()
 	}
 }
 
@@ -53,16 +57,29 @@ func (r *RouteConfig) validateBasic() error {
 	if r.Mode != RouteModeOutput && r.Mode != RouteModeInput {
 		return fmt.Errorf("未知模式:%s（仅支持 %s|%s）", r.Mode, RouteModeOutput, RouteModeInput)
 	}
-	if r.Policy != "priority" {
-		return fmt.Errorf("未知策略:%s（v1 仅支持 priority）", r.Policy)
+	if r.Policy != "priority" && r.Policy != "quality" {
+		return fmt.Errorf("未知策略:%s（仅支持 priority|quality）", r.Policy)
+	}
+	if r.Policy == "quality" {
+		if r.Mode != RouteModeInput {
+			return errors.New("质量策略仅支持智能路由入口模式")
+		}
+		if err := r.Quality.validate(); err != nil {
+			return err
+		}
 	}
 	if len(r.Members) == 0 {
 		return errors.New("member 不能为空")
 	}
+	seen := make(map[string]bool)
 	for _, m := range r.Members {
 		if strings.TrimSpace(m) == "" {
 			return errors.New("member 名称不能为空")
 		}
+		if r.Policy == "quality" && seen[m] {
+			return fmt.Errorf("质量策略的 member 不能重复:%s", m)
+		}
+		seen[m] = true
 	}
 
 	// 监听地址形态按模式校验

@@ -35,7 +35,7 @@
                             <th>名称</th>
                             <th>运行状态</th>
                             <th>监听地址</th>
-                            <th>成员 / 优先级</th>
+                            <th>成员 / 线路状态</th>
                             <th>操作</th>
                         </tr>
                     </thead>
@@ -50,6 +50,7 @@
                                         </button>
                                     </div>
                                 </div>
+                                <span class="g-subtext">{{ row.policy === 'quality' ? '完整链路质量选路' : '优先级故障转移' }}</span>
                             </td>
                             <td>
                                 <span class="g-state" :class="stateClass(row)"
@@ -72,6 +73,11 @@
                                         v-if="(row.member_no_health || []).indexOf(name) >= 0"
                                         >无健康数据</span
                                     >
+                                </div>
+                                <div v-if="row.policy === 'quality'" class="g-route-quality">
+                                    <div v-for="name in row.members" :key="name" :title="((row.member_quality || {})[name] || {}).last_error">
+                                        {{ name }}：{{ qualityText(row, name) }}
+                                    </div>
                                 </div>
                             </td>
                             <td>
@@ -144,8 +150,13 @@
                                 >
                             </div>
                         </div>
+                        <div v-if="row.policy === 'quality'" class="g-route-quality">
+                            <div v-for="name in row.members" :key="name" :title="((row.member_quality || {})[name] || {}).last_error">
+                                {{ name }}：{{ qualityText(row, name) }}
+                            </div>
+                        </div>
                         <div class="g-card-bottom">
-                            <span class="g-subtext">按优先级自动切换</span>
+                            <span class="g-subtext">{{ row.policy === 'quality' ? '完整链路质量选路' : '按优先级自动切换' }}</span>
                             <div class="g-card-buttons">
                                 <button class="g-btn-link" @click="invokeSwitchLog(row)">记录</button
                                 ><button class="g-btn-link" @click="invokeEdit(row)">编辑</button
@@ -233,6 +244,43 @@
                         所有 member 的 input 协议必须一致（如全为 socks5x）。
                     </div>
                 </i-form-item>
+                <i-form-item label="切换策略">
+                    <i-select v-model="editModalData.policy" aria-label="切换策略">
+                        <i-option value="quality">质量优先（完整链路）</i-option>
+                        <i-option value="priority">优先级故障转移</i-option>
+                    </i-select>
+                    <div class="g-form-note">质量策略仅支持明文、无 input 帧头的 socks5x 成员；只影响新连接。</div>
+                </i-form-item>
+                <template v-if="editModalData.policy === 'quality'">
+                    <i-form-item label="下载探测目标">
+                        <i-input v-model="editModalData.quality.download_url" placeholder="HTTPS 下载 URL" aria-label="下载探测目标"></i-input>
+                    </i-form-item>
+                    <i-form-item label="连通性目标">
+                        <i-input v-model="editModalData.quality.connectivity_url" placeholder="HTTPS 连通性 URL" aria-label="连通性目标"></i-input>
+                        <div class="g-form-note">下载失败后辅助确认；不会抵消下载失败样本。</div>
+                    </i-form-item>
+                    <i-form-item label="下载预期状态">
+                        <i-input-number v-model="editModalData.quality.download_status" :min="200" :max="299" aria-label="下载预期状态"></i-input-number>
+                    </i-form-item>
+                    <i-form-item label="连通预期状态">
+                        <i-input-number v-model="editModalData.quality.connectivity_status" :min="200" :max="299" aria-label="连通预期状态"></i-input-number>
+                    </i-form-item>
+                    <i-form-item label="预期下载字节">
+                        <i-input-number v-model="editModalData.quality.download_bytes" :min="1" :max="1048576" aria-label="预期下载字节"></i-input-number>
+                        <div class="g-form-note">默认 16384（16 KiB）；修改后需同时调整目标 URL 或自建文件，响应长度必须一致。</div>
+                    </i-form-item>
+                    <i-form-item label="探测间隔(秒)">
+                        <i-input-number v-model="editModalData.quality.interval_sec" :min="10" :max="3600" aria-label="探测间隔秒"></i-input-number>
+                    </i-form-item>
+                    <i-form-item label="总超时(毫秒)">
+                        <i-input-number v-model="editModalData.quality.timeout_ms" :min="100" :max="30000" aria-label="总超时毫秒"></i-input-number>
+                    </i-form-item>
+                    <i-form-item label="正常时间(毫秒)">
+                        <i-input-number v-model="editModalData.quality.normal_ms" :min="1" :max="editModalData.quality.timeout_ms" aria-label="正常时间毫秒"></i-input-number>
+                    </i-form-item>
+                    <p class="g-form-note g-quality-traffic" role="status">{{ qualityTraffic }}</p>
+                    <p class="g-form-note">连续失败 3 次且备用连续正常 2 次时切换；窗口满 20 次且备用不良至少少 3 次时择优，普通切换冷却 60 秒。所有线路共同失败不计入质量窗口。</p>
+                </template>
                 <i-form-item label="启用">
                     <i-switch v-model="editModalEnabled"></i-switch>
                 </i-form-item>
@@ -254,7 +302,7 @@
         <i-modal
             v-model="switchLogModal"
             :title="'切换记录 - ' + switchLogName"
-            :width="480"
+            :width="640"
             footer-hide
             class-name="g-dialog"
         >
@@ -293,7 +341,7 @@ module.exports = {
             pageSize: 0,
             tunnelOptions: [],
             editModal: false,
-            editModalData: { uuid: "", name: "", listen: "", members: [], disabled: false },
+            editModalData: { uuid: "", name: "", listen: "", members: [], disabled: false, policy: "quality", quality: {} },
             editModalEnabled: true,
             deleteModal: false,
             deleteModalData: {},
@@ -303,6 +351,7 @@ module.exports = {
             switch_log_cols: [
                 { title: "时间（北京时间）", key: "time", width: 170 },
                 { title: "切换", slot: "change_slot" },
+                { title: "原因", key: "reason", minWidth: 150 },
             ],
             routePage: this.page ? this.page : "",
             col_list: [
@@ -315,7 +364,31 @@ module.exports = {
         };
     },
     props: ["page"],
+    computed: {
+        qualityTraffic: function () {
+            const q = this.editModalData.quality;
+            const count = this.editModalData.members.length;
+            const bytes = Number(q.download_bytes), interval = Number(q.interval_sec);
+            if (!(bytes > 0 && interval > 0)) return "请填写有效的下载字节数和探测间隔。";
+            const per = bytes * (30 * 86400 / interval) / 1e9;
+            return "预计每月正文流量：每条 " + per.toFixed(2) + " GB，" + count + " 条共 " + (per * count).toFixed(2) + " GB（30 天；不含 TLS、协议及重传开销）。";
+        },
+    },
     methods: {
+        defaultQuality: function (value) {
+            return Object.assign({ download_url: "https://speed.cloudflare.com/__down?bytes=16384", connectivity_url: "https://www.gstatic.com/generate_204", download_status: 200, connectivity_status: 204, download_bytes: 16384, interval_sec: 30, timeout_ms: 5000, normal_ms: 2000 }, value || {});
+        },
+        qualityText: function (row, name) {
+            const q = (row.member_quality || {})[name];
+            if (!q) return "评估中";
+            const labels = { normal: "正常", slow: "慢", failed: "失败", common_failure: "共同失败", evaluating: "评估中" };
+            let text = (labels[q.status] || "评估中") + " · 不良 " + q.bad_samples + "/" + q.samples + "（窗口 20 次）· 连续失败 " + q.consecutive_failures;
+            if (q.samples < 20) text += " · 评估中";
+            if (q.last_duration_ms > 0) text += " · " + q.last_duration_ms + " ms";
+            if (q.connectivity) text += q.connectivity === "ok" ? " · 连通确认成功" : " · 连通确认失败";
+            if (q.last_error) text += " · " + q.last_error;
+            return text;
+        },
         invokeRowAction: function (action, row) {
             if (action === "edit") this.invokeEdit(row);
             if (action === "delete") this.invokeDelete(row);
@@ -354,7 +427,7 @@ module.exports = {
             this.$router.push({ query: { page: page } });
         },
         invokeCreate: function () {
-            this.editModalData = { uuid: "", name: "", listen: "", members: [], disabled: false };
+            this.editModalData = { uuid: "", name: "", listen: "", members: [], disabled: false, policy: "quality", quality: this.defaultQuality() };
             this.editModalEnabled = true;
             this.editModal = true;
         },
@@ -365,6 +438,8 @@ module.exports = {
                 listen: row.listen,
                 members: (row.members || []).slice(),
                 disabled: row.disabled,
+                policy: row.policy || "priority",
+                quality: this.defaultQuality(row.policy === "quality" ? row.quality : null),
             };
             this.editModalEnabled = !row.disabled;
             this.editModal = true;
@@ -377,6 +452,8 @@ module.exports = {
                 listen: this.editModalData.listen,
                 members: this.editModalData.members,
                 disabled: !this.editModalEnabled,
+                policy: this.editModalData.policy,
+                quality: this.editModalData.quality,
             };
             return this.saveConfiguration(url, payload);
         },

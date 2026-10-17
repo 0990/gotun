@@ -2,6 +2,8 @@
 
 本文档列出 gotun 暴露的全部自定义 Prometheus 指标、含义、标签与常用查询示例。
 
+智能路由 `quality` 策略的完整链路窗口与切换原因目前通过管理页面及 API 暴露，尚未加入 Prometheus。规则与配置见 [质量选路使用说明](route-quality.md)；下面的 `gotun_probe_*` 是单跳帧探测指标。
+
 ## 暴露方式
 
 - 端点：`GET /metrics`
@@ -32,7 +34,7 @@
 | 指标名 | 类型 | 标签 | 说明 |
 |---|---|---|---|
 | `gotun_probe_rtt_ms` | Gauge | `service`, `output` | 滑动窗口内的平均探测 RTT（毫秒） |
-| `gotun_probe_loss_ratio` | Gauge | `service`, `output` | 滑动窗口丢包率（0~1） |
+| `gotun_probe_loss_ratio` | Gauge | `service`, `output` | 滑动窗口帧探测失败比例（0~1），不是 TCP 丢包率 |
 | `gotun_probe_jitter_ms` | Gauge | `service`, `output` | 平均探测抖动（毫秒） |
 | `gotun_probe_status` | Gauge | `service`, `output` | 健康状态：`up=1` / `degraded=0.5` / `down=0` / `disabled=-1` |
 | `gotun_probe_success_total` | Counter | `service`, `output` | 探测成功累计次数 |
@@ -52,7 +54,7 @@
 - 标签 `service`：tunnel 名称；`output`：出口地址。
 - `gotun_probe_status` 取值：
   - `1`：up（健康）
-  - `0.5`：degraded（抖动/丢包导致降级）
+  - `0.5`：degraded（探测窗口中包含失败样本）
   - `0`：down（已开启帧头探测且已有样本，但当前不可用）
   - `-1`：disabled（未开启帧头探测，或已开启但尚无探测样本/刚启用未探测）
 
@@ -89,7 +91,7 @@ gotun_probe_status
 # 隧道中断告警：状态为 down
 gotun_probe_status == 0
 
-# 探测丢包率超过 10% 的隧道
+# 帧探测失败比例超过 10% 的隧道
 gotun_probe_loss_ratio > 0.1
 
 # 取流耗时 P99（按路径区分）

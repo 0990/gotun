@@ -1563,3 +1563,8 @@ a:focus-visible {
         font-size: 12px;
     }
 }
+
+/* ??????????? URL ???????? */
+.g-route-quality { margin-top: 8px; color: #475569; font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+.g-route-quality > div + div { margin-top: 4px; }
+.g-quality-traffic { padding: 10px; background: #f1f5f9; border-radius: 6px; }

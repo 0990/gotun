@@ -58,7 +58,10 @@ const backupMemberName = tunnels[1].name;
 const records = {
     tunnel: tunnels,
     route_output: [routeFixture("output")],
-    route_input: [{ ...routeFixture("input"), listen: "[2001:db8::1]:1088" }],
+    route_input: [{ ...routeFixture("input"), listen: "[2001:db8::1]:1088", policy: "quality",
+        quality: { download_url: "https://speed.cloudflare.com/__down?bytes=16384", connectivity_url: "https://www.gstatic.com/generate_204", download_status: 200, connectivity_status: 204, download_bytes: 16384, interval_sec: 30, timeout_ms: 5000, normal_ms: 2000 },
+        member_quality: { [tunnels[0].name]: { status: "normal", samples: 12, bad_samples: 2, consecutive_failures: 0, last_duration_ms: 800 }, [tunnels[1].name]: { status: "failed", samples: 12, bad_samples: 4, consecutive_failures: 2, last_duration_ms: 5000, last_error: "完整路径探测超时，需要检查代理协商以及最终下载目标是否可达" } },
+    }],
     service: ["echo", "http_proxy", "socks5_server", "socks5x_server"].map((type, i) => ({
         uuid: "s" + i,
         name: type,
@@ -435,6 +438,18 @@ async function main() {
                 );
             }
             failSave = true;
+            if (kind === "route_input") {
+                await modal().getByText("2 条共 2.83 GB", { exact: false }).waitFor();
+                await modal().getByPlaceholder("HTTPS 下载 URL").fill("https://download.example.com/probe.bin");
+                await modal().getByPlaceholder("HTTPS 连通性 URL").fill("https://check.example.com/ok");
+                const interval = modal().locator('[aria-label="探测间隔秒"] input');
+                await interval.fill("60");
+                await interval.blur();
+                await modal().getByText("2 条共 1.42 GB", { exact: false }).waitFor();
+                await overflow();
+                await readableText();
+                await screenshot("mobile-quality-config");
+            }
             const [failedSave] = await Promise.all([
                 page.waitForResponse((response) => response.url().includes("/api/" + kind + "/edit")),
                 save().click(),
@@ -450,6 +465,17 @@ async function main() {
                     writes.filter((w) => w.kind === kind && w.action === "edit").at(-1).payload.members[0],
                     backupMemberName,
                 );
+            if (kind === "route_input") {
+                const payload = writes.filter((w) => w.kind === kind && w.action === "edit").at(-1).payload;
+                assert.equal(payload.policy, "quality");
+                assert.equal(payload.quality.download_url, "https://download.example.com/probe.bin");
+                assert.equal(payload.quality.connectivity_url, "https://check.example.com/ok");
+                assert.equal(payload.quality.interval_sec, 60);
+                await page.locator(".g-card").first().getByText("编辑", { exact: true }).click();
+                await modal().waitFor();
+                assert.equal(await modal().getByPlaceholder("HTTPS 下载 URL").inputValue(), payload.quality.download_url);
+                await modal().getByRole("button", { name: "取消", exact: true }).click();
+            }
             await screenshot("mobile-" + kind);
         }
         failList = true;

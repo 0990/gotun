@@ -64,8 +64,6 @@ func (c *frpcController) run(setStatus func(status string)) {
 			logrus.WithError(err).Error("frpc controller onRead failed")
 		}
 	}
-
-	return
 }
 
 func (c *frpcController) Close() error {
