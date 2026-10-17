@@ -1,373 +1,422 @@
-<style scoped>
-    .layout-nav {
-        display: flex;
-        align-items: center;
-        justify-content: flex-end;
-        gap: 12px;
-        margin-left: auto;
-        color: white;
-    }
-
-    .layout-user {
-        color: white;
-        font-size: 13px;
-    }
-
-    .layout-logo {
-        border-radius: 3px;
-        float: left;
-    }
-</style>
 <template>
-    <div>
-        <i-layout>
-            <i-header :style="{background:'#000'}">
-                <i-menu mode="horizontal" theme="dark" active-name="1" :style="{background:'#000'}" >
-                    <h2 class="layout-logo" id="appName" style="color:white;">gotun</h2>
-                    <div class="layout-nav">
-                        <span class="layout-user" v-if="sessionUsername">{{sessionUsername}}</span>
-                        <i-button size="small" type="default" @click="invokeLogout">退出</i-button>
-                    </div>
-                </i-menu>
-            </i-header>
-            <i-layout>
-                <i-sider hide-trigger :style="{ height: '100vh',background:'#fff'}">
-                    <i-menu theme="light" width="auto" :active-name="getActiveName" :open-names="['1']" @on-select="invokeMenuSelect">
-                        <template v-for="item in menu" >
-                            <i-menu-item v-if="typeof(item.sub_menu) == 'undefined'" :name="item.name">
-                                <i-icon :type="item.icon"></i-icon>
-                                <span>{{item.title}}</span>
-                            </i-menu-item>
-                            <i-submenu v-if="typeof(item.sub_menu) != 'undefined'" name="1">
-                                <template slot="title">
-                                    <i-icon :type="item.icon"></i-icon>{{item.title}}
-                                </template>
-                                <i-menu-item v-for="sub in item.sub_menu" :name="sub.name">
-                                    <span>{{sub.title}}</span>
-                                </i-menu-item>
-                            </i-submenu>
-                        </template>
-                    </i-menu>
-                </i-sider>
-                <i-layout :style="{padding: '0 24px 24px'}">
-                    <router-view></router-view>
-                </i-layout>
-            </i-layout>
-        </i-layout>
+    <div class="g-app-shell">
+        <aside class="g-rail">
+            <a href="#/tunnel/list" class="g-brand"
+                ><span class="g-brand-mark"><g-icon name="tunnel"></g-icon></span>gotun<span
+                    class="g-version"
+                    :title="version"
+                    >{{ version || "dev" }}</span
+                ></a
+            >
+            <div class="g-nav-caption">WORKSPACE</div>
+            <nav aria-label="主导航">
+                <button
+                    v-for="item in menu"
+                    :key="item.name"
+                    class="g-nav-link"
+                    :class="{ active: activeMenu === item.name }"
+                    :aria-current="activeMenu === item.name ? 'page' : null"
+                    @click="invokeMenuSelect(item.name)"
+                >
+                    <g-icon :name="item.icon"></g-icon>{{ item.title }}
+                </button>
+            </nav>
+            <div class="g-rail-bottom">
+                <div class="g-server">
+                    <strong><span class="g-dot"></span>当前实例</strong>{{ instanceHost }}
+                </div>
+                轻量连接，自由通达。
+            </div>
+        </aside>
+        <div class="g-workspace">
+            <header class="g-topbar">
+                <div class="g-crumb">
+                    <span>工作空间</span><span>/</span><strong>{{ activeTitle }}</strong>
+                </div>
+                <a href="#/tunnel/list" class="g-brand g-mobile-brand"
+                    ><span class="g-brand-mark"><g-icon name="tunnel"></g-icon></span>gotun</a
+                >
+                <div class="g-account">
+                    <span class="g-avatar" :title="sessionUsername">{{
+                        (sessionUsername || "G").slice(0, 1).toUpperCase()
+                    }}</span
+                    ><span class="g-account-name">{{ sessionUsername }}</span
+                    ><button class="g-icon-btn" @click="invokeLogout" aria-label="退出登录" title="退出登录">
+                        <g-icon name="logout"></g-icon>
+                    </button>
+                </div>
+            </header>
+            <main class="g-main"><router-view></router-view></main>
+        </div>
+        <nav class="g-bottom-nav" aria-label="移动端主导航">
+            <button
+                v-for="item in menu"
+                :key="item.name"
+                :class="{ active: activeMenu === item.name }"
+                :aria-current="activeMenu === item.name ? 'page' : null"
+                @click="invokeMenuSelect(item.name)"
+            >
+                <g-icon :name="item.icon"></g-icon><span>{{ item.mobile }}</span>
+            </button>
+        </nav>
     </div>
 </template>
 <script>
-    (function(global) {
-        if (global.TunnelFormHelper) {
-            return;
+(function (global) {
+    if (global.TunnelFormHelper) {
+        return;
+    }
+
+    const modeOptions = [
+        { label: "default", value: "default" },
+        { label: "frpc", value: "frpc" },
+        { label: "frps", value: "frps" },
+    ];
+    const cryptModeOptions = [
+        { label: "none", value: "none" },
+        { label: "gcm", value: "gcm" },
+    ];
+    const inputProtoOptions = [
+        { label: "tcp", value: "tcp" },
+        { label: "tcp_mux", value: "tcp_mux" },
+        { label: "udp", value: "udp" },
+        { label: "quic", value: "quic" },
+        { label: "kcp", value: "kcp" },
+        { label: "kcp_mux", value: "kcp_mux" },
+        { label: "kcpx", value: "kcpx" },
+        { label: "kcpx_mux", value: "kcpx_mux" },
+        { label: "socks5x", value: "socks5x" },
+    ];
+    const outputProtoOptions = [
+        { label: "tcp", value: "tcp" },
+        { label: "tcp_mux", value: "tcp_mux" },
+        { label: "udp", value: "udp" },
+        { label: "quic", value: "quic" },
+        { label: "kcp", value: "kcp" },
+        { label: "kcp_mux", value: "kcp_mux" },
+        { label: "kcpx", value: "kcpx" },
+        { label: "kcpx_mux", value: "kcpx_mux" },
+    ];
+
+    function buildMuxFrameExtend() {
+        return JSON.stringify({
+            mux_conn: 10,
+            frame_header_enable: true,
+        });
+    }
+
+    // 接收侧（in）没有 mux 连接池，mux_conn 无意义，仅需开启帧头以对齐拨出侧
+    function buildFrameOnlyExtend() {
+        return JSON.stringify({
+            frame_header_enable: true,
+        });
+    }
+
+    function normalizeProto(proto) {
+        proto = String(proto || "").toLowerCase();
+        if (proto === "tcpmux") {
+            return "tcp_mux";
         }
-
-        const modeOptions = [
-            {label: 'default', value: 'default'},
-            {label: 'frpc', value: 'frpc'},
-            {label: 'frps', value: 'frps'},
-        ];
-        const cryptModeOptions = [
-            {label: 'none', value: 'none'},
-            {label: 'gcm', value: 'gcm'},
-        ];
-        const inputProtoOptions = [
-            {label: 'tcp', value: 'tcp'},
-            {label: 'tcp_mux', value: 'tcp_mux'},
-            {label: 'udp', value: 'udp'},
-            {label: 'quic', value: 'quic'},
-            {label: 'kcp', value: 'kcp'},
-            {label: 'kcp_mux', value: 'kcp_mux'},
-            {label: 'kcpx', value: 'kcpx'},
-            {label: 'kcpx_mux', value: 'kcpx_mux'},
-            {label: 'socks5x', value: 'socks5x'},
-        ];
-        const outputProtoOptions = [
-            {label: 'tcp', value: 'tcp'},
-            {label: 'tcp_mux', value: 'tcp_mux'},
-            {label: 'udp', value: 'udp'},
-            {label: 'quic', value: 'quic'},
-            {label: 'kcp', value: 'kcp'},
-            {label: 'kcp_mux', value: 'kcp_mux'},
-            {label: 'kcpx', value: 'kcpx'},
-            {label: 'kcpx_mux', value: 'kcpx_mux'},
-        ];
-
-        function buildMuxFrameExtend() {
-            return JSON.stringify({
-                mux_conn: 10,
-                frame_header_enable: true,
-            });
+        if (proto === "kcpmux") {
+            return "kcp_mux";
         }
+        return proto || "";
+    }
 
-        // 接收侧（in）没有 mux 连接池，mux_conn 无意义，仅需开启帧头以对齐拨出侧
-        function buildFrameOnlyExtend() {
-            return JSON.stringify({
-                frame_header_enable: true,
-            });
+    function normalizeMode(mode) {
+        mode = String(mode || "").toLowerCase();
+        if (mode === "frpc" || mode === "frps" || mode === "default") {
+            return mode;
         }
+        return "default";
+    }
 
-        function normalizeProto(proto) {
-            proto = String(proto || '').toLowerCase();
-            if (proto === 'tcpmux') {
-                return 'tcp_mux';
-            }
-            if (proto === 'kcpmux') {
-                return 'kcp_mux';
-            }
-            return proto || '';
+    function normalizeCryptMode(mode) {
+        mode = String(mode || "").toLowerCase();
+        if (mode === "gcm" || mode === "none") {
+            return mode;
         }
+        return "none";
+    }
 
-        function normalizeMode(mode) {
-            mode = String(mode || '').toLowerCase();
-            if (mode === 'frpc' || mode === 'frps' || mode === 'default') {
-                return mode;
-            }
-            return 'default';
-        }
-
-        function normalizeCryptMode(mode) {
-            mode = String(mode || '').toLowerCase();
-            if (mode === 'gcm' || mode === 'none') {
-                return mode;
-            }
-            return 'none';
-        }
-
-        function splitEndpoint(value, fallbackProto) {
-            const raw = String(value || '');
-            const idx = raw.indexOf('@');
-            if (idx < 0) {
-                return {
-                    proto: normalizeProto(fallbackProto || ''),
-                    addr: raw,
-                };
-            }
+    function splitEndpoint(value, fallbackProto) {
+        const raw = String(value || "");
+        const idx = raw.indexOf("@");
+        if (idx < 0) {
             return {
-                proto: normalizeProto(raw.slice(0, idx)),
-                addr: raw.slice(idx + 1),
+                proto: normalizeProto(fallbackProto || ""),
+                addr: raw,
             };
         }
+        return {
+            proto: normalizeProto(raw.slice(0, idx)),
+            addr: raw.slice(idx + 1),
+        };
+    }
 
-        function buildEndpoint(proto, addr) {
-            return normalizeProto(proto) + '@' + String(addr || '').trim();
+    function buildEndpoint(proto, addr) {
+        return normalizeProto(proto) + "@" + String(addr || "").trim();
+    }
+
+    function getDefaultInAddr(proto) {
+        proto = normalizeProto(proto);
+        if (proto === "socks5x") {
+            return "0.0.0.0:1080";
         }
+        return "0.0.0.0:4000";
+    }
 
-        function getDefaultInAddr(proto) {
-            proto = normalizeProto(proto);
-            if (proto === 'socks5x') {
-                return '0.0.0.0:1080';
-            }
-            return '0.0.0.0:4000';
+    function getInputDefaults(proto, kcpxProtoCfg, frameExtend) {
+        frameExtend = frameExtend || "";
+        proto = normalizeProto(proto);
+        switch (proto) {
+            case "tcp":
+                return { protoCfg: '{"head":""}', extend: "" };
+            case "tcp_mux":
+                return { protoCfg: '{"head":""}', extend: frameExtend };
+            case "udp":
+                return { protoCfg: '{"timeout":90}', extend: "" };
+            case "quic":
+                return { protoCfg: "", extend: frameExtend };
+            case "kcp":
+                return {
+                    protoCfg:
+                        '{"write_delay":true,"mtu":990,"sndwnd":1024,"rcvwnd":1024,"datashard":0,"parityshard":0,"dscp":46,"acknodelay":false,"nodelay":1,"interval":30,"resend":2,"nc":0,"sockbuf":16777217,"streambuf":4194304}',
+                    extend: "",
+                };
+            case "kcp_mux":
+                return {
+                    protoCfg:
+                        '{"write_delay":true,"mtu":990,"sndwnd":1024,"rcvwnd":1024,"datashard":0,"parityshard":0,"dscp":46,"acknodelay":false,"nodelay":1,"interval":30,"resend":2,"nc":0,"sockbuf":16777217,"streambuf":4194304}',
+                    extend: frameExtend,
+                };
+            case "kcpx":
+                return { protoCfg: kcpxProtoCfg, extend: "" };
+            case "kcpx_mux":
+                return { protoCfg: kcpxProtoCfg, extend: frameExtend };
+            case "socks5x":
+                return {
+                    protoCfg:
+                        '{"username":"","password":"","tcp_timeout":500,"udp_advertised_ip":"","udp_advertised_port":0}',
+                    extend: "",
+                };
+            default:
+                return { protoCfg: "", extend: "" };
         }
+    }
 
-        function getInputDefaults(proto, kcpxProtoCfg, frameExtend) {
-            frameExtend = frameExtend || '';
-            proto = normalizeProto(proto);
-            switch (proto) {
-                case 'tcp':
-                    return {protoCfg: '{"head":""}', extend: ''};
-                case 'tcp_mux':
-                    return {protoCfg: '{"head":""}', extend: frameExtend};
-                case 'udp':
-                    return {protoCfg: '{"timeout":90}', extend: ''};
-                case 'quic':
-                    return {protoCfg: '', extend: frameExtend};
-                case 'kcp':
-                    return {protoCfg: '{"write_delay":true,"mtu":990,"sndwnd":1024,"rcvwnd":1024,"datashard":0,"parityshard":0,"dscp":46,"acknodelay":false,"nodelay":1,"interval":30,"resend":2,"nc":0,"sockbuf":16777217,"streambuf":4194304}', extend: ''};
-                case 'kcp_mux':
-                    return {protoCfg: '{"write_delay":true,"mtu":990,"sndwnd":1024,"rcvwnd":1024,"datashard":0,"parityshard":0,"dscp":46,"acknodelay":false,"nodelay":1,"interval":30,"resend":2,"nc":0,"sockbuf":16777217,"streambuf":4194304}', extend: frameExtend};
-                case 'kcpx':
-                    return {protoCfg: kcpxProtoCfg, extend: ''};
-                case 'kcpx_mux':
-                    return {protoCfg: kcpxProtoCfg, extend: frameExtend};
-                case 'socks5x':
-                    return {protoCfg: '{"username":"","password":"","tcp_timeout":500,"udp_advertised_ip":"","udp_advertised_port":0}', extend: ''};
-                default:
-                    return {protoCfg: '', extend: ''};
-            }
+    function getOutputDefaults(proto, kcpxProtoCfg, muxFrameExtend) {
+        proto = normalizeProto(proto);
+        switch (proto) {
+            case "tcp":
+                return { protoCfg: '{"head":""}', extend: "" };
+            case "tcp_mux":
+                return { protoCfg: '{"head":""}', extend: muxFrameExtend };
+            case "udp":
+                return { protoCfg: '{"timeout":90}', extend: "" };
+            case "quic":
+                return { protoCfg: "", extend: muxFrameExtend };
+            case "kcp":
+                return {
+                    protoCfg:
+                        '{"write_delay":true,"mtu":990,"sndwnd":2048,"rcvwnd":1024,"datashard":0,"parityshard":0,"dscp":46,"acknodelay":false,"nodelay":1,"interval":30,"resend":2,"nc":0,"sockbuf":16777217,"streambuf":4194304}',
+                    extend: "",
+                };
+            case "kcp_mux":
+                return {
+                    protoCfg:
+                        '{"write_delay":true,"mtu":990,"sndwnd":2048,"rcvwnd":1024,"datashard":0,"parityshard":0,"dscp":46,"acknodelay":false,"nodelay":1,"interval":30,"resend":2,"nc":0,"sockbuf":16777217,"streambuf":4194304}',
+                    extend: muxFrameExtend,
+                };
+            case "kcpx":
+                return { protoCfg: kcpxProtoCfg, extend: "" };
+            case "kcpx_mux":
+                return { protoCfg: kcpxProtoCfg, extend: muxFrameExtend };
+            default:
+                return { protoCfg: "", extend: "" };
         }
+    }
 
-        function getOutputDefaults(proto, kcpxProtoCfg, muxFrameExtend) {
-            proto = normalizeProto(proto);
-            switch (proto) {
-                case 'tcp':
-                    return {protoCfg: '{"head":""}', extend: ''};
-                case 'tcp_mux':
-                    return {protoCfg: '{"head":""}', extend: muxFrameExtend};
-                case 'udp':
-                    return {protoCfg: '{"timeout":90}', extend: ''};
-                case 'quic':
-                    return {protoCfg: '', extend: muxFrameExtend};
-                case 'kcp':
-                    return {protoCfg: '{"write_delay":true,"mtu":990,"sndwnd":2048,"rcvwnd":1024,"datashard":0,"parityshard":0,"dscp":46,"acknodelay":false,"nodelay":1,"interval":30,"resend":2,"nc":0,"sockbuf":16777217,"streambuf":4194304}', extend: ''};
-                case 'kcp_mux':
-                    return {protoCfg: '{"write_delay":true,"mtu":990,"sndwnd":2048,"rcvwnd":1024,"datashard":0,"parityshard":0,"dscp":46,"acknodelay":false,"nodelay":1,"interval":30,"resend":2,"nc":0,"sockbuf":16777217,"streambuf":4194304}', extend: muxFrameExtend};
-                case 'kcpx':
-                    return {protoCfg: kcpxProtoCfg, extend: ''};
-                case 'kcpx_mux':
-                    return {protoCfg: kcpxProtoCfg, extend: muxFrameExtend};
-                default:
-                    return {protoCfg: '', extend: ''};
-            }
-        }
-
-        function getSideDefaults(side, proto, mode, kcpxProtoCfg, muxFrameExtend) {
-            side = side === 'out' ? 'out' : 'in';
-            mode = normalizeMode(mode);
-            if (side === 'in' && mode === 'frpc') {
-                return getOutputDefaults(proto, kcpxProtoCfg, muxFrameExtend);
-            }
-            if (side === 'out' && mode === 'frps') {
-                return getInputDefaults(proto, kcpxProtoCfg, buildFrameOnlyExtend());
-            }
-            if (side === 'in') {
-                return getInputDefaults(proto, kcpxProtoCfg, buildFrameOnlyExtend());
-            }
+    function getSideDefaults(side, proto, mode, kcpxProtoCfg, muxFrameExtend) {
+        side = side === "out" ? "out" : "in";
+        mode = normalizeMode(mode);
+        if (side === "in" && mode === "frpc") {
             return getOutputDefaults(proto, kcpxProtoCfg, muxFrameExtend);
         }
+        if (side === "out" && mode === "frps") {
+            return getInputDefaults(proto, kcpxProtoCfg, buildFrameOnlyExtend());
+        }
+        if (side === "in") {
+            return getInputDefaults(proto, kcpxProtoCfg, buildFrameOnlyExtend());
+        }
+        return getOutputDefaults(proto, kcpxProtoCfg, muxFrameExtend);
+    }
 
-        global.TunnelFormHelper = {
-            modeOptions: modeOptions,
-            cryptModeOptions: cryptModeOptions,
-            inputProtoOptions: inputProtoOptions,
-            outputProtoOptions: outputProtoOptions,
-            buildMuxFrameExtend: buildMuxFrameExtend,
-            buildFrameOnlyExtend: buildFrameOnlyExtend,
-            normalizeProto: normalizeProto,
-            normalizeMode: normalizeMode,
-            normalizeCryptMode: normalizeCryptMode,
-            splitEndpoint: splitEndpoint,
-            buildEndpoint: buildEndpoint,
-            getDefaultInAddr: getDefaultInAddr,
-            getSideDefaults: getSideDefaults,
-        };
-    })(window);
+    global.TunnelFormHelper = {
+        modeOptions: modeOptions,
+        cryptModeOptions: cryptModeOptions,
+        inputProtoOptions: inputProtoOptions,
+        outputProtoOptions: outputProtoOptions,
+        buildMuxFrameExtend: buildMuxFrameExtend,
+        buildFrameOnlyExtend: buildFrameOnlyExtend,
+        normalizeProto: normalizeProto,
+        normalizeMode: normalizeMode,
+        normalizeCryptMode: normalizeCryptMode,
+        splitEndpoint: splitEndpoint,
+        buildEndpoint: buildEndpoint,
+        getDefaultInAddr: getDefaultInAddr,
+        getSideDefaults: getSideDefaults,
+    };
+})(window);
 
-    module.exports = {
-        data: function () {
-            return {
-                sessionUsername: '',
-                // config global menu list
-                menu:[{
-                    icon: 'ios-people',
-                    title: 'Menu',
-                    sub_menu:[
-                        {icon: 'ios-people',title: 'tunnel',name:'tunnel_list'},
-                        {icon: 'ios-swap',title: '智能路由-出口',name:'route_output_list'},
-                        {icon: 'ios-git-merge',title: '智能路由-入口',name:'route_input_list'},
-                        {icon: 'ios-cog',title: '内置服务',name:'service_list'},
-	                    // ----Menus-Add-----
-                        // Do not modify the notes '----Menus-Add-----'
-                    ]
-                }],
-
-                // config global routes
-                routes: [{
-                    path: '*',
-                    redirect: {name: 'tunnel_list'}
+module.exports = {
+    mixins: [window.GotunUI.base],
+    data: function () {
+        return {
+            sessionUsername: "",
+            version: "",
+            instanceHost: window.location.host,
+            menu: [
+                { icon: "tunnel", title: "隧道管理", mobile: "隧道", name: "tunnel_list" },
+                { icon: "output", title: "智能路由 · 出口", mobile: "路由出口", name: "route_output_list" },
+                { icon: "input", title: "智能路由 · 入口", mobile: "路由入口", name: "route_input_list" },
+                { icon: "service", title: "内置服务", mobile: "服务", name: "service_list" },
+            ],
+            // config global routes
+            routes: [
+                {
+                    path: "*",
+                    redirect: { name: "tunnel_list" },
                 },
                 {
-                    name: 'tunnel_list',
-                    path: '/tunnel/list',
-                    url: '/render?path=/tunnel/list'
-                },{
-                    name: 'tunnel_create',
-                    path: '/tunnel/create',
-                    url: '/render?path=/tunnel/create'
-                },{
-                    name: 'tunnel_detail',
-                    path: '/tunnel/detail',
-                    url: '/render?path=/tunnel/detail'
-                },{
-                    name: 'tunnel_edit',
-                    path: '/tunnel/edit',
-                    url: '/render?path=/tunnel/edit'
-                },{
-                    name: 'route_output_list',
-                    path: '/route_output/list',
-                    url: '/render?path=/route_output/list'
-                },{
-                    name: 'route_input_list',
-                    path: '/route_input/list',
-                    url: '/render?path=/route_input/list'
-                },{
-                    name: 'service_list',
-                    path: '/service/list',
-                    url: '/render?path=/service/list'
+                    name: "tunnel_list",
+                    path: "/tunnel/list",
+                    url: "/render?path=/tunnel/list",
+                },
+                {
+                    name: "tunnel_create",
+                    path: "/tunnel/create",
+                    url: "/render?path=/tunnel/create",
+                },
+                {
+                    name: "tunnel_detail",
+                    path: "/tunnel/detail",
+                    url: "/render?path=/tunnel/detail",
+                },
+                {
+                    name: "tunnel_edit",
+                    path: "/tunnel/edit",
+                    url: "/render?path=/tunnel/edit",
+                },
+                {
+                    name: "route_output_list",
+                    path: "/route_output/list",
+                    url: "/render?path=/route_output/list",
+                },
+                {
+                    name: "route_input_list",
+                    path: "/route_input/list",
+                    url: "/render?path=/route_input/list",
+                },
+                {
+                    name: "service_list",
+                    path: "/service/list",
+                    url: "/render?path=/service/list",
                 },
                 // ----Routes-Add-----
                 // Do not modify the notes '----Routes-Add-----'
-                ]
+            ],
+        };
+    },
+    computed: {
+        activeMenu: function () {
+            const name = this.$route.name || "";
+            return name.indexOf("tunnel_") === 0 ? "tunnel_list" : name;
+        },
+        activeTitle: function () {
+            const item = this.menu.find((item) => item.name === this.activeMenu);
+            return item ? item.title : "隧道管理";
+        },
+        getActiveName: function () {
+            return this.$route.name;
+        },
+    },
+    methods: {
+        updateVersion: function (event) {
+            this.version = event.detail;
+        },
+        ensureAuthInterceptor: function () {
+            if (window.__gotunAuthInterceptorInstalled) {
+                return;
             }
-        },
-        computed: {
-            getActiveName: function() {
-                    return this.$route.name
-                }
-        },
-        methods: {
-            ensureAuthInterceptor: function() {
-                if(window.__gotunAuthInterceptorInstalled) {
-                    return
-                }
-                window.__gotunAuthInterceptorInstalled = true
-                this.axios.interceptors.response.use((response) => {
-                    return response
-                }, (error) => {
-                    if(this.$Spin && this.$Spin.hide) {
-                        this.$Spin.hide()
+            window.__gotunAuthInterceptorInstalled = true;
+            this.axios.interceptors.response.use(
+                (response) => {
+                    return response;
+                },
+                (error) => {
+                    if (this.$Spin && this.$Spin.hide) {
+                        this.$Spin.hide();
                     }
-                    if(error && error.response && error.response.status === 401) {
-                        if(!window.__gotunAuthRedirecting) {
-                            window.__gotunAuthRedirecting = true
-                            window.location.replace('/login')
+                    if (error && error.response && error.response.status === 401) {
+                        if (!window.__gotunAuthRedirecting) {
+                            window.__gotunAuthRedirecting = true;
+                            window.location.replace("/login");
                         }
                     }
-                    return Promise.reject(error)
+                    return Promise.reject(error);
+                },
+            );
+        },
+        fetchSession: function () {
+            this.axios
+                .get("/api/auth/session")
+                .then((response) => {
+                    const payload = response.data && response.data.data ? response.data.data : {};
+                    this.sessionUsername = payload.username || "";
+                    if (payload.authenticated === false && !window.__gotunAuthRedirecting) {
+                        window.__gotunAuthRedirecting = true;
+                        window.location.replace("/login");
+                    }
                 })
-            },
-            fetchSession: function() {
-                this.axios.get('/api/auth/session')
-                    .then((response) => {
-                        const payload = response.data && response.data.data ? response.data.data : {}
-                        this.sessionUsername = payload.username || ''
-                        if(payload.authenticated === false && !window.__gotunAuthRedirecting) {
-                            window.__gotunAuthRedirecting = true
-                            window.location.replace('/login')
-                        }
-                    })
-                    .catch(() => {
-                    })
-            },
-            invokeLogout: function() {
-                this.axios.post('/api/auth/logout')
-                    .finally(() => {
-                        window.__gotunAuthRedirecting = true
-                        window.location.replace('/login')
-                    })
-            },
-            getRoutePath: function(name) {
-                var routes = this.routes
-                for (var i in routes) {
-                    if(name == routes[i].name) {
-                        return routes[i].path
-                    }
-                }
-                return ''
-            },
-            // 菜单整项（含图标与留白）点击都会触发 on-select，统一在此跳转，
-            // 避免之前 router-link 只包裹文字导致点偏时高亮变了但页面不切换
-            invokeMenuSelect: function(name) {
-                var path = this.getRoutePath(name)
-                if(path && path !== this.$route.path) {
-                    this.$router.push(path).catch(function() {})
+                .catch(() => {});
+        },
+        invokeLogout: function () {
+            this.axios.post("/api/auth/logout").finally(() => {
+                window.__gotunAuthRedirecting = true;
+                window.location.replace("/login");
+            });
+        },
+        getRoutePath: function (name) {
+            var routes = this.routes;
+            for (var i in routes) {
+                if (name == routes[i].name) {
+                    return routes[i].path;
                 }
             }
+            return "";
         },
-        created: function() {
-            this.ensureAuthInterceptor()
-            this.fetchSession()
-        }
-    }
+        // 菜单整项（含图标与留白）点击都会触发 on-select，统一在此跳转，
+        // 避免之前 router-link 只包裹文字导致点偏时高亮变了但页面不切换
+        invokeMenuSelect: function (name) {
+            var path = this.getRoutePath(name);
+            if (path && path !== this.$route.path) {
+                this.$router.push(path).catch(function () {});
+            }
+        },
+    },
+    created: function () {
+        window.addEventListener("gotun-version", this.updateVersion);
+        this.ensureAuthInterceptor();
+        this.fetchSession();
+    },
+    watch: {
+        "$route.path": function () {
+            window.scrollTo(0, 0);
+        },
+    },
+    beforeDestroy: function () {
+        window.removeEventListener("gotun-version", this.updateVersion);
+    },
+};
 </script>

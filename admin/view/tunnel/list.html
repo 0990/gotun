@@ -1,1031 +1,1261 @@
 <style>
-    /* 检测结果飘窗内容包含换行符，按原样换行展示 */
-    .ivu-notice-desc {
-        white-space: pre-wrap;
-        word-break: break-all;
-        text-align: left;
-    }
+/* 检测结果飘窗内容包含换行符，按原样换行展示 */
+.ivu-notice-desc {
+    white-space: pre-wrap;
+    word-break: break-all;
+    text-align: left;
+}
 
+.mtr-modal-shell .ivu-modal {
+    top: 0;
+    max-width: calc(100vw - 48px);
+}
+
+.mtr-modal-shell .ivu-modal-body {
+    height: calc(100vh - 220px);
+    min-height: 320px;
+    max-height: calc(100vh - 220px);
+    overflow: hidden;
+}
+
+.mtr-modal-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+
+.mtr-modal-meta {
+    flex: 0 0 auto;
+    margin-bottom: 12px;
+    word-break: break-all;
+}
+
+.mtr-terminal-panel {
+    flex: 1 1 auto;
+    min-height: 0;
+    background: #111;
+    border-radius: 4px;
+    padding: 8px;
+    overflow: hidden;
+}
+
+.mtr-terminal-host {
+    width: 100%;
+    height: 100%;
+}
+
+.mtr-modal-errors {
+    flex: 0 0 auto;
+    margin-top: 8px;
+    color: #d93025;
+    white-space: pre-wrap;
+    overflow: auto;
+    max-height: 96px;
+}
+
+@media (max-height: 760px) {
     .mtr-modal-shell .ivu-modal {
-        top: 0;
-        max-width: calc(100vw - 48px);
+        max-width: calc(100vw - 24px);
     }
 
     .mtr-modal-shell .ivu-modal-body {
-        height: calc(100vh - 220px);
-        min-height: 320px;
-        max-height: calc(100vh - 220px);
-        overflow: hidden;
-    }
-
-    .mtr-modal-content {
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-        min-height: 0;
-    }
-
-    .mtr-modal-meta {
-        flex: 0 0 auto;
-        margin-bottom: 12px;
-        word-break: break-all;
-    }
-
-    .mtr-terminal-panel {
-        flex: 1 1 auto;
-        min-height: 0;
-        background: #111;
-        border-radius: 4px;
-        padding: 8px;
-        overflow: hidden;
-    }
-
-    .mtr-terminal-host {
-        width: 100%;
-        height: 100%;
+        height: calc(100vh - 168px);
+        min-height: 240px;
+        max-height: calc(100vh - 168px);
     }
 
     .mtr-modal-errors {
-        flex: 0 0 auto;
-        margin-top: 8px;
-        color: #d93025;
-        white-space: pre-wrap;
-        overflow: auto;
-        max-height: 96px;
+        max-height: 72px;
     }
-
-    @media (max-height: 760px) {
-        .mtr-modal-shell .ivu-modal {
-            max-width: calc(100vw - 24px);
-        }
-
-        .mtr-modal-shell .ivu-modal-body {
-            height: calc(100vh - 168px);
-            min-height: 240px;
-            max-height: calc(100vh - 168px);
-        }
-
-        .mtr-modal-errors {
-            max-height: 72px;
-        }
-    }
+}
 </style>
 <template>
-    <div class="layout">
-        <i-breadcrumb :style="{margin: '24px 24px'}">
-            <i-breadcrumb-item>tunnel</i-breadcrumb-item>
-            <i-breadcrumb-item>list</i-breadcrumb-item>
-        </i-breadcrumb>
-            <i-content :style="{padding: '24px', minHeight: '280px', background: '#fff'}">
-            <i-row>
-                <i-col span="12" :style="{textAlign:'left'}">
-                    <i-button :type="probeEnabled ? 'warning' : 'default'" @click="invokeProbeToggle">{{ probeButtonText }}</i-button>
-                    <i-button type="primary" ghost @click="invokeCreate">创建</i-button>
-                    <i-button type="primary" ghost @click="invokeImport">导入</i-button>
-                    <input type="file" id="input" multiple accept=".tun">
-                </i-col>
-                <i-col span="12" :style="{textAlign:'right'}">
-                    <i-button type="default" @click="invokeEchoCheck">echo检测</i-button>
-                    <i-button type="default" @click="invokeSocks5Check">socks5检测</i-button>
-                    <i-button type="default" @click="invokeHttpProxyCheck">httpproxy检测</i-button>
-                    <input type="text" id="target_addr" value="127.0.0.1:1080",placeholder="127.0.0.1:1080">
-                    <i-button type="default" @click="invokeFlushList">刷新列表</i-button>
-                </i-col>
-            </i-row>
-            <i-row :style="{marginTop:'10px'}">
-                <i-col span="24" :style="{textAlign:'left', background:'#f8f8f9', border:'1px solid #e8eaec', borderRadius:'4px', padding:'8px 12px', display:'flex', alignItems:'center', justifyContent:'space-between'}">
-                    <span :style="{color:'#515a6e', fontWeight:'600'}">当前选中：{{ currentRow ? currentRow.name : '未选择' }}</span>
-                    <span>
-                        <i-button type="primary" ghost :disabled="!currentRow" @click="invokeView(currentRow)">查看</i-button>
-                        <i-button type="primary" ghost :disabled="!currentRow" @click="invokeEdit(currentRow)">编辑</i-button>
-                        <i-button type="primary" ghost :disabled="!currentRow || currentRow.disabled" :loading="currentRow && bandwidthPendingName === currentRow.name" @click="invokeBandwidthTest(currentRow)">宽带</i-button>
-                        <i-button type="primary" ghost :disabled="!currentRow || currentRow.disabled" :loading="currentRow && mtrPendingName === currentRow.name" @click="invokeMTR(currentRow)">mtr</i-button>
-                        <i-button type="primary" ghost :disabled="!currentRow" @click="invokeExport(currentRow)">导出</i-button>
-                        <i-button type="primary" ghost :disabled="!currentRow" :loading="clonePending" @click="invokeClone(currentRow)">克隆</i-button>
-                        <i-button type="error" ghost :disabled="!currentRow" @click="invokeDelete(currentRow)">删除</i-button>
-                    </span>
-                </i-col>
-            </i-row>
-            <br>
-            <i-table :columns="col_list" :data="main_data" highlight-row @on-current-change="onCurrentChange">
-                <template slot-scope="{row}" slot="status_slot">
-                    <span>{{ row.status }}</span>
-                    <i-tag :style="{marginLeft:'6px'}" :color="healthColor(row.quality_status)">{{ healthLabel(row.quality_status) }}</i-tag>
+    <div>
+        <g-page-heading
+            title="隧道管理"
+            subtitle="连接每一端，让转发井然有序。"
+            eyebrow="TUNNELS"
+            unit="隧道"
+            @create="invokeCreate"
+            ><button class="g-btn g-desktop-action" @click="$refs.importFile.click()">
+                <g-icon name="import"></g-icon>导入
+            </button></g-page-heading
+        >
+        <input
+            type="file"
+            id="input"
+            ref="importFile"
+            class="g-hidden"
+            multiple
+            accept=".tun"
+            @change="invokeImport"
+        />
+        <g-summary :rows="main_data" unit="隧道" :loading="listLoading" @refresh="tableData"></g-summary>
+        <section class="g-panel" aria-label="隧道列表">
+            <g-list-toolbar v-model="searchText" :filter.sync="statusFilter" :counts="listCounts"
+                ><button class="g-tools-button" @click="toolsModal = true">
+                    <g-icon name="activity"></g-icon>检测工具<g-icon name="down"></g-icon></button
+            ></g-list-toolbar>
+            <g-list-feedback
+                :loading="listLoading && !main_data.length"
+                :error="listError"
+                :empty="!filteredRows.length"
+                @retry="tableData"
+            ></g-list-feedback>
+            <template v-if="!listError && filteredRows.length">
+                <table class="g-desktop-table">
+                    <colgroup>
+                        <col style="width: 24%" />
+                        <col style="width: 12%" />
+                        <col style="width: 14%" />
+                        <col style="width: 19%" />
+                        <col style="width: 22%" />
+                        <col style="width: 9%" />
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th>隧道名称</th>
+                            <th>运行状态</th>
+                            <th>延迟 / 丢包</th>
+                            <th>监听入口</th>
+                            <th>转发出口</th>
+                            <th>启用</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="row in filteredRows" :key="row.name">
+                            <td>
+                                <div class="g-name-cell">
+                                    <span class="g-record-icon"><g-icon name="tunnel"></g-icon></span>
+                                    <div class="g-name-stack">
+                                        <button class="g-name" :title="row.name" @click="invokeView(row)">
+                                            {{ row.name }}
+                                        </button>
+                                        <div class="g-subtext">
+                                            {{ endpointProto(row.input).toUpperCase() }} →
+                                            {{ endpointProto(row.output).toUpperCase() }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="g-state" :class="stateClass(row)"
+                                    ><span class="g-dot"></span>{{ stateLabel(row) }}</span
+                                >
+                                <div class="g-subtext">{{ healthLabel(row.quality_status) }}</div>
+                            </td>
+                            <td>
+                                <span class="g-quality"
+                                    ><g-icon name="activity"></g-icon
+                                    >{{ row.quality_rtt >= 0 ? row.quality_rtt : "—" }}
+                                    <small>ms</small></span
+                                >
+                                <div class="g-subtext">
+                                    {{ row.quality_loss >= 0 ? row.quality_loss + "% 丢包" : "未探测"
+                                    }}<template v-if="row.bandwidth_status === 'ok'">
+                                        · {{ row.bandwidth_mbps }} Mbps</template
+                                    >
+                                </div>
+                            </td>
+                            <td>
+                                <span class="g-proto">{{ endpointProto(row.input) }}</span
+                                ><span class="g-endpoint">{{ endpointAddr(row.input) }}</span>
+                            </td>
+                            <td>
+                                <span class="g-proto">{{ endpointProto(row.output) }}</span
+                                ><span class="g-endpoint">{{ endpointAddr(row.output) }}</span>
+                            </td>
+                            <td>
+                                <div class="g-row-actions">
+                                    <button
+                                        class="g-switch"
+                                        role="switch"
+                                        :aria-checked="!row.disabled ? 'true' : 'false'"
+                                        :aria-label="row.name + ' 启用状态'"
+                                        :disabled="!!mutationPending[row.name]"
+                                        @click.stop="invokeSetDisabled(row, row.disabled)"
+                                    ></button>
+                                    <i-dropdown
+                                        trigger="click"
+                                        placement="bottom-end"
+                                        transfer
+                                        @on-click="invokeRowAction($event, row)"
+                                        ><button
+                                            class="g-more"
+                                            :aria-label="row.name + ' 更多操作'"
+                                            aria-haspopup="menu"
+                                        >
+                                            <g-icon name="more"></g-icon></button
+                                        ><i-dropdown-menu slot="list"
+                                            ><i-dropdown-item name="view">查看详情</i-dropdown-item
+                                            ><i-dropdown-item name="edit">编辑配置</i-dropdown-item
+                                            ><i-dropdown-item
+                                                name="bandwidth"
+                                                :disabled="row.disabled || !!bandwidthPendingName"
+                                                >带宽测速</i-dropdown-item
+                                            ><i-dropdown-item
+                                                name="mtr"
+                                                :disabled="row.disabled || !!mtrPendingName"
+                                                >MTR 诊断</i-dropdown-item
+                                            ><i-dropdown-item name="export">导出配置</i-dropdown-item
+                                            ><i-dropdown-item name="clone" :disabled="clonePending"
+                                                >克隆隧道</i-dropdown-item
+                                            ><i-dropdown-item name="delete" divided
+                                                ><span class="g-danger">删除隧道</span></i-dropdown-item
+                                            ></i-dropdown-menu
+                                        ></i-dropdown
+                                    >
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="g-cards">
+                    <article class="g-card" v-for="row in filteredRows" :key="row.name">
+                        <div class="g-card-heading">
+                            <span class="g-record-icon"><g-icon name="tunnel"></g-icon></span>
+                            <div class="g-name-stack">
+                                <button class="g-name" :title="row.name" @click="invokeView(row)">
+                                    {{ row.name }}</button
+                                ><span class="g-state" :class="stateClass(row)"
+                                    ><span class="g-dot"></span>{{ stateLabel(row) }}</span
+                                >
+                            </div>
+                            <button
+                                class="g-switch"
+                                role="switch"
+                                :aria-checked="!row.disabled ? 'true' : 'false'"
+                                :aria-label="row.name + ' 启用状态'"
+                                :disabled="!!mutationPending[row.name]"
+                                @click.stop="invokeSetDisabled(row, row.disabled)"
+                            ></button>
+                        </div>
+                        <div class="g-card-endpoints">
+                            <div class="g-card-endpoint">
+                                <span class="g-endpoint-label">入口</span
+                                ><span class="g-proto">{{ endpointProto(row.input) }}</span
+                                ><span class="g-endpoint">{{ endpointAddr(row.input) }}</span>
+                            </div>
+                            <div class="g-card-endpoint">
+                                <span class="g-endpoint-label">出口</span
+                                ><span class="g-proto">{{ endpointProto(row.output) }}</span
+                                ><span class="g-endpoint">{{ endpointAddr(row.output) }}</span>
+                            </div>
+                        </div>
+                        <div class="g-card-bottom">
+                            <div class="g-card-metrics">
+                                <span class="g-quality"
+                                    ><g-icon name="activity"></g-icon
+                                    >{{ row.quality_rtt >= 0 ? row.quality_rtt : "—" }}
+                                    <small>ms</small></span
+                                >
+                                <div class="g-subtext">
+                                    {{ row.quality_loss >= 0 ? row.quality_loss + "% 丢包" : "未探测"
+                                    }}<template v-if="row.bandwidth_status === 'ok'">
+                                        · {{ row.bandwidth_mbps }} Mbps</template
+                                    >
+                                </div>
+                            </div>
+                            <div class="g-card-buttons">
+                                <button class="g-btn-link" @click="invokeEdit(row)">编辑</button
+                                ><i-dropdown
+                                    trigger="click"
+                                    placement="bottom-end"
+                                    transfer
+                                    @on-click="invokeRowAction($event, row)"
+                                    ><button
+                                        class="g-more"
+                                        :aria-label="row.name + ' 更多操作'"
+                                        aria-haspopup="menu"
+                                    >
+                                        <g-icon name="more"></g-icon></button
+                                    ><i-dropdown-menu slot="list"
+                                        ><i-dropdown-item name="view">查看详情</i-dropdown-item
+                                        ><i-dropdown-item name="edit">编辑配置</i-dropdown-item
+                                        ><i-dropdown-item
+                                            name="bandwidth"
+                                            :disabled="row.disabled || !!bandwidthPendingName"
+                                            >带宽测速</i-dropdown-item
+                                        ><i-dropdown-item
+                                            name="mtr"
+                                            :disabled="row.disabled || !!mtrPendingName"
+                                            >MTR 诊断</i-dropdown-item
+                                        ><i-dropdown-item name="export">导出配置</i-dropdown-item
+                                        ><i-dropdown-item name="clone" :disabled="clonePending"
+                                            >克隆隧道</i-dropdown-item
+                                        ><i-dropdown-item name="delete" divided
+                                            ><span class="g-danger">删除隧道</span></i-dropdown-item
+                                        ></i-dropdown-menu
+                                    ></i-dropdown
+                                >
+                            </div>
+                        </div>
+                    </article>
+                </div>
+            </template>
+            <g-list-footer
+                :total="pageTotal"
+                :size="pageSize"
+                :page="$route.query.page"
+                :visible="filteredRows.length"
+                @change="invokeChangePage"
+            ></g-list-footer>
+        </section>
+        <p class="g-page-note">
+            <g-icon name="info"></g-icon>搜索与状态统计针对当前已加载列表。开启探测后自动更新连接质量。
+        </p>
+        <i-modal v-model="toolsModal" title="检测工具" :width="560" class-name="g-dialog" footer-hide>
+            <label class="g-field"
+                ><span>检测地址</span><i-input v-model="targetAddr" placeholder="127.0.0.1:1080"></i-input
+            ></label>
+            <div class="g-tool-grid">
+                <button class="g-btn" @click="invokeEchoCheck">Echo 检测</button
+                ><button class="g-btn" @click="invokeSocks5Check">SOCKS5 检测</button
+                ><button class="g-btn" @click="invokeHttpProxyCheck">HTTP 检测</button>
+            </div>
+            <div class="g-form-section">健康探测</div>
+            <div class="g-inline-check">
+                <i-switch :value="probeEnabled" @on-change="invokeProbeToggle"></i-switch
+                ><span>{{ probeEnabled ? "已开启，每秒探测" : "按需开启连接质量探测" }}</span>
+            </div>
+            <div class="g-form-section">列表与配置</div>
+            <div class="g-tool-grid">
+                <button class="g-btn" @click="$refs.importFile.click()">
+                    <g-icon name="import"></g-icon>导入 .tun</button
+                ><button class="g-btn" @click="tableData"><g-icon name="refresh"></g-icon>刷新列表</button>
+            </div>
+        </i-modal>
+        <i-modal v-model="viewModal" :width="680" title="隧道详情" class-name="g-dialog" footer-hide
+            ><div class="g-detail-grid">
+                <template v-for="(value, name) in viewModalData"
+                    ><div class="g-detail-key" :key="name + '-key'">{{ name }}</div>
+                    <pre class="g-detail-value" :key="name + '-value'">{{ value }}</pre>
                 </template>
-                <template slot-scope="{row}" slot="detail_button">
-                    <span :style="{display:'inline-flex', width:'45px', justifyContent:'center', verticalAlign:'middle'}">
-                        <i-switch :value="!row.disabled" @on-change="invokeSetDisabled(row, $event)">
-                        </i-switch>
-                    </span>
-                </template>
-            </i-table>
-            <i-page :styles="{margin:'20px'}" :total="pageTotal" :page-size="pageSize" show-elevator show-total  @on-change="invokeChangePage" ></i-page>
-            <i-modal v-model="viewModal" :width="50" title="preview">
-                <i-row type="flex" justify="start" align="middle" :gutter="16" v-for="(value, name) in viewModalData" :style="{margin:'5px 0'}">
-                    <i-col span="6" :style="{textAlign:'right'}">{{name}}</i-col>
-                    <i-col span="12">
-                        <i-input v-model="viewModalData[name]" type="textarea" :autosize="{minRows:1,maxRows:6}"></i-input>
-                    </i-col>
-                </i-row>
-            </i-modal>
-            <i-modal v-model="deleteModal" title="del">
-                <p slot="header" style="color:#f60;text-align:center">
-                    <i-icon type="ios-information-circle"></i-icon>
-                    <span>Delete confirmation</span>
-                </p>
-                <div style="text-align:center">
-                    <p>confirm delete?</p>
-                    <p>The operation delete record from the database</p>
+            </div></i-modal
+        >
+        <i-modal v-model="deleteModal" title="删除隧道" class-name="g-dialog"
+            ><p>确认删除隧道「{{ deleteModalData.name }}」？删除后将停止该连接。</p>
+            <div slot="footer">
+                <i-button @click="deleteModal = false">取消</i-button
+                ><i-button type="error" @click="invokeConfirmDelete">确认删除</i-button>
+            </div></i-modal
+        >
+        <i-modal
+            v-model="mtrModal"
+            title="MTR 诊断"
+            :width="1100"
+            class-name="g-dialog mtr-modal-shell"
+            @on-visible-change="handleMTRModalVisibleChange"
+        >
+            <div class="mtr-modal-content">
+                <div class="mtr-modal-meta">
+                    <div><b>隧道：</b> {{ mtrMeta.name || "-" }}</div>
+                    <div><b>命令：</b> {{ mtrMeta.command || "-" }}</div>
                 </div>
-                <div slot="footer">
-                    <i-row type="flex" justify="end">
-                        <i-col span="12">
-                            <i-button type="info" size="large" long @click="deleteModal = false;deleteModalData = {}">Cancel</i-button>
-                        </i-col>
-                        <i-col span="4">
-                            <i-button type="error" size="large" @click="invokeConfirmDelete()" >Delete</i-button>
-                        </i-col>
-                    </i-row>
+                <div class="mtr-terminal-panel">
+                    <div ref="mtrTerminal" class="mtr-terminal-host"></div>
                 </div>
-            </i-modal>
-            <i-modal v-model="mtrModal" title="mtr" :width="78" class-name="mtr-modal-shell" @on-visible-change="handleMTRModalVisibleChange">
-                <div class="mtr-modal-content">
-                    <div class="mtr-modal-meta">
-                        <div><b>name:</b> {{mtrMeta.name || '-'}}</div>
-                        <div><b>command:</b> {{mtrMeta.command || '-'}}</div>
-                    </div>
-                    <div class="mtr-terminal-panel">
-                        <div ref="mtrTerminal" class="mtr-terminal-host"></div>
-                    </div>
-                    <div v-if="mtrErrors" class="mtr-modal-errors">{{mtrErrors}}</div>
-                </div>
-                <div slot="footer">
-                    <i-button @click="invokeClearMTR">清空</i-button>
-                    <i-button type="warning" @click="invokeStopMTR" :disabled="!mtrSource">停止</i-button>
-                    <i-button type="primary" @click="mtrModal = false">关闭</i-button>
-                </div>
-            </i-modal>
-        </i-content>
+                <div v-if="mtrErrors" class="mtr-modal-errors">{{ mtrErrors }}</div>
+            </div>
+            <div slot="footer">
+                <i-button @click="invokeClearMTR">清空</i-button>
+                <i-button type="warning" @click="invokeStopMTR" :disabled="!mtrSource">停止</i-button>
+                <i-button type="primary" @click="mtrModal = false">关闭</i-button>
+            </div>
+        </i-modal>
     </div>
 </template>
 <script type="text/javascript">
-    module.exports = {
-        data: function() {
-            return {
-                main_data: [],
-                pageTotal:0,
-                pageSize:0,
-                probeEnabled:false,
-                probeTimer:null,
-                probeRefreshTimer:null,
-                probePending:false,
-                probeSessionId:0,
-                bandwidthPendingName:'',
-                mtrModal:false,
-                mtrErrors:'',
-                mtrStatus:'idle',
-                mtrMeta:{
-                    name:'',
-                    target:'',
-                    mode:'',
-                    command:'',
-                },
-                mtrPendingName:'',
-                mtrSource:null,
-                mtrTerminal:null,
-                mtrTerminalLoader:null,
-                mtrResizeTimer:null,
-                viewModal:false,
-                viewModalData:{},
-                deleteModal:false,
-                deleteModalData: {},
-                currentRow: null,
-                clonePending: false,
-                listRefreshTimer:null,
-                col_list: [
-                    {title:'name', key:'name'},
-                    {title:'status', slot:'status_slot'},
-                    {title:'bw_rtt_loss', key:'stats_display'},
-                    {title:'input', key:'input'},
-                    {title:'output', key:'output'},
-                    {title:'启用', slot:'detail_button',width: 90, align:'center'}
-                ],
-                routePage:this.page ?this.page : '',
-                info:{},
-                search_fields: [
-                ],
-                fields_type:{
-                    name:'string',
-                    input:'string',
-                    mode:'string',
-                    in_proto_cfg:'string',
-                    in_decrypt_mode:'string',
-                    in_decrypt_key:'string',
-                    in_extend:'string',
+module.exports = {
+    mixins: [window.GotunUI.list],
+    data: function () {
+        return {
+            main_data: [],
+            toolsModal: false,
+            targetAddr: "127.0.0.1:1080",
+            pageTotal: 0,
+            pageSize: 0,
+            probeEnabled: false,
+            probeTimer: null,
+            probeRefreshTimer: null,
+            probePending: false,
+            probeSessionId: 0,
+            bandwidthPendingName: "",
+            mtrModal: false,
+            mtrErrors: "",
+            mtrStatus: "idle",
+            mtrMeta: {
+                name: "",
+                target: "",
+                mode: "",
+                command: "",
+            },
+            mtrPendingName: "",
+            mtrSource: null,
+            mtrTerminal: null,
+            mtrTerminalLoader: null,
+            mtrResizeTimer: null,
+            viewModal: false,
+            viewModalData: {},
+            deleteModal: false,
+            deleteModalData: {},
+            currentRow: null,
+            clonePending: false,
+            listRefreshTimer: null,
+            col_list: [
+                { title: "name", key: "name" },
+                { title: "status", slot: "status_slot" },
+                { title: "bw_rtt_loss", key: "stats_display" },
+                { title: "input", key: "input" },
+                { title: "output", key: "output" },
+                { title: "启用", slot: "detail_button", width: 90, align: "center" },
+            ],
+            routePage: this.page ? this.page : "",
+            info: {},
+            search_fields: [],
+            fields_type: {
+                name: "string",
+                input: "string",
+                mode: "string",
+                in_proto_cfg: "string",
+                in_decrypt_mode: "string",
+                in_decrypt_key: "string",
+                in_extend: "string",
 
-                    output:'string',
-                    out_proto_cfg:'string',
-                    out_crypt_mode:'string',
-                    out_crypt_key:'string',
-                    out_extend:'string',
+                output: "string",
+                out_proto_cfg: "string",
+                out_crypt_mode: "string",
+                out_crypt_key: "string",
+                out_extend: "string",
 
-created_at:'string',
-
-                }
-            }
+                created_at: "string",
+            },
+        };
+    },
+    props: ["page"],
+    computed: {
+        probeButtonText: function () {
+            return this.probeEnabled ? "探测已开启" : "开启探测";
         },
-        props: ['page'],
-        computed: {
-            probeButtonText: function() {
-                return this.probeEnabled ? 'Probe On' : 'Probe';
-            }
+    },
+    methods: {
+        invokeRowAction: function (action, row) {
+            this.onCurrentChange(row);
+            const handlers = {
+                view: "invokeView",
+                edit: "invokeEdit",
+                bandwidth: "invokeBandwidthTest",
+                mtr: "invokeMTR",
+                export: "invokeExport",
+                clone: "invokeClone",
+                delete: "invokeDelete",
+            };
+            if (handlers[action]) this[handlers[action]](row);
         },
-        methods: {
-            healthColor: function(h) {
-                if(h === 'up') return 'green';
-                if(h === 'degraded') return 'orange';
-                if(h === 'down') return 'red';
-                return 'default';
-            },
-            healthLabel: function(h) {
-                if(h === 'disabled') return '未探测';
-                return h || 'unknown';
-            },
-            normalizeTunnelRow: function(item) {
-                item.disabled = !!item.disabled;
-                const quality = item.quality_summary || {};
-                const bandwidth = item.bandwidth_summary || {};
-                item.quality_status = quality.status || 'disabled';
-                item.quality_rtt = item.quality_status === 'disabled' ? -1 : (quality.rtt_ms ?? 0);
-                item.quality_loss = item.quality_status === 'disabled' ? -1 : (quality.loss_pct ?? 0);
-                item.bandwidth_status = bandwidth.status || 'disabled';
-                item.bandwidth_mbps = item.bandwidth_status === 'disabled' ? -1 : Number(Number(bandwidth.mbps ?? 0).toFixed(2));
-                item.stats_display = Math.round(item.bandwidth_mbps)+'|'+item.quality_rtt + '|' + item.quality_loss;
-                if(item.disabled) {
-                    item.status = 'disabled';
-                }
-                return item;
-            },
-            scheduleProbeListRefresh: function(delayMS) {
-                if(this.probeRefreshTimer) {
-                    clearTimeout(this.probeRefreshTimer);
-                }
-                this.probeRefreshTimer = setTimeout(() => {
-                    this.probeRefreshTimer = null;
-                    this.tableData();
-                }, delayMS || 300);
-            },
-            tableData: function() {
-                var pageStr = this.routePage ? '?page='+this.routePage : '';
+        healthColor: function (h) {
+            if (h === "up") return "green";
+            if (h === "degraded") return "orange";
+            if (h === "down") return "red";
+            return "default";
+        },
+        healthLabel: function (h) {
+            return (
+                {
+                    up: "连接正常",
+                    degraded: "连接不稳定",
+                    down: "连接不可用",
+                    disabled: "未探测",
+                    unknown: "健康未知",
+                }[h] || "健康未知"
+            );
+        },
+        normalizeTunnelRow: function (item) {
+            item.disabled = !!item.disabled;
+            const quality = item.quality_summary || {};
+            const bandwidth = item.bandwidth_summary || {};
+            item.quality_status = item.disabled ? "disabled" : quality.status || "disabled";
+            item.quality_rtt = item.quality_status === "disabled" ? -1 : (quality.rtt_ms ?? 0);
+            item.quality_loss = item.quality_status === "disabled" ? -1 : (quality.loss_pct ?? 0);
+            item.bandwidth_status = bandwidth.status || "disabled";
+            item.bandwidth_mbps =
+                item.bandwidth_status === "disabled" ? -1 : Number(Number(bandwidth.mbps ?? 0).toFixed(2));
+            item.stats_display =
+                Math.round(item.bandwidth_mbps) + "|" + item.quality_rtt + "|" + item.quality_loss;
+            if (item.disabled) {
+                item.status = "disabled";
+            }
+            return item;
+        },
+        scheduleProbeListRefresh: function (delayMS) {
+            if (this.probeRefreshTimer) {
+                clearTimeout(this.probeRefreshTimer);
+            }
+            this.probeRefreshTimer = setTimeout(() => {
+                this.probeRefreshTimer = null;
+                this.tableData();
+            }, delayMS || 300);
+        },
+        tableData: function () {
+            return this.loadList("/api/tunnel/list", (item) => this.normalizeTunnelRow(item));
+        },
+        invokeChangePage: function (page) {
+            this.$router.push({ query: { page: page } });
+        },
+        invokeFlushList: function () {
+            this.tableData();
+        },
+        // 启用/新建/编辑/删除/导入/克隆等操作后，后端会异步重建并启动 Service，
+        // 立即刷新会抓到 output run... 等启动中间态；延迟片刻再刷新，等服务进入 running。
+        refreshListDelayed: function (delayMS) {
+            if (this.listRefreshTimer) {
+                clearTimeout(this.listRefreshTimer);
+            }
+            this.listRefreshTimer = setTimeout(() => {
+                this.listRefreshTimer = null;
+                this.tableData();
+            }, delayMS || 300);
+        },
+        invokeProbeToggle: function () {
+            if (this.probeEnabled) {
+                this.stopProbeLoop();
+                this.$Message.success("已关闭健康探测");
+                return;
+            }
 
-                if(!this.verifyFieldType()) {
-                    return
-                }
-
-                this.axios
-                    .post('/api/tunnel/list'+pageStr,this.info)
-                    .then(response=>{
-                        if(response.data.code !== 200) {
-                            alert(response.data.msg)
-                            return
-                        }
-                        document.getElementById('appName').textContent="gotun "+response.data.data.version;
-                        this.main_data = response.data.data.list.map(item => this.normalizeTunnelRow(item)),
-                        this.currentRow = null,
-                        this.pageTotal = response.data.data.pagination.total_nums,
-                        this.pageSize = response.data.data.pagination.page_size
-                    })
-            },
-            invokeChangePage: function(page) {
-                this.$router.push({query:{page:page}})
-            },
-            invokeFlushList:function (){
-                this.tableData()
-            },
-            // 启用/新建/编辑/删除/导入/克隆等操作后，后端会异步重建并启动 Service，
-            // 立即刷新会抓到 output run... 等启动中间态；延迟片刻再刷新，等服务进入 running。
-            refreshListDelayed: function(delayMS) {
-                if(this.listRefreshTimer) {
-                    clearTimeout(this.listRefreshTimer);
-                }
-                this.listRefreshTimer = setTimeout(() => {
-                    this.listRefreshTimer = null;
-                    this.tableData();
-                }, delayMS || 300);
-            },
-            invokeProbeToggle: function() {
-                if (this.probeEnabled) {
-                    this.stopProbeLoop();
-                    this.$Message.success('probe stopped');
-                    return
-                }
-
-                this.probeSessionId += 1;
-                const sessionId = this.probeSessionId;
-                this.probeEnabled = true;
+            this.probeSessionId += 1;
+            const sessionId = this.probeSessionId;
+            this.probeEnabled = true;
+            this.fireProbe(sessionId);
+            this.probeTimer = setInterval(() => {
                 this.fireProbe(sessionId);
-                this.probeTimer = setInterval(() => {
-                    this.fireProbe(sessionId);
-                }, 1000);
-                this.$Message.success('probe started');
-            },
-            fireProbe: function(sessionId) {
-                if(sessionId !== this.probeSessionId || !this.probeEnabled || this.probePending) {
-                    return
-                }
-                this.probePending = true
-                this.axios
-                    .post('/api/tunnel/probe')
-                    .then(response=>{
-                        if(sessionId !== this.probeSessionId || !this.probeEnabled) {
-                            return
-                        }
-                        if(response.data.code !== 200) {
-                            this.$Message.error(response.data.msg);
-                            this.stopProbeLoop();
-                            return
-                        }
-                        this.scheduleProbeListRefresh(300);
-                    })
-                    .catch(error => {
-                        if(sessionId !== this.probeSessionId || !this.probeEnabled) {
-                            return
-                        }
-                        const msg = error && error.message ? error.message : 'probe request failed';
-                        this.$Message.error(msg);
+            }, 1000);
+            this.$Message.success("已开启健康探测");
+        },
+        fireProbe: function (sessionId) {
+            if (sessionId !== this.probeSessionId || !this.probeEnabled || this.probePending) {
+                return;
+            }
+            this.probePending = true;
+            this.axios
+                .post("/api/tunnel/probe")
+                .then((response) => {
+                    if (sessionId !== this.probeSessionId || !this.probeEnabled) {
+                        return;
+                    }
+                    if (response.data.code !== 200) {
+                        this.$Message.error(response.data.msg);
                         this.stopProbeLoop();
-                    })
-                    .finally(() => {
-                        if(sessionId === this.probeSessionId) {
-                            this.probePending = false;
-                        }
-                    })
-            },
-            stopProbeLoop: function() {
-                this.probeSessionId += 1;
-                this.probeEnabled = false;
-                if(this.probeTimer) {
-                    clearInterval(this.probeTimer);
-                    this.probeTimer = null;
-                }
-                if(this.probeRefreshTimer) {
-                    clearTimeout(this.probeRefreshTimer);
-                    this.probeRefreshTimer = null;
-                }
-                this.probePending = false;
-            },
-            invokeEchoCheck: function() {
-                this.invokeCheckServer("echo");
-            },
-            invokeSocks5Check: function() {
-                this.invokeCheckServer("socks5");
-            },
-            invokeHttpProxyCheck: function() {
-                this.invokeCheckServer("httpproxy");
-            },
-            invokeCheckServer: function(serverType) {
-                const targetAddr = document.getElementById('target_addr').value;
+                        return;
+                    }
+                    this.scheduleProbeListRefresh(300);
+                })
+                .catch((error) => {
+                    if (sessionId !== this.probeSessionId || !this.probeEnabled) {
+                        return;
+                    }
+                    const msg = error && error.message ? error.message : "probe request failed";
+                    this.$Message.error(msg);
+                    this.stopProbeLoop();
+                })
+                .finally(() => {
+                    if (sessionId === this.probeSessionId) {
+                        this.probePending = false;
+                    }
+                });
+        },
+        stopProbeLoop: function () {
+            this.probeSessionId += 1;
+            this.probeEnabled = false;
+            if (this.probeTimer) {
+                clearInterval(this.probeTimer);
+                this.probeTimer = null;
+            }
+            if (this.probeRefreshTimer) {
+                clearTimeout(this.probeRefreshTimer);
+                this.probeRefreshTimer = null;
+            }
+            this.probePending = false;
+        },
+        invokeEchoCheck: function () {
+            this.invokeCheckServer("echo");
+        },
+        invokeSocks5Check: function () {
+            this.invokeCheckServer("socks5");
+        },
+        invokeHttpProxyCheck: function () {
+            this.invokeCheckServer("httpproxy");
+        },
+        invokeCheckServer: function (serverType) {
+            const targetAddr = this.targetAddr.trim();
 
-                if(serverType === 'socks5') {
-                    // tcp 检测耗时短，与 udp 并行请求，tcp 结果先出来先飘窗展示
-                    this.invokeCheckServerPhase(serverType, targetAddr, 'tcp');
-                    this.invokeCheckServerPhase(serverType, targetAddr, 'udp');
-                    return
-                }
-                this.invokeCheckServerPhase(serverType, targetAddr, '');
-            },
-            invokeCheckServerPhase: function(serverType, targetAddr, phase) {
-                var paramStr = '?serverType='+serverType+'&targetAddr='+encodeURIComponent(targetAddr);
-                if(phase) {
-                    paramStr += '&phase='+phase;
-                }
-                const title = serverType+(phase ? ' '+phase : '')+' 检测结果';
-                this.axios
-                    .post('/api/tunnel/check_server'+paramStr)
-                    .then(response=>{
-                        const msg = (response.data && response.data.msg) ? response.data.msg : '';
-                        if(response.data && response.data.code === 200 && msg.indexOf('failed') < 0) {
-                            this.$Notice.success({title: title, desc: msg, duration: 10});
-                        } else {
-                            this.$Notice.warning({title: title, desc: msg, duration: 10});
-                        }
-                    })
-                    .catch(error=>{
-                        const msg = error && error.message ? error.message : 'check request failed';
-                        this.$Notice.error({title: title, desc: msg, duration: 10});
-                    })
-            },
+            if (!targetAddr) {
+                this.showError("请填写检测地址");
+                return;
+            }
+            if (serverType === "socks5") {
+                // tcp 检测耗时短，与 udp 并行请求，tcp 结果先出来先飘窗展示
+                this.invokeCheckServerPhase(serverType, targetAddr, "tcp");
+                this.invokeCheckServerPhase(serverType, targetAddr, "udp");
+                return;
+            }
+            this.invokeCheckServerPhase(serverType, targetAddr, "");
+        },
+        invokeCheckServerPhase: function (serverType, targetAddr, phase) {
+            var paramStr = "?serverType=" + serverType + "&targetAddr=" + encodeURIComponent(targetAddr);
+            if (phase) {
+                paramStr += "&phase=" + phase;
+            }
+            const title = serverType + (phase ? " " + phase : "") + " 检测结果";
+            this.axios
+                .post("/api/tunnel/check_server" + paramStr)
+                .then((response) => {
+                    const msg = response.data && response.data.msg ? response.data.msg : "";
+                    if (response.data && response.data.code === 200 && msg.indexOf("failed") < 0) {
+                        this.$Notice.success({ title: title, desc: msg, duration: 10 });
+                    } else {
+                        this.$Notice.warning({ title: title, desc: msg, duration: 10 });
+                    }
+                })
+                .catch((error) => {
+                    const msg = error && error.message ? error.message : "check request failed";
+                    this.$Notice.error({ title: title, desc: msg, duration: 10 });
+                });
+        },
 
-            invokeDetail: function(row) {
-                // console.info(this.$route)
-                this.$router.push({path:'/tunnel/detail',query:{id:row.id}})
-            },
-            invokeEdit: function(row) {
-                this.$router.push({path:'/tunnel/edit',query:{data:row}})
-            },
-            invokeSetDisabled: function(row, enabled) {
-                const previousDisabled = !!row.disabled;
-                const nextDisabled = !enabled;
-                this.axios
-                    .post('/api/tunnel/set_disabled', {name: row.name, disabled: nextDisabled})
-                    .then(response => {
-                        if(response.data.code !== 200) {
-                            this.$Message.error(response.data.msg);
-                            return
-                        }
-                        row.disabled = nextDisabled;
-                        this.normalizeTunnelRow(row);
-                        this.$Message.success(row.name + (nextDisabled ? ' 已禁用' : ' 已启用'));
-                        this.refreshListDelayed();
-                    })
-                    .catch(error => {
-                        row.disabled = previousDisabled;
-                        this.normalizeTunnelRow(row);
-                        const msg = error && error.message ? error.message : 'update disabled state failed';
-                        this.$Message.error(msg);
-                    })
-            },
-            invokeBandwidthTest: function(row) {
-                if(this.bandwidthPendingName) {
-                    return
-                }
-                this.bandwidthPendingName = row.name;
-                this.axios
-                    .post('/api/tunnel/bandwidth?name='+encodeURIComponent(row.name))
-                    .then(response => {
-                        if(response.data.code !== 200) {
-                            this.$Message.error(response.data.msg);
-                            return
-                        }
-                        const payload = response.data.data || {};
-                        row.bandwidth_summary = payload.summary || {};
-                        this.normalizeTunnelRow(row);
-                        if(row.bandwidth_status === 'ok') {
-                            this.$Message.success(row.name+' bandwidth '+row.bandwidth_mbps+' Mbps');
-                            return
-                        }
-                        this.$Message.warning(response.data.msg || row.bandwidth_status);
-                    })
-                    .catch(error => {
-                        const msg = error && error.message ? error.message : 'bandwidth request failed';
-                        this.$Message.error(msg);
-                    })
-                    .finally(() => {
-                        this.bandwidthPendingName = '';
-                    })
-            },
-            invokeMTR: function(row) {
-                this.ensureSessionAlive().then(() => {
-                    if(this.mtrSource) {
+        invokeDetail: function (row) {
+            // console.info(this.$route)
+            this.$router.push({ path: "/tunnel/detail", query: { id: row.id } });
+        },
+        invokeEdit: function (row) {
+            this.$router.push({ path: "/tunnel/edit", query: { name: row.name } });
+        },
+        invokeSetDisabled: function (row, enabled) {
+            if (this.mutationPending[row.name]) return;
+            this.$set(this.mutationPending, row.name, true);
+            const previousDisabled = !!row.disabled;
+            const nextDisabled = !enabled;
+            this.axios
+                .post("/api/tunnel/set_disabled", { name: row.name, disabled: nextDisabled })
+                .then((response) => {
+                    if (response.data.code !== 200) {
+                        this.$Message.error(response.data.msg);
+                        return;
+                    }
+                    row.disabled = nextDisabled;
+                    row.status = nextDisabled ? "disabled" : "init";
+                    this.normalizeTunnelRow(row);
+                    this.$Message.success(row.name + (nextDisabled ? " 已禁用" : " 已启用"));
+                    this.refreshListDelayed();
+                })
+                .catch((error) => {
+                    row.disabled = previousDisabled;
+                    this.normalizeTunnelRow(row);
+                    const msg = error && error.message ? error.message : "update disabled state failed";
+                    this.$Message.error(msg);
+                })
+                .finally(() => {
+                    this.$delete(this.mutationPending, row.name);
+                });
+        },
+        invokeBandwidthTest: function (row) {
+            if (this.bandwidthPendingName) {
+                return;
+            }
+            this.bandwidthPendingName = row.name;
+            this.axios
+                .post("/api/tunnel/bandwidth?name=" + encodeURIComponent(row.name))
+                .then((response) => {
+                    if (response.data.code !== 200) {
+                        this.$Message.error(response.data.msg);
+                        return;
+                    }
+                    const payload = response.data.data || {};
+                    row.bandwidth_summary = payload.summary || {};
+                    this.normalizeTunnelRow(row);
+                    if (row.bandwidth_status === "ok") {
+                        this.$Message.success(row.name + " bandwidth " + row.bandwidth_mbps + " Mbps");
+                        return;
+                    }
+                    this.$Message.warning(response.data.msg || row.bandwidth_status);
+                })
+                .catch((error) => {
+                    const msg = error && error.message ? error.message : "bandwidth request failed";
+                    this.$Message.error(msg);
+                })
+                .finally(() => {
+                    this.bandwidthPendingName = "";
+                });
+        },
+        invokeMTR: function (row) {
+            this.ensureSessionAlive()
+                .then(() => {
+                    if (this.mtrSource) {
                         this.closeMTRSource();
                     }
 
                     this.mtrModal = true;
                     this.resetMTRView();
-                    this.mtrStatus = 'connecting';
+                    this.mtrStatus = "connecting";
                     this.mtrMeta = {
                         name: row.name,
                         target: row.output,
-                        mode: '',
-                        command: '',
+                        mode: "",
+                        command: "",
                     };
                     this.mtrPendingName = row.name;
 
-                    this.ensureMTRTerminal().then(() => {
-                        this.startMTRStream(row);
-                    }).catch((error) => {
-                        const msg = error && error.message ? error.message : String(error);
-                        this.appendMTRError('[error] ' + msg);
-                        this.mtrStatus = 'error';
-                        this.closeMTRSource();
-                    });
-                }).catch(() => {
-                })
-            },
-            ensureSessionAlive: function() {
-                return this.axios.get('/api/auth/session')
-                    .then((response) => {
-                        const payload = response.data && response.data.data ? response.data.data : {};
-                        if(payload.authenticated === false) {
-                            if(!window.__gotunAuthRedirecting) {
-                                window.__gotunAuthRedirecting = true;
-                                window.location.replace('/login');
-                            }
-                            throw new Error('unauthorized');
-                        }
-                        return payload;
-                    });
-            },
-            parseMTRPayload: function(event) {
-                if(!event || !event.data) {
-                    return null
-                }
-                try {
-                    return JSON.parse(event.data)
-                } catch (e) {
-                    this.appendMTRError('[error] invalid stream payload');
-                    return null
-                }
-            },
-            ensureMTRTerminalAssets: function() {
-                if(window.Terminal) {
-                    return Promise.resolve();
-                }
-                if(this.mtrTerminalLoader) {
-                    return this.mtrTerminalLoader;
-                }
-
-                const cssHref = '/go_sword_public/admin/resource/dist/vendor/xterm/xterm.css';
-                const jsSrc = '/go_sword_public/admin/resource/dist/vendor/xterm/xterm.min.js';
-
-                if(!document.querySelector('link[data-xterm-css="1"]')) {
-                    const link = document.createElement('link');
-                    link.rel = 'stylesheet';
-                    link.href = cssHref;
-                    link.setAttribute('data-xterm-css', '1');
-                    document.head.appendChild(link);
-                }
-
-                this.mtrTerminalLoader = new Promise((resolve, reject) => {
-                    if(window.Terminal) {
-                        resolve();
-                        return
-                    }
-                    let script = document.querySelector('script[data-xterm-js="1"]');
-                    if(script) {
-                        script.addEventListener('load', () => resolve(), {once:true});
-                        script.addEventListener('error', () => reject(new Error('load xterm failed')), {once:true});
-                        return
-                    }
-                    script = document.createElement('script');
-                    script.src = jsSrc;
-                    script.async = true;
-                    script.setAttribute('data-xterm-js', '1');
-                    script.onload = () => resolve();
-                    script.onerror = () => reject(new Error('load xterm failed'));
-                    document.body.appendChild(script);
-                });
-                return this.mtrTerminalLoader;
-            },
-            ensureMTRTerminal: function() {
-                return this.ensureMTRTerminalAssets().then(() => {
-                    return new Promise((resolve, reject) => {
-                        this.$nextTick(() => {
-                            try {
-                                if(this.mtrTerminal) {
-                                    this.mtrTerminal.dispose();
-                                    this.mtrTerminal = null;
-                                }
-                                const el = this.$refs.mtrTerminal;
-                                if(!el) {
-                                    reject(new Error('terminal container missing'));
-                                    return
-                                }
-                                const terminal = new window.Terminal({
-                                    cols: 220,
-                                    rows: 40,
-                                    disableStdin: true,
-                                    cursorBlink: false,
-                                    convertEol: false,
-                                    fontFamily: 'Consolas, Menlo, monospace',
-                                    fontSize: 15,
-                                    theme: {
-                                        background: '#111111',
-                                        foreground: '#f3f3f3',
-                                    },
-                                });
-                                terminal.open(el);
-                                terminal.reset();
-                                this.mtrTerminal = terminal;
-                                this.refreshMTRTerminalLayout();
-                                resolve();
-                            } catch (e) {
-                                reject(e);
-                            }
+                    this.ensureMTRTerminal()
+                        .then(() => {
+                            this.startMTRStream(row);
+                        })
+                        .catch((error) => {
+                            const msg = error && error.message ? error.message : String(error);
+                            this.appendMTRError("[error] " + msg);
+                            this.mtrStatus = "error";
+                            this.closeMTRSource();
                         });
-                    });
-                });
-            },
-            getMTRTerminalCellSize: function() {
-                if(!this.mtrTerminal) {
-                    return null;
-                }
-                try {
-                    const core = this.mtrTerminal._core;
-                    const dims = core && core._renderService && core._renderService.dimensions && core._renderService.dimensions.css;
-                    const cell = dims && dims.cell;
-                    if(cell && cell.width && cell.height) {
-                        return {
-                            width: cell.width,
-                            height: cell.height,
-                        };
-                    }
-                } catch (e) {
-                }
-                const fontSize = Number(this.mtrTerminal.options && this.mtrTerminal.options.fontSize) || 15;
-                return {
-                    width: Math.max(fontSize * 0.62, 8),
-                    height: Math.max(Math.round(fontSize * 1.5), 18),
-                };
-            },
-            refreshMTRTerminalLayout: function() {
-                this.$nextTick(() => {
-                    if(!this.mtrModal || !this.mtrTerminal) {
-                        return
-                    }
-                    const el = this.$refs.mtrTerminal;
-                    const cell = this.getMTRTerminalCellSize();
-                    if(!el || !cell) {
-                        return
-                    }
-                    const width = el.clientWidth;
-                    const height = el.clientHeight;
-                    if(!width || !height) {
-                        return
-                    }
-                    const cols = Math.max(80, Math.floor(width / cell.width));
-                    const rows = Math.max(12, Math.floor(height / cell.height));
-                    if(typeof this.mtrTerminal.resize === 'function' && (this.mtrTerminal.cols !== cols || this.mtrTerminal.rows !== rows)) {
-                        this.mtrTerminal.resize(cols, rows);
-                    }
-                    if(typeof this.mtrTerminal.refresh === 'function' && this.mtrTerminal.rows > 0) {
-                        this.mtrTerminal.refresh(0, this.mtrTerminal.rows - 1);
-                    }
-                });
-            },
-            scheduleMTRTerminalLayoutRefresh: function() {
-                if(this.mtrResizeTimer) {
-                    clearTimeout(this.mtrResizeTimer);
-                }
-                this.mtrResizeTimer = setTimeout(() => {
-                    this.mtrResizeTimer = null;
-                    this.refreshMTRTerminalLayout();
-                }, 50);
-            },
-            handleMTRWindowResize: function() {
-                if(!this.mtrModal) {
-                    return
-                }
-                this.scheduleMTRTerminalLayoutRefresh();
-            },
-            startMTRStream: function(row) {
-                if(this.mtrTerminal) {
-                    this.mtrTerminal.reset();
-                }
-
-                const source = new EventSource('/api/tunnel/mtr/stream?name=' + encodeURIComponent(row.name) + '&_ts=' + Date.now());
-                this.mtrSource = source;
-
-                source.addEventListener('start', (event) => {
-                    const payload = this.parseMTRPayload(event);
-                    if(!payload) {
-                        return
-                    }
-                    this.mtrStatus = 'running';
-                    this.mtrMeta = {
-                        name: payload.name || row.name,
-                        target: payload.target || row.output,
-                        mode: payload.mode || '',
-                        command: payload.command || '',
-                    };
-                    this.scheduleMTRTerminalLayoutRefresh();
-                });
-
-                source.addEventListener('terminal', (event) => {
-                    const payload = this.parseMTRPayload(event);
-                    if(!payload || !payload.chunk || !this.mtrTerminal) {
-                        return
-                    }
-                    this.mtrTerminal.write(this.decodeBase64Chunk(payload.chunk));
-                });
-
-                source.addEventListener('error', (event) => {
-                    const payload = this.parseMTRPayload(event);
-                    if(!payload || !payload.message) {
-                        return
-                    }
-                    this.appendMTRError('[error] ' + payload.message);
-                    this.mtrStatus = 'error';
-                    this.closeMTRSource();
-                });
-
-                source.addEventListener('done', (event) => {
-                    const payload = this.parseMTRPayload(event);
-                    if(payload) {
-                        this.mtrStatus = payload.timed_out ? 'timeout' : 'done';
-                        this.appendMTRError('[done] exit=' + String(payload.exit_code) + ', duration_ms=' + String(payload.duration_ms));
-                    } else {
-                        this.mtrStatus = 'done';
-                    }
-                    this.closeMTRSource();
-                });
-
-                source.onerror = () => {
-                    if(this.mtrStatus === 'done' || this.mtrStatus === 'error' || this.mtrStatus === 'timeout' || this.mtrStatus === 'stopped') {
-                        return
-                    }
-                    this.appendMTRError('[error] mtr stream disconnected');
-                    this.mtrStatus = 'error';
-                    this.closeMTRSource();
-                };
-            },
-            resetMTRView: function() {
-                this.mtrErrors = '';
-                if(this.mtrTerminal) {
-                    this.mtrTerminal.reset();
-                }
-            },
-            appendMTRError: function(line) {
-                this.mtrErrors = this.mtrErrors ? (this.mtrErrors + '\n' + line) : line;
-                this.scheduleMTRTerminalLayoutRefresh();
-            },
-            decodeBase64Chunk: function(base64) {
-                const binary = window.atob(base64);
-                const bytes = new Uint8Array(binary.length);
-                for(let i = 0; i < binary.length; i++) {
-                    bytes[i] = binary.charCodeAt(i);
-                }
-                if(window.TextDecoder) {
-                    return new window.TextDecoder('utf-8').decode(bytes);
-                }
-                let result = '';
-                for(let i = 0; i < bytes.length; i++) {
-                    result += String.fromCharCode(bytes[i]);
-                }
-                return result;
-            },
-            closeMTRSource: function() {
-                if(this.mtrSource) {
-                    this.mtrSource.close();
-                    this.mtrSource = null;
-                }
-                this.mtrPendingName = '';
-            },
-            invokeStopMTR: function() {
-                if(!this.mtrSource) {
-                    return
-                }
-                this.appendMTRError('[stop] stream closed by user');
-                this.mtrStatus = 'stopped';
-                this.closeMTRSource();
-            },
-            invokeClearMTR: function() {
-                this.resetMTRView();
-                this.scheduleMTRTerminalLayoutRefresh();
-            },
-            handleMTRModalVisibleChange: function(visible) {
-                if(visible) {
-                    this.scheduleMTRTerminalLayoutRefresh();
-                    return
-                }
-                if(this.mtrSource) {
-                    this.invokeStopMTR();
-                }
-                if(this.mtrTerminal) {
-                    this.mtrTerminal.dispose();
-                    this.mtrTerminal = null;
-                }
-                if(this.mtrResizeTimer) {
-                    clearTimeout(this.mtrResizeTimer);
-                    this.mtrResizeTimer = null;
-                }
-            },
-            invokeExport: function(row) {
-                this.ensureSessionAlive().then(() => {
-                    url = "/api/tunnel/export?name="+row.name;
-                    window.open(url)
-                }).catch(() => {
                 })
-            },
-            // 克隆：复制选中行配置，生成新 uuid、唯一名称，并默认禁用，复用 import 接口
-            invokeClone: function(row) {
-                if(!row || this.clonePending) {
-                    return
-                }
-                this.clonePending = true;
-                const payload = {
-                    uuid: this.newUUID(),
-                    name: this.uniqueCloneName(row.name),
-                    disabled: true,
-                    mode: row.mode,
-                    input: row.input,
-                    in_proto_cfg: row.in_proto_cfg,
-                    in_decrypt_mode: row.in_decrypt_mode,
-                    in_decrypt_key: row.in_decrypt_key,
-                    in_extend: row.in_extend,
-                    output: row.output,
-                    out_proto_cfg: row.out_proto_cfg,
-                    out_crypt_mode: row.out_crypt_mode,
-                    out_crypt_key: row.out_crypt_key,
-                    out_extend: row.out_extend,
-                };
-                this.axios
-                    .post('/api/tunnel/import', JSON.stringify(payload), {headers:{'Content-Type':'application/json'}})
-                    .then(response => {
-                        if(response.data.code !== 200) {
-                            this.$Message.error(response.data.msg);
-                            return
-                        }
-                        this.$Message.success('已克隆为 ' + payload.name + '（默认禁用）');
-                        this.refreshListDelayed();
-                    })
-                    .catch(error => {
-                        const msg = error && error.message ? error.message : 'clone request failed';
-                        this.$Message.error(msg);
-                    })
-                    .finally(() => {
-                        this.clonePending = false;
-                    })
-            },
-            // 生成 RFC4122 v4 uuid
-            newUUID: function() {
-                if(window.crypto && window.crypto.randomUUID) {
-                    return window.crypto.randomUUID();
-                }
-                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                    const r = Math.random() * 16 | 0;
-                    const v = c === 'x' ? r : (r & 0x3 | 0x8);
-                    return v.toString(16);
-                });
-            },
-            // 基于原名生成未被占用的克隆名：xxx-copy、xxx-copy2 ...
-            uniqueCloneName: function(base) {
-                const names = {};
-                (this.main_data || []).forEach(item => { names[item.name] = true; });
-                let candidate = base + '-copy';
-                let i = 2;
-                while(names[candidate]) {
-                    candidate = base + '-copy' + i;
-                    i++;
-                }
-                return candidate;
-            },
-            invokeImport: function(){
-                var self = this;
-                var inputEl = document.getElementById('input');
-                var files = inputEl ? inputEl.files : null;
-                if(!files || files.length === 0) {
-                    this.$Message.warning('请先选择.tun配置文件');
-                    return
-                }
-
-                var readFile = function(file) {
-                    return new Promise(function(resolve, reject) {
-                        var reader = new FileReader();
-                        reader.onload = function (event) {
-                            var text = event.target.result;
-                            try {
-                                JSON.parse(text);
-                            } catch (e) {
-                                reject(new Error(file.name + ': 不是有效的JSON配置'));
-                                return
-                            }
-                            resolve(text);
-                        };
-                        reader.onerror = function () {
-                            reject(new Error(file.name + ': 读取文件失败'));
-                        };
-                        reader.readAsText(file);
-                    });
-                };
-
-                var importFile = function(file) {
-                    return readFile(file).then(function(text) {
-                        return self.axios.post('/api/tunnel/import', text).then(function(response) {
-                            if(response.data.code !== 200) {
-                                throw new Error(file.name + ': ' + (response.data.msg || 'import failed'));
-                            }
-                        });
-                    });
-                };
-
-                var tasks = [];
-                for (let i = 0, numFiles = files.length; i < numFiles; i++) {
-                    tasks.push(importFile(files[i]));
-                }
-
-                Promise.all(tasks).then(function() {
-                    self.$Message.success('导入成功');
-                }).catch(function(error) {
-                    self.$Message.error(error && error.message ? error.message : '导入失败');
-                }).then(function() {
-                    self.refreshListDelayed();
-                    if(inputEl) {
-                        inputEl.value = '';
+                .catch(() => {});
+        },
+        ensureSessionAlive: function () {
+            return this.axios.get("/api/auth/session").then((response) => {
+                const payload = response.data && response.data.data ? response.data.data : {};
+                if (payload.authenticated === false) {
+                    if (!window.__gotunAuthRedirecting) {
+                        window.__gotunAuthRedirecting = true;
+                        window.location.replace("/login");
                     }
-                });
-            },
-            invokeCreate: function() {
-                this.$router.push({path:'/tunnel/create'})
-            },
-            invokeDelete: function(row) {
-                // modal
-                this.deleteModal=true
-                this.deleteModalData = row
-                console.info(row)
-            },
-            invokeConfirmDelete: function() {
-                this.axios
-                    .post('/api/tunnel/delete',{name:this.deleteModalData.name})
-                    .then(response=>{
-                        if(response.data.code !== 200) {
-                            alert(response.data.msg)
-                            return
-                        }
-                        this.deleteModal = false
-                        this.deleteModalData = {}
-                        this.refreshListDelayed()
-                    })
-            },
-            invokeView:function(row) {
-                this.axios
-                    .get('/api/tunnel/quality?name='+row.name)
-                    .then(response=>{
-                        if(response.data.code !== 200) {
-                            alert(response.data.msg)
-                            return
-                        }
-                        const payload = response.data.data || {};
-                        const summary = payload.summary || {};
-                        const details = payload.details || {};
-                        this.viewModal = true
-                        this.viewModalData = {
-                            name: row.name,
-                            status: summary.status || row.quality_status,
-                            rtt_ms: String(summary.rtt_ms ?? row.quality_rtt),
-                            loss_pct: String(summary.loss_pct ?? row.quality_loss),
-                            bandwidth_status: row.bandwidth_status,
-                            bandwidth_mbps: String(row.bandwidth_mbps),
-                            summary: JSON.stringify(summary, null, 2),
-                            details: JSON.stringify(details, null, 2),
-                        }
-                    })
-            },
-            onCurrentChange: function(row) {
-                this.currentRow = row || null
-                this.syncTargetAddr(row)
-            },
-            // 选中行后，把右上角检测目标同步为该 tunnel input 的监听地址（127.0.0.1 + 监听端口）
-            syncTargetAddr: function(row) {
-                if(!row || !row.input) {
-                    return
+                    throw new Error("unauthorized");
                 }
-                // input 形如 socks5x@0.0.0.0:2001，取最后一个冒号后的端口
-                const idx = row.input.lastIndexOf(':')
-                if(idx < 0) {
-                    return
-                }
-                const port = row.input.substring(idx + 1).trim()
-                if(!port) {
-                    return
-                }
-                const el = document.getElementById('target_addr')
-                if(el) {
-                    el.value = '127.0.0.1:' + port
-                }
-            },
-            verifyFieldType: function () {
-                for(var name in this.info) {
-                    if(this.fields_type[name] === "number") {
-                        if(isNaN(this.info[name])) {
-                            alert(name+" is not a number")
-                            return false
-                        }
-                        this.info[name] = Number(this.info[name])
-                    }else if(this.fields_type[name] === "string") {
-                        this.info[name] = String(this.info[name])
-                    }
-                }
-                return true;
+                return payload;
+            });
+        },
+        parseMTRPayload: function (event) {
+            if (!event || !event.data) {
+                return null;
+            }
+            try {
+                return JSON.parse(event.data);
+            } catch (e) {
+                this.appendMTRError("[error] invalid stream payload");
+                return null;
             }
         },
-        created: function() {
-            window.addEventListener('resize', this.handleMTRWindowResize);
-            // 覆盖从 新建/编辑 页返回的场景：后端异步启动 Service，延迟刷新避免抓到启动中间态
-            this.refreshListDelayed();
+        ensureMTRTerminalAssets: function () {
+            if (window.Terminal) {
+                return Promise.resolve();
+            }
+            if (this.mtrTerminalLoader) {
+                return this.mtrTerminalLoader;
+            }
+
+            const cssHref = "/go_sword_public/admin/resource/dist/vendor/xterm/xterm.css";
+            const jsSrc = "/go_sword_public/admin/resource/dist/vendor/xterm/xterm.min.js";
+
+            if (!document.querySelector('link[data-xterm-css="1"]')) {
+                const link = document.createElement("link");
+                link.rel = "stylesheet";
+                link.href = cssHref;
+                link.setAttribute("data-xterm-css", "1");
+                document.head.appendChild(link);
+            }
+
+            this.mtrTerminalLoader = new Promise((resolve, reject) => {
+                if (window.Terminal) {
+                    resolve();
+                    return;
+                }
+                let script = document.querySelector('script[data-xterm-js="1"]');
+                if (script) {
+                    script.addEventListener("load", () => resolve(), { once: true });
+                    script.addEventListener("error", () => reject(new Error("load xterm failed")), {
+                        once: true,
+                    });
+                    return;
+                }
+                script = document.createElement("script");
+                script.src = jsSrc;
+                script.async = true;
+                script.setAttribute("data-xterm-js", "1");
+                script.onload = () => resolve();
+                script.onerror = () => reject(new Error("load xterm failed"));
+                document.body.appendChild(script);
+            });
+            return this.mtrTerminalLoader;
         },
-        beforeRouteUpdate: function(to, from ,next) {
-            this.routePage = to.query.page
-            this.tableData();
-            next()
+        ensureMTRTerminal: function () {
+            return this.ensureMTRTerminalAssets().then(() => {
+                return new Promise((resolve, reject) => {
+                    this.$nextTick(() => {
+                        try {
+                            if (this.mtrTerminal) {
+                                this.mtrTerminal.dispose();
+                                this.mtrTerminal = null;
+                            }
+                            const el = this.$refs.mtrTerminal;
+                            if (!el) {
+                                reject(new Error("terminal container missing"));
+                                return;
+                            }
+                            const terminal = new window.Terminal({
+                                cols: 220,
+                                rows: 40,
+                                disableStdin: true,
+                                cursorBlink: false,
+                                convertEol: false,
+                                fontFamily: "Consolas, Menlo, monospace",
+                                fontSize: 15,
+                                theme: {
+                                    background: "#111111",
+                                    foreground: "#f3f3f3",
+                                },
+                            });
+                            terminal.open(el);
+                            terminal.reset();
+                            this.mtrTerminal = terminal;
+                            this.refreshMTRTerminalLayout();
+                            resolve();
+                        } catch (e) {
+                            reject(e);
+                        }
+                    });
+                });
+            });
         },
-        beforeRouteLeave: function(to, from, next) {
-            this.stopProbeLoop();
+        getMTRTerminalCellSize: function () {
+            if (!this.mtrTerminal) {
+                return null;
+            }
+            try {
+                const core = this.mtrTerminal._core;
+                const dims =
+                    core &&
+                    core._renderService &&
+                    core._renderService.dimensions &&
+                    core._renderService.dimensions.css;
+                const cell = dims && dims.cell;
+                if (cell && cell.width && cell.height) {
+                    return {
+                        width: cell.width,
+                        height: cell.height,
+                    };
+                }
+            } catch (e) {}
+            const fontSize = Number(this.mtrTerminal.options && this.mtrTerminal.options.fontSize) || 15;
+            return {
+                width: Math.max(fontSize * 0.62, 8),
+                height: Math.max(Math.round(fontSize * 1.5), 18),
+            };
+        },
+        refreshMTRTerminalLayout: function () {
+            this.$nextTick(() => {
+                if (!this.mtrModal || !this.mtrTerminal) {
+                    return;
+                }
+                const el = this.$refs.mtrTerminal;
+                const cell = this.getMTRTerminalCellSize();
+                if (!el || !cell) {
+                    return;
+                }
+                const width = el.clientWidth;
+                const height = el.clientHeight;
+                if (!width || !height) {
+                    return;
+                }
+                const cols = Math.max(80, Math.floor(width / cell.width));
+                const rows = Math.max(12, Math.floor(height / cell.height));
+                if (
+                    typeof this.mtrTerminal.resize === "function" &&
+                    (this.mtrTerminal.cols !== cols || this.mtrTerminal.rows !== rows)
+                ) {
+                    this.mtrTerminal.resize(cols, rows);
+                }
+                if (typeof this.mtrTerminal.refresh === "function" && this.mtrTerminal.rows > 0) {
+                    this.mtrTerminal.refresh(0, this.mtrTerminal.rows - 1);
+                }
+            });
+        },
+        scheduleMTRTerminalLayoutRefresh: function () {
+            if (this.mtrResizeTimer) {
+                clearTimeout(this.mtrResizeTimer);
+            }
+            this.mtrResizeTimer = setTimeout(() => {
+                this.mtrResizeTimer = null;
+                this.refreshMTRTerminalLayout();
+            }, 50);
+        },
+        handleMTRWindowResize: function () {
+            if (!this.mtrModal) {
+                return;
+            }
+            this.scheduleMTRTerminalLayoutRefresh();
+        },
+        startMTRStream: function (row) {
+            if (this.mtrTerminal) {
+                this.mtrTerminal.reset();
+            }
+
+            const source = new EventSource(
+                "/api/tunnel/mtr/stream?name=" + encodeURIComponent(row.name) + "&_ts=" + Date.now(),
+            );
+            this.mtrSource = source;
+
+            source.addEventListener("start", (event) => {
+                const payload = this.parseMTRPayload(event);
+                if (!payload) {
+                    return;
+                }
+                this.mtrStatus = "running";
+                this.mtrMeta = {
+                    name: payload.name || row.name,
+                    target: payload.target || row.output,
+                    mode: payload.mode || "",
+                    command: payload.command || "",
+                };
+                this.scheduleMTRTerminalLayoutRefresh();
+            });
+
+            source.addEventListener("terminal", (event) => {
+                const payload = this.parseMTRPayload(event);
+                if (!payload || !payload.chunk || !this.mtrTerminal) {
+                    return;
+                }
+                this.mtrTerminal.write(this.decodeBase64Chunk(payload.chunk));
+            });
+
+            source.addEventListener("error", (event) => {
+                const payload = this.parseMTRPayload(event);
+                if (!payload || !payload.message) {
+                    return;
+                }
+                this.appendMTRError("[error] " + payload.message);
+                this.mtrStatus = "error";
+                this.closeMTRSource();
+            });
+
+            source.addEventListener("done", (event) => {
+                const payload = this.parseMTRPayload(event);
+                if (payload) {
+                    this.mtrStatus = payload.timed_out ? "timeout" : "done";
+                    this.appendMTRError(
+                        "[done] exit=" +
+                            String(payload.exit_code) +
+                            ", duration_ms=" +
+                            String(payload.duration_ms),
+                    );
+                } else {
+                    this.mtrStatus = "done";
+                }
+                this.closeMTRSource();
+            });
+
+            source.onerror = () => {
+                if (
+                    this.mtrStatus === "done" ||
+                    this.mtrStatus === "error" ||
+                    this.mtrStatus === "timeout" ||
+                    this.mtrStatus === "stopped"
+                ) {
+                    return;
+                }
+                this.appendMTRError("[error] mtr stream disconnected");
+                this.mtrStatus = "error";
+                this.closeMTRSource();
+            };
+        },
+        resetMTRView: function () {
+            this.mtrErrors = "";
+            if (this.mtrTerminal) {
+                this.mtrTerminal.reset();
+            }
+        },
+        appendMTRError: function (line) {
+            this.mtrErrors = this.mtrErrors ? this.mtrErrors + "\n" + line : line;
+            this.scheduleMTRTerminalLayoutRefresh();
+        },
+        decodeBase64Chunk: function (base64) {
+            const binary = window.atob(base64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+            if (window.TextDecoder) {
+                return new window.TextDecoder("utf-8").decode(bytes);
+            }
+            let result = "";
+            for (let i = 0; i < bytes.length; i++) {
+                result += String.fromCharCode(bytes[i]);
+            }
+            return result;
+        },
+        closeMTRSource: function () {
+            if (this.mtrSource) {
+                this.mtrSource.close();
+                this.mtrSource = null;
+            }
+            this.mtrPendingName = "";
+        },
+        invokeStopMTR: function () {
+            if (!this.mtrSource) {
+                return;
+            }
+            this.appendMTRError("[stop] stream closed by user");
+            this.mtrStatus = "stopped";
             this.closeMTRSource();
-            next()
         },
-        beforeDestroy: function() {
-            window.removeEventListener('resize', this.handleMTRWindowResize);
-            if(this.mtrResizeTimer) {
+        invokeClearMTR: function () {
+            this.resetMTRView();
+            this.scheduleMTRTerminalLayoutRefresh();
+        },
+        handleMTRModalVisibleChange: function (visible) {
+            if (visible) {
+                this.scheduleMTRTerminalLayoutRefresh();
+                return;
+            }
+            if (this.mtrSource) {
+                this.invokeStopMTR();
+            }
+            if (this.mtrTerminal) {
+                this.mtrTerminal.dispose();
+                this.mtrTerminal = null;
+            }
+            if (this.mtrResizeTimer) {
                 clearTimeout(this.mtrResizeTimer);
                 this.mtrResizeTimer = null;
             }
-            if(this.listRefreshTimer) {
-                clearTimeout(this.listRefreshTimer);
-                this.listRefreshTimer = null;
+        },
+        invokeExport: function (row) {
+            this.ensureSessionAlive()
+                .then(() => {
+                    const url = "/api/tunnel/export?name=" + encodeURIComponent(row.name);
+                    window.open(url);
+                })
+                .catch(() => {});
+        },
+        // 克隆：复制选中行配置，生成新 uuid、唯一名称，并默认禁用，复用 import 接口
+        invokeClone: function (row) {
+            if (!row || this.clonePending) {
+                return;
             }
-            this.stopProbeLoop();
-            this.closeMTRSource();
+            this.clonePending = true;
+            const payload = {
+                uuid: this.newUUID(),
+                name: this.uniqueCloneName(row.name),
+                disabled: true,
+                mode: row.mode,
+                input: row.input,
+                in_proto_cfg: row.in_proto_cfg,
+                in_decrypt_mode: row.in_decrypt_mode,
+                in_decrypt_key: row.in_decrypt_key,
+                in_extend: row.in_extend,
+                output: row.output,
+                out_proto_cfg: row.out_proto_cfg,
+                out_crypt_mode: row.out_crypt_mode,
+                out_crypt_key: row.out_crypt_key,
+                out_extend: row.out_extend,
+            };
+            this.axios
+                .post("/api/tunnel/import", JSON.stringify(payload), {
+                    headers: { "Content-Type": "application/json" },
+                })
+                .then((response) => {
+                    if (response.data.code !== 200) {
+                        this.$Message.error(response.data.msg);
+                        return;
+                    }
+                    this.$Message.success("已克隆为 " + payload.name + "（默认禁用）");
+                    this.refreshListDelayed();
+                })
+                .catch((error) => {
+                    const msg = error && error.message ? error.message : "clone request failed";
+                    this.$Message.error(msg);
+                })
+                .finally(() => {
+                    this.clonePending = false;
+                });
+        },
+        // 生成 RFC4122 v4 uuid
+        newUUID: function () {
+            if (window.crypto && window.crypto.randomUUID) {
+                return window.crypto.randomUUID();
+            }
+            return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+                const r = (Math.random() * 16) | 0;
+                const v = c === "x" ? r : (r & 0x3) | 0x8;
+                return v.toString(16);
+            });
+        },
+        // 基于原名生成未被占用的克隆名：xxx-copy、xxx-copy2 ...
+        uniqueCloneName: function (base) {
+            const names = {};
+            (this.main_data || []).forEach((item) => {
+                names[item.name] = true;
+            });
+            let candidate = base + "-copy";
+            let i = 2;
+            while (names[candidate]) {
+                candidate = base + "-copy" + i;
+                i++;
+            }
+            return candidate;
+        },
+        invokeImport: function () {
+            var self = this;
+            var inputEl = document.getElementById("input");
+            var files = inputEl ? inputEl.files : null;
+            if (!files || files.length === 0) {
+                this.$Message.warning("请先选择.tun配置文件");
+                return;
+            }
+
+            var readFile = function (file) {
+                return new Promise(function (resolve, reject) {
+                    var reader = new FileReader();
+                    reader.onload = function (event) {
+                        var text = event.target.result;
+                        try {
+                            JSON.parse(text);
+                        } catch (e) {
+                            reject(new Error(file.name + ": 不是有效的JSON配置"));
+                            return;
+                        }
+                        resolve(text);
+                    };
+                    reader.onerror = function () {
+                        reject(new Error(file.name + ": 读取文件失败"));
+                    };
+                    reader.readAsText(file);
+                });
+            };
+
+            var importFile = function (file) {
+                return readFile(file).then(function (text) {
+                    return self.axios.post("/api/tunnel/import", text).then(function (response) {
+                        if (response.data.code !== 200) {
+                            throw new Error(file.name + ": " + (response.data.msg || "import failed"));
+                        }
+                    });
+                });
+            };
+
+            var tasks = [];
+            for (let i = 0, numFiles = files.length; i < numFiles; i++) {
+                tasks.push(importFile(files[i]));
+            }
+
+            Promise.all(tasks)
+                .then(function () {
+                    self.$Message.success("导入成功");
+                })
+                .catch(function (error) {
+                    self.$Message.error(error && error.message ? error.message : "导入失败");
+                })
+                .then(function () {
+                    self.refreshListDelayed();
+                    if (inputEl) {
+                        inputEl.value = "";
+                    }
+                });
+        },
+        invokeCreate: function () {
+            this.$router.push({ path: "/tunnel/create" });
+        },
+        invokeDelete: function (row) {
+            // modal
+            this.deleteModal = true;
+            this.deleteModalData = row;
+        },
+        invokeConfirmDelete: function () {
+            this.axios
+                .post("/api/tunnel/delete", { name: this.deleteModalData.name })
+                .then((response) => {
+                    if (response.data.code !== 200) {
+                        this.showError(response.data.msg);
+                        return;
+                    }
+                    this.deleteModal = false;
+                    this.deleteModalData = {};
+                    this.refreshListDelayed();
+                })
+                .catch(this.showError);
+        },
+        invokeView: function (row) {
+            this.axios
+                .get("/api/tunnel/quality?name=" + encodeURIComponent(row.name))
+                .then((response) => {
+                    if (response.data.code !== 200) {
+                        this.showError(response.data.msg);
+                        return;
+                    }
+                    const payload = response.data.data || {};
+                    const summary = payload.summary || {};
+                    const details = payload.details || {};
+                    this.viewModal = true;
+                    this.viewModalData = {
+                        name: row.name,
+                        input: row.input,
+                        output: row.output,
+                        mode: row.mode,
+                        running_status: row.status,
+                        status: summary.status || row.quality_status,
+                        rtt_ms: String(summary.rtt_ms ?? row.quality_rtt),
+                        loss_pct: String(summary.loss_pct ?? row.quality_loss),
+                        bandwidth_status: row.bandwidth_status,
+                        bandwidth_mbps: String(row.bandwidth_mbps),
+                        summary: JSON.stringify(summary, null, 2),
+                        details: JSON.stringify(details, null, 2),
+                    };
+                })
+                .catch(this.showError);
+        },
+        onCurrentChange: function (row) {
+            this.currentRow = row || null;
+            this.syncTargetAddr(row);
+        },
+        // 选中行后，把右上角检测目标同步为该 tunnel input 的监听地址（127.0.0.1 + 监听端口）
+        syncTargetAddr: function (row) {
+            if (!row || !row.input) return;
+            const port = row.input.slice(row.input.lastIndexOf(":") + 1).trim();
+            if (port) this.targetAddr = "127.0.0.1:" + port;
+        },
+        verifyFieldType: function () {
+            for (var name in this.info) {
+                if (this.fields_type[name] === "number") {
+                    if (isNaN(this.info[name])) {
+                        alert(name + " is not a number");
+                        return false;
+                    }
+                    this.info[name] = Number(this.info[name]);
+                } else if (this.fields_type[name] === "string") {
+                    this.info[name] = String(this.info[name]);
+                }
+            }
+            return true;
+        },
+    },
+    created: function () {
+        window.addEventListener("resize", this.handleMTRWindowResize);
+        // 覆盖从 新建/编辑 页返回的场景：后端异步启动 Service，延迟刷新避免抓到启动中间态
+        this.refreshListDelayed();
+    },
+    beforeRouteLeave: function (to, from, next) {
+        this.stopProbeLoop();
+        this.closeMTRSource();
+        next();
+    },
+    beforeDestroy: function () {
+        window.removeEventListener("resize", this.handleMTRWindowResize);
+        if (this.mtrResizeTimer) {
+            clearTimeout(this.mtrResizeTimer);
+            this.mtrResizeTimer = null;
         }
-    }
+        if (this.listRefreshTimer) {
+            clearTimeout(this.listRefreshTimer);
+            this.listRefreshTimer = null;
+        }
+        this.stopProbeLoop();
+        this.closeMTRSource();
+    },
+};
 </script>

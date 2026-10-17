@@ -1,263 +1,320 @@
 <template>
-    <div class="layout">
-        <i-breadcrumb :style="{margin: '24px 24px'}">
-            <i-breadcrumb-item>tunnel</i-breadcrumb-item>
-            <i-breadcrumb-item>edit</i-breadcrumb-item>
-        </i-breadcrumb>
-        <i-content :style="{padding: '24px', minHeight: '280px', background: '#fff'}">
-            <i-row type="flex" justify="start" align="middle" :gutter="16" :style="{margin:'20px 0'}">
-                <i-col span="2" :style="{textAlign:'right'}">name</i-col>
-                <i-col span="6">
-                    <i-input v-model="form.name"></i-input>
-                </i-col>
-            </i-row>
-            <i-row type="flex" justify="start" align="middle" :gutter="16" :style="{margin:'20px 0'}">
-                <i-col span="2" :style="{textAlign:'right'}">mode</i-col>
-                <i-col span="6">
-                    <i-select v-model="form.mode" @on-change="handleModeChange">
-                        <i-option v-for="item in modeOptions" :key="item.value" :value="item.value">{{item.label}}</i-option>
-                    </i-select>
-                </i-col>
-            </i-row>
-            <i-row type="flex" justify="start" align="middle" :gutter="16" :style="{margin:'20px 0'}">
-                <i-col span="2" :style="{textAlign:'right'}">disabled</i-col>
-                <i-col span="6">
-                    <i-switch v-model="form.disabled">
-                        <span slot="open">yes</span>
-                        <span slot="close">no</span>
-                    </i-switch>
-                </i-col>
-            </i-row>
-            <i-row type="flex" justify="start" align="middle" :gutter="16" :style="{margin:'20px 0'}">
-                <i-col span="2" :style="{textAlign:'right'}">in_proto</i-col>
-                <i-col span="6">
-                    <i-select v-model="form.in_proto" @on-change="handleInputProtoChange">
-                        <i-option v-for="item in inputProtoOptions" :key="item.value" :value="item.value">{{item.label}}</i-option>
-                    </i-select>
-                </i-col>
-            </i-row>
-            <i-row type="flex" justify="start" align="middle" :gutter="16" :style="{margin:'20px 0'}">
-                <i-col span="2" :style="{textAlign:'right'}">in_addr</i-col>
-                <i-col span="6">
-                    <i-input v-model="form.in_addr" placeholder="127.0.0.1:1080"></i-input>
-                </i-col>
-            </i-row>
-            <i-row type="flex" justify="start" align="middle" :gutter="16" :style="{margin:'20px 0'}">
-                <i-col span="2" :style="{textAlign:'right'}">in_proto_cfg</i-col>
-                <i-col span="6">
-                    <i-input v-model="form.in_proto_cfg"></i-input>
-                </i-col>
-            </i-row>
-            <i-row type="flex" justify="start" align="middle" :gutter="16" :style="{margin:'20px 0'}">
-                <i-col span="2" :style="{textAlign:'right'}">in_decrypt_mode</i-col>
-                <i-col span="6">
-                    <i-select v-model="form.in_decrypt_mode">
-                        <i-option v-for="item in cryptModeOptions" :key="'in-'+item.value" :value="item.value">{{item.label}}</i-option>
-                    </i-select>
-                </i-col>
-            </i-row>
-            <i-row type="flex" justify="start" align="middle" :gutter="16" :style="{margin:'20px 0'}">
-                <i-col span="2" :style="{textAlign:'right'}">in_decrypt_key</i-col>
-                <i-col span="6">
-                    <i-input v-model="form.in_decrypt_key"></i-input>
-                </i-col>
-            </i-row>
-            <i-row type="flex" justify="start" align="middle" :gutter="16" :style="{margin:'20px 0'}">
-                <i-col span="2" :style="{textAlign:'right'}">in_extend</i-col>
-                <i-col span="6">
-                    <i-input v-model="form.in_extend"></i-input>
-                </i-col>
-            </i-row>
-            <i-row type="flex" justify="start" align="middle" :gutter="16" :style="{margin:'20px 0'}">
-                <i-col span="2" :style="{textAlign:'right'}">out_proto</i-col>
-                <i-col span="6">
-                    <i-select v-model="form.out_proto" @on-change="handleOutputProtoChange">
-                        <i-option v-for="item in outputProtoOptions" :key="item.value" :value="item.value">{{item.label}}</i-option>
-                    </i-select>
-                </i-col>
-            </i-row>
-            <i-row type="flex" justify="start" align="middle" :gutter="16" :style="{margin:'20px 0'}">
-                <i-col span="2" :style="{textAlign:'right'}">out_addr</i-col>
-                <i-col span="6">
-                    <i-input v-model="form.out_addr" placeholder="127.0.0.1:9999"></i-input>
-                </i-col>
-            </i-row>
-            <i-row type="flex" justify="start" align="middle" :gutter="16" :style="{margin:'20px 0'}">
-                <i-col span="2" :style="{textAlign:'right'}">out_proto_cfg</i-col>
-                <i-col span="6">
-                    <i-input v-model="form.out_proto_cfg"></i-input>
-                </i-col>
-            </i-row>
-            <i-row type="flex" justify="start" align="middle" :gutter="16" :style="{margin:'20px 0'}">
-                <i-col span="2" :style="{textAlign:'right'}">out_crypt_mode</i-col>
-                <i-col span="6">
-                    <i-select v-model="form.out_crypt_mode">
-                        <i-option v-for="item in cryptModeOptions" :key="'out-'+item.value" :value="item.value">{{item.label}}</i-option>
-                    </i-select>
-                </i-col>
-            </i-row>
-            <i-row type="flex" justify="start" align="middle" :gutter="16" :style="{margin:'20px 0'}">
-                <i-col span="2" :style="{textAlign:'right'}">out_crypt_key</i-col>
-                <i-col span="6">
-                    <i-input v-model="form.out_crypt_key"></i-input>
-                </i-col>
-            </i-row>
-            <i-row type="flex" justify="start" align="middle" :gutter="16" :style="{margin:'20px 0'}">
-                <i-col span="2" :style="{textAlign:'right'}">out_extend</i-col>
-                <i-col span="6">
-                    <i-input v-model="form.out_extend"></i-input>
-                </i-col>
-            </i-row>
-            <i-row>
-                <i-col span="6" offset="2" :style="{textAlign:'right'}">
-                    <i-button type="success" @click="goSave">Save</i-button>
-                    <i-button type="info" @click="goBack">Back</i-button>
-                </i-col>
-            </i-row>
-        </i-content>
+    <div>
+        <div class="g-page-heading g-form-heading">
+            <div>
+                <div class="g-eyebrow">TUNNELS / FORM</div>
+                <h1>编辑隧道</h1>
+                <p>设置监听入口与转发目标，按需配置高级参数。</p>
+            </div>
+            <button class="g-btn" @click="goBack">返回列表</button>
+        </div>
+        <div v-if="formError" class="g-route-hint">{{ formError }}</div>
+        <form v-else class="g-panel g-form-panel" @submit.prevent="goSave">
+            <div class="g-form-grid">
+                <label class="g-field"
+                    ><span>隧道名称</span
+                    ><i-input v-model="form.name" placeholder="例如 sg_tcpmux"></i-input></label
+                ><label class="g-field"
+                    ><span>运行模式</span
+                    ><i-select v-model="form.mode" @on-change="handleModeChange"
+                        ><i-option v-for="item in modeOptions" :key="item.value" :value="item.value">{{
+                            item.label
+                        }}</i-option></i-select
+                    ></label
+                >
+            </div>
+            <label class="g-field"
+                ><span>启用状态</span>
+                <div class="g-inline-check">
+                    <i-switch :value="!form.disabled" @on-change="form.disabled = !$event"></i-switch
+                    ><small>保存后启用此连接</small>
+                </div></label
+            >
+            <div class="g-form-section">监听入口</div>
+            <div class="g-form-grid">
+                <label class="g-field"
+                    ><span>协议</span
+                    ><i-select v-model="form.in_proto" @on-change="handleInputProtoChange"
+                        ><i-option v-for="item in inputProtoOptions" :key="item.value" :value="item.value">{{
+                            item.label
+                        }}</i-option></i-select
+                    ></label
+                ><label class="g-field"
+                    ><span>监听地址</span><i-input v-model="form.in_addr" placeholder="host:port"></i-input
+                ></label>
+            </div>
+            <div class="g-form-section">转发出口</div>
+            <div class="g-form-grid">
+                <label class="g-field"
+                    ><span>协议</span
+                    ><i-select v-model="form.out_proto" @on-change="handleOutputProtoChange"
+                        ><i-option v-for="item in outputProtoOptions" :key="item.value" :value="item.value">{{
+                            item.label
+                        }}</i-option></i-select
+                    ></label
+                ><label class="g-field"
+                    ><span>目标地址</span><i-input v-model="form.out_addr" placeholder="host:port"></i-input
+                ></label>
+            </div>
+            <details class="g-advanced">
+                <summary>高级设置 · 协议参数与加密</summary>
+                <div class="g-form-grid">
+                    <label class="g-field g-form-full"
+                        ><span>入口协议配置</span
+                        ><i-input
+                            v-model="form.in_proto_cfg"
+                            type="textarea"
+                            :autosize="{ minRows: 3, maxRows: 8 }"
+                            placeholder="JSON 配置"
+                        ></i-input></label
+                    ><label class="g-field"
+                        ><span>入口解密模式</span
+                        ><i-select v-model="form.in_decrypt_mode"
+                            ><i-option
+                                v-for="item in cryptModeOptions"
+                                :key="item.value"
+                                :value="item.value"
+                                >{{ item.label }}</i-option
+                            ></i-select
+                        ></label
+                    ><label class="g-field"
+                        ><span>入口密钥</span
+                        ><i-input
+                            v-model="form.in_decrypt_key"
+                            placeholder=""
+                            type="password"
+                        ></i-input></label
+                    ><label class="g-field g-form-full"
+                        ><span>入口扩展配置</span
+                        ><i-input
+                            v-model="form.in_extend"
+                            type="textarea"
+                            :autosize="{ minRows: 2, maxRows: 8 }"
+                            placeholder="JSON 配置"
+                        ></i-input
+                    ></label>
+                </div>
+                <div class="g-form-grid">
+                    <label class="g-field g-form-full"
+                        ><span>出口协议配置</span
+                        ><i-input
+                            v-model="form.out_proto_cfg"
+                            type="textarea"
+                            :autosize="{ minRows: 3, maxRows: 8 }"
+                            placeholder="JSON 配置"
+                        ></i-input></label
+                    ><label class="g-field"
+                        ><span>出口加密模式</span
+                        ><i-select v-model="form.out_crypt_mode"
+                            ><i-option
+                                v-for="item in cryptModeOptions"
+                                :key="item.value"
+                                :value="item.value"
+                                >{{ item.label }}</i-option
+                            ></i-select
+                        ></label
+                    ><label class="g-field"
+                        ><span>出口密钥</span
+                        ><i-input
+                            v-model="form.out_crypt_key"
+                            placeholder=""
+                            type="password"
+                        ></i-input></label
+                    ><label class="g-field g-form-full"
+                        ><span>出口扩展配置</span
+                        ><i-input
+                            v-model="form.out_extend"
+                            type="textarea"
+                            :autosize="{ minRows: 2, maxRows: 8 }"
+                            placeholder="JSON 配置"
+                        ></i-input
+                    ></label>
+                </div>
+            </details>
+            <div class="g-form-footer">
+                <button type="button" class="g-btn" @click="goBack">取消</button
+                ><button type="submit" class="g-btn primary" :disabled="saving">
+                    {{ saving ? "保存中…" : "保存配置" }}
+                </button>
+            </div>
+        </form>
     </div>
 </template>
 <script type="text/javascript">
-    const TunnelFormHelper = window.TunnelFormHelper;
+const TunnelFormHelper = window.TunnelFormHelper;
 
-    module.exports = {
-        data: function() {
-            const kcpxProtoCfg = '{"write_delay":true,"mtu":990,"sndwnd":1024,"rcvwnd":1024,"datashard":0,"parityshard":0,"dscp":46,"acknodelay":false,"nodelay":1,"interval":30,"resend":2,"nc":0,"sockbuf":16777217,"streambuf":4194304,"handshake_timeout_ms":10000,"handshake_retry_interval_ms":500,"handshake_max_retries":20,"heartbeat_interval_ms":10000,"heartbeat_timeout_ms":30000,"reconnect_retry_interval_ms":500,"reconnect_max_retries":20,"enable_auto_reconnect":true}';
-            const muxFrameExtend = TunnelFormHelper.buildMuxFrameExtend();
+module.exports = {
+    mixins: [window.GotunUI.base],
+    data: function () {
+        const kcpxProtoCfg =
+            '{"write_delay":true,"mtu":990,"sndwnd":1024,"rcvwnd":1024,"datashard":0,"parityshard":0,"dscp":46,"acknodelay":false,"nodelay":1,"interval":30,"resend":2,"nc":0,"sockbuf":16777217,"streambuf":4194304,"handshake_timeout_ms":10000,"handshake_retry_interval_ms":500,"handshake_max_retries":20,"heartbeat_interval_ms":10000,"heartbeat_timeout_ms":30000,"reconnect_retry_interval_ms":500,"reconnect_max_retries":20,"enable_auto_reconnect":true}';
+        const muxFrameExtend = TunnelFormHelper.buildMuxFrameExtend();
+        return {
+            routeId: this.id,
+            saving: false,
+            formError: "",
+            kcpxProtoCfg: kcpxProtoCfg,
+            muxFrameExtend: muxFrameExtend,
+            modeOptions: TunnelFormHelper.modeOptions,
+            cryptModeOptions: TunnelFormHelper.cryptModeOptions,
+            inputProtoOptions: TunnelFormHelper.inputProtoOptions,
+            outputProtoOptions: TunnelFormHelper.outputProtoOptions,
+            form: {
+                uuid: "",
+                name: "",
+                disabled: false,
+                mode: "default",
+                in_proto: "tcp",
+                in_addr: "",
+                in_proto_cfg: "",
+                in_decrypt_mode: "none",
+                in_decrypt_key: "",
+                in_extend: "",
+                out_proto: "tcp",
+                out_addr: "",
+                out_proto_cfg: "",
+                out_crypt_mode: "none",
+                out_crypt_key: "",
+                out_extend: "",
+            },
+        };
+    },
+    props: ["id", "data"],
+    methods: {
+        normalizeMode(mode) {
+            return TunnelFormHelper.normalizeMode(mode);
+        },
+        normalizeCryptMode(mode) {
+            return TunnelFormHelper.normalizeCryptMode(mode);
+        },
+        splitEndpoint(value, fallbackProto) {
+            return TunnelFormHelper.splitEndpoint(value, fallbackProto);
+        },
+        buildEndpoint(proto, addr) {
+            return TunnelFormHelper.buildEndpoint(proto, addr);
+        },
+        handleModeChange() {
+            this.syncInputDefaults();
+            this.syncOutputDefaults();
+        },
+        handleInputProtoChange() {
+            this.form.in_addr = TunnelFormHelper.getDefaultInAddr(this.form.in_proto);
+            this.syncInputDefaults();
+        },
+        handleOutputProtoChange() {
+            this.syncOutputDefaults();
+        },
+        syncInputDefaults() {
+            const defaults = TunnelFormHelper.getSideDefaults(
+                "in",
+                this.form.in_proto,
+                this.form.mode,
+                this.kcpxProtoCfg,
+                this.muxFrameExtend,
+            );
+            this.form.in_proto_cfg = defaults.protoCfg;
+            this.form.in_extend = defaults.extend;
+        },
+        syncOutputDefaults() {
+            const defaults = TunnelFormHelper.getSideDefaults(
+                "out",
+                this.form.out_proto,
+                this.form.mode,
+                this.kcpxProtoCfg,
+                this.muxFrameExtend,
+            );
+            this.form.out_proto_cfg = defaults.protoCfg;
+            this.form.out_extend = defaults.extend;
+        },
+        initForm(data) {
+            const source = Object.assign({}, data || {});
+            const inputParts = this.splitEndpoint(source.input, "tcp");
+            const outputParts = this.splitEndpoint(source.output, "tcp");
+            this.form = {
+                uuid: String(source.uuid || ""),
+                name: String(source.name || ""),
+                disabled: !!source.disabled,
+                mode: this.normalizeMode(source.mode),
+                in_proto: inputParts.proto || "tcp",
+                in_addr: inputParts.addr || "",
+                in_proto_cfg: String(source.in_proto_cfg || ""),
+                in_decrypt_mode: this.normalizeCryptMode(source.in_decrypt_mode),
+                in_decrypt_key: String(source.in_decrypt_key || ""),
+                in_extend: String(source.in_extend || ""),
+                out_proto: outputParts.proto || "tcp",
+                out_addr: outputParts.addr || "",
+                out_proto_cfg: String(source.out_proto_cfg || ""),
+                out_crypt_mode: this.normalizeCryptMode(source.out_crypt_mode),
+                out_crypt_key: String(source.out_crypt_key || ""),
+                out_extend: String(source.out_extend || ""),
+            };
+        },
+        buildPayload() {
             return {
-                routeId: this.id,
-                kcpxProtoCfg: kcpxProtoCfg,
-                muxFrameExtend: muxFrameExtend,
-                modeOptions: TunnelFormHelper.modeOptions,
-                cryptModeOptions: TunnelFormHelper.cryptModeOptions,
-                inputProtoOptions: TunnelFormHelper.inputProtoOptions,
-                outputProtoOptions: TunnelFormHelper.outputProtoOptions,
-                form: {
-                    uuid: '',
-                    name:'',
-                    disabled:false,
-                    mode:'default',
-                    in_proto:'tcp',
-                    in_addr:'',
-                    in_proto_cfg:'',
-                    in_decrypt_mode:'none',
-                    in_decrypt_key:'',
-                    in_extend:'',
-                    out_proto:'tcp',
-                    out_addr:'',
-                    out_proto_cfg:'',
-                    out_crypt_mode:'none',
-                    out_crypt_key:'',
-                    out_extend:'',
-                }
-            }
+                uuid: String(this.form.uuid || ""),
+                name: String(this.form.name || ""),
+                disabled: !!this.form.disabled,
+                mode: String(this.form.mode || ""),
+                input: this.buildEndpoint(this.form.in_proto, this.form.in_addr),
+                in_proto_cfg: String(this.form.in_proto_cfg || ""),
+                in_decrypt_mode: String(this.form.in_decrypt_mode || ""),
+                in_decrypt_key: String(this.form.in_decrypt_key || ""),
+                in_extend: String(this.form.in_extend || ""),
+                output: this.buildEndpoint(this.form.out_proto, this.form.out_addr),
+                out_proto_cfg: String(this.form.out_proto_cfg || ""),
+                out_crypt_mode: String(this.form.out_crypt_mode || ""),
+                out_crypt_key: String(this.form.out_crypt_key || ""),
+                out_extend: String(this.form.out_extend || ""),
+            };
         },
-        props: ['id','data'],
-        methods: {
-            normalizeMode(mode) {
-                return TunnelFormHelper.normalizeMode(mode);
-            },
-            normalizeCryptMode(mode) {
-                return TunnelFormHelper.normalizeCryptMode(mode);
-            },
-            splitEndpoint(value, fallbackProto) {
-                return TunnelFormHelper.splitEndpoint(value, fallbackProto);
-            },
-            buildEndpoint(proto, addr) {
-                return TunnelFormHelper.buildEndpoint(proto, addr);
-            },
-            handleModeChange() {
-                this.syncInputDefaults();
-                this.syncOutputDefaults();
-            },
-            handleInputProtoChange() {
-                this.form.in_addr = TunnelFormHelper.getDefaultInAddr(this.form.in_proto);
-                this.syncInputDefaults();
-            },
-            handleOutputProtoChange() {
-                this.syncOutputDefaults();
-            },
-            syncInputDefaults() {
-                const defaults = TunnelFormHelper.getSideDefaults('in', this.form.in_proto, this.form.mode, this.kcpxProtoCfg, this.muxFrameExtend);
-                this.form.in_proto_cfg = defaults.protoCfg;
-                this.form.in_extend = defaults.extend;
-            },
-            syncOutputDefaults() {
-                const defaults = TunnelFormHelper.getSideDefaults('out', this.form.out_proto, this.form.mode, this.kcpxProtoCfg, this.muxFrameExtend);
-                this.form.out_proto_cfg = defaults.protoCfg;
-                this.form.out_extend = defaults.extend;
-            },
-            initForm(data) {
-                const source = Object.assign({}, data || {});
-                const inputParts = this.splitEndpoint(source.input, 'tcp');
-                const outputParts = this.splitEndpoint(source.output, 'tcp');
-                this.form = {
-                    uuid: String(source.uuid || ''),
-                    name: String(source.name || ''),
-                    disabled: !!source.disabled,
-                    mode: this.normalizeMode(source.mode),
-                    in_proto: inputParts.proto || 'tcp',
-                    in_addr: inputParts.addr || '',
-                    in_proto_cfg: String(source.in_proto_cfg || ''),
-                    in_decrypt_mode: this.normalizeCryptMode(source.in_decrypt_mode),
-                    in_decrypt_key: String(source.in_decrypt_key || ''),
-                    in_extend: String(source.in_extend || ''),
-                    out_proto: outputParts.proto || 'tcp',
-                    out_addr: outputParts.addr || '',
-                    out_proto_cfg: String(source.out_proto_cfg || ''),
-                    out_crypt_mode: this.normalizeCryptMode(source.out_crypt_mode),
-                    out_crypt_key: String(source.out_crypt_key || ''),
-                    out_extend: String(source.out_extend || ''),
-                };
-            },
-            buildPayload() {
-                return {
-                    uuid: String(this.form.uuid || ''),
-                    name: String(this.form.name || ''),
-                    disabled: !!this.form.disabled,
-                    mode: String(this.form.mode || ''),
-                    input: this.buildEndpoint(this.form.in_proto, this.form.in_addr),
-                    in_proto_cfg: String(this.form.in_proto_cfg || ''),
-                    in_decrypt_mode: String(this.form.in_decrypt_mode || ''),
-                    in_decrypt_key: String(this.form.in_decrypt_key || ''),
-                    in_extend: String(this.form.in_extend || ''),
-                    output: this.buildEndpoint(this.form.out_proto, this.form.out_addr),
-                    out_proto_cfg: String(this.form.out_proto_cfg || ''),
-                    out_crypt_mode: String(this.form.out_crypt_mode || ''),
-                    out_crypt_key: String(this.form.out_crypt_key || ''),
-                    out_extend: String(this.form.out_extend || ''),
-                };
-            },
-            goBack: function() {
-                this.$router.go(-1)
-            },
-            goSave: function() {
-                const payload = this.buildPayload();
-                this.axios
-                    .post('/api/tunnel/edit', payload)
-                    .then(response => {
-                        if(response.data.code !== 200) {
-                            alert(response.data.msg)
-                            return
-                        }
-                        this.$router.go(-1)
-                    })
-            }
+        goBack: function () {
+            this.$router.push("/tunnel/list");
         },
-        created: function() {
-            const source = Object.assign({}, this.data || {});
-            delete source['status'];
-            delete source['quality_summary'];
-            delete source['quality_status'];
-            delete source['quality_rtt'];
-            delete source['quality_loss'];
-            delete source['bandwidth_summary'];
-            delete source['bandwidth_status'];
-            delete source['bandwidth_mbps'];
-            delete source['_index'];
-            delete source['_rowKey'];
-            delete source['created_at'];
+        goSave: function () {
+            if (this.saving) return;
+            if (!this.form.name.trim() || !this.form.in_addr.trim() || !this.form.out_addr.trim()) {
+                this.showError("请填写名称、监听地址和目标地址");
+                return;
+            }
+            const payload = this.buildPayload();
+            this.saving = true;
+            this.axios
+                .post("/api/tunnel/edit", payload)
+                .then((response) => {
+                    if (response.data.code !== 200) throw new Error(response.data.msg || "保存失败");
+                    this.$Message.success("已保存");
+                    this.$router.push("/tunnel/list");
+                })
+                .catch(this.showError)
+                .finally(() => {
+                    this.saving = false;
+                });
+        },
+    },
+    created: function () {
+        const source = this.data && typeof this.data === "object" ? this.data : null;
+        if (source) {
             this.initForm(source);
+            return;
         }
-    }
+        const name = this.$route.query.name;
+        if (!name) {
+            this.formError = "缺少隧道名称，请返回列表重新选择。";
+            return;
+        }
+        this.formError = "正在加载配置…";
+        this.axios
+            .post("/api/tunnel/list", {})
+            .then((response) => {
+                if (response.data.code !== 200) throw new Error(response.data.msg || "加载失败");
+                const row = (response.data.data.list || []).find((row) => row.name === name);
+                if (!row) throw new Error("隧道不存在，请返回列表刷新。");
+                this.initForm(row);
+                this.formError = "";
+            })
+            .catch((error) => {
+                this.formError = error.message || "配置加载失败，请返回列表重试。";
+            });
+    },
+};
 </script>

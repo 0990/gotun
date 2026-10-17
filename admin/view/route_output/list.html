@@ -1,237 +1,479 @@
 <template>
-    <div class="layout">
-        <i-breadcrumb :style="{margin: '24px 24px'}">
-            <i-breadcrumb-item>智能路由-出口</i-breadcrumb-item>
-            <i-breadcrumb-item>list</i-breadcrumb-item>
-        </i-breadcrumb>
-        <i-content :style="{padding: '24px', minHeight: '280px', background: '#fff'}">
-            <i-row>
-                <i-col span="12" :style="{textAlign:'left'}">
-                    <i-button type="info" @click="invokeCreate">创建</i-button>
-                </i-col>
-                <i-col span="12" :style="{textAlign:'right'}">
-                    <i-button type="default" @click="tableData">刷新列表</i-button>
-                </i-col>
-            </i-row>
-            <br>
-            <i-table :columns="col_list" :data="main_data">
-                <template slot-scope="{row}" slot="members_slot">
-                    <div v-for="(m, idx) in row.members" :key="m" :style="{display:'flex', alignItems:'center', margin:'2px 0'}">
-                        <i-tag :color="idx===0 ? 'blue' : 'default'">{{ idx+1 }}</i-tag>
-                        <span :style="{marginLeft:'6px'}">{{ m }}</span>
-                        <i-tag :style="{marginLeft:'6px'}" :color="healthColor(row.member_health[m])">{{ row.member_health[m] || 'unknown' }}</i-tag>
-                        <span v-if="row.preferred_member === m" :style="{marginLeft:'6px', color:'#2d8cf0'}">◀ 当前</span>
+    <div>
+        <g-page-heading
+            title="智能路由 · 出口"
+            subtitle="按优先级选择线路，自动切换可用出口。"
+            eyebrow="SMART ROUTING / OUTPUT"
+            unit="出口"
+            @create="invokeCreate"
+        ></g-page-heading>
+        <g-summary :rows="main_data" unit="出口" :loading="listLoading" @refresh="tableData"></g-summary>
+
+        <section class="g-panel" aria-label="智能路由 · 出口列表">
+            <g-list-toolbar v-model="searchText" :filter.sync="statusFilter" :counts="listCounts"
+                ><button class="g-tools-button" @click="tableData">
+                    <g-icon name="refresh"></g-icon>刷新
+                </button></g-list-toolbar
+            >
+            <g-list-feedback
+                :loading="listLoading && !main_data.length"
+                :error="listError"
+                :empty="!filteredRows.length"
+                @retry="tableData"
+            ></g-list-feedback>
+            <template v-if="!listError && filteredRows.length">
+                <table class="g-desktop-table">
+                    <colgroup>
+                        <col style="width: 23%" />
+                        <col style="width: 12%" />
+                        <col style="width: 21%" />
+                        <col style="width: 28%" />
+                        <col style="width: 16%" />
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th>名称</th>
+                            <th>运行状态</th>
+                            <th>监听地址</th>
+                            <th>成员 / 优先级</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="row in filteredRows" :key="row.name">
+                            <td>
+                                <div class="g-name-cell">
+                                    <span class="g-record-icon"><g-icon name="output"></g-icon></span>
+                                    <div class="g-name-stack">
+                                        <button class="g-name" :title="row.name" @click="invokeEdit(row)">
+                                            {{ row.name }}
+                                        </button>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="g-state" :class="stateClass(row)"
+                                    ><span class="g-dot"></span>{{ stateLabel(row) }}</span
+                                >
+                            </td>
+                            <td>
+                                <span class="g-endpoint">{{ row.listen }}</span>
+                            </td>
+                            <td>
+                                <div v-for="(name, index) in row.members" :key="name" class="g-member">
+                                    <span class="g-priority">{{ index + 1 }}</span
+                                    ><span class="g-member-name">{{ name }}</span
+                                    ><span class="g-preferred" v-if="row.preferred_member === name">当前</span
+                                    ><span :title="row.member_health[name]">{{
+                                        healthLabel(row.member_health[name])
+                                    }}</span
+                                    ><span
+                                        class="g-danger"
+                                        v-if="(row.member_no_health || []).indexOf(name) >= 0"
+                                        >无健康数据</span
+                                    >
+                                </div>
+                            </td>
+                            <td>
+                                <div class="g-row-actions">
+                                    <button
+                                        class="g-switch"
+                                        role="switch"
+                                        :aria-checked="!row.disabled ? 'true' : 'false'"
+                                        :aria-label="row.name + ' 启用状态'"
+                                        :disabled="!!mutationPending[row.name]"
+                                        @click="invokeSetDisabled(row, row.disabled)"
+                                    ></button
+                                    ><button class="g-btn-link" @click="invokeEdit(row)">编辑</button
+                                    ><i-dropdown
+                                        trigger="click"
+                                        placement="bottom-end"
+                                        transfer
+                                        @on-click="invokeRowAction($event, row)"
+                                        ><button
+                                            class="g-more"
+                                            :aria-label="row.name + ' 更多操作'"
+                                            aria-haspopup="menu"
+                                        >
+                                            <g-icon name="more"></g-icon></button
+                                        ><i-dropdown-menu slot="list"
+                                            ><i-dropdown-item name="edit">编辑配置</i-dropdown-item
+                                            ><i-dropdown-item name="log">切换记录</i-dropdown-item
+                                            ><i-dropdown-item name="delete" divided
+                                                ><span class="g-danger">删除出口</span></i-dropdown-item
+                                            ></i-dropdown-menu
+                                        ></i-dropdown
+                                    >
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="g-cards">
+                    <article class="g-card" v-for="row in filteredRows" :key="row.name">
+                        <div class="g-card-heading">
+                            <span class="g-record-icon"><g-icon name="output"></g-icon></span>
+                            <div class="g-name-stack">
+                                <button class="g-name" @click="invokeEdit(row)">{{ row.name }}</button
+                                ><span class="g-state" :class="stateClass(row)"
+                                    ><span class="g-dot"></span>{{ stateLabel(row) }}</span
+                                >
+                            </div>
+                            <button
+                                class="g-switch"
+                                role="switch"
+                                :aria-checked="!row.disabled ? 'true' : 'false'"
+                                :aria-label="row.name + ' 启用状态'"
+                                :disabled="!!mutationPending[row.name]"
+                                @click="invokeSetDisabled(row, row.disabled)"
+                            ></button>
+                        </div>
+                        <div class="g-card-listen">
+                            <span>监听</span><span class="g-endpoint">{{ row.listen }}</span>
+                        </div>
+                        <div class="g-card-members">
+                            <div v-for="(name, index) in row.members" :key="name" class="g-member">
+                                <span class="g-priority">{{ index + 1 }}</span
+                                ><span class="g-member-name">{{ name }}</span
+                                ><span class="g-preferred" v-if="row.preferred_member === name">当前</span
+                                ><span :title="row.member_health[name]">{{
+                                    healthLabel(row.member_health[name])
+                                }}</span
+                                ><span class="g-danger" v-if="(row.member_no_health || []).indexOf(name) >= 0"
+                                    >无健康数据</span
+                                >
+                            </div>
+                        </div>
+                        <div class="g-card-bottom">
+                            <span class="g-subtext">按优先级自动切换</span>
+                            <div class="g-card-buttons">
+                                <button class="g-btn-link" @click="invokeSwitchLog(row)">记录</button
+                                ><button class="g-btn-link" @click="invokeEdit(row)">编辑</button
+                                ><i-dropdown
+                                    trigger="click"
+                                    placement="bottom-end"
+                                    transfer
+                                    @on-click="invokeRowAction($event, row)"
+                                    ><button
+                                        class="g-more"
+                                        :aria-label="row.name + ' 更多操作'"
+                                        aria-haspopup="menu"
+                                    >
+                                        <g-icon name="more"></g-icon></button
+                                    ><i-dropdown-menu slot="list"
+                                        ><i-dropdown-item name="edit">编辑配置</i-dropdown-item
+                                        ><i-dropdown-item name="log">切换记录</i-dropdown-item
+                                        ><i-dropdown-item name="delete" divided
+                                            ><span class="g-danger">删除出口</span></i-dropdown-item
+                                        ></i-dropdown-menu
+                                    ></i-dropdown
+                                >
+                            </div>
+                        </div>
+                    </article>
+                </div></template
+            ><g-list-footer
+                :total="pageTotal"
+                :size="pageSize"
+                :page="$route.query.page"
+                :visible="filteredRows.length"
+                @change="invokeChangePage"
+            ></g-list-footer>
+        </section>
+        <p class="g-page-note"><g-icon name="info"></g-icon>搜索与状态统计针对当前已加载列表。</p>
+        <i-modal
+            v-model="editModal"
+            :title="editModalData.uuid ? '编辑出口' : '新建出口'"
+            :width="560"
+            class-name="g-dialog"
+        >
+            <i-form :label-width="110">
+                <i-form-item label="名称">
+                    <i-input v-model="editModalData.name" placeholder="如 web-out"></i-input>
+                </i-form-item>
+                <i-form-item label="监听协议">
+                    <i-select v-model="editModalData.in_proto" @on-change="handleInputProtoChange">
+                        <i-option v-for="item in inputProtoOptions" :key="item.value" :value="item.value">{{
+                            item.label
+                        }}</i-option>
+                    </i-select>
+                </i-form-item>
+                <i-form-item label="监听地址">
+                    <i-input v-model="editModalData.in_addr" placeholder="0.0.0.0:1000"></i-input>
+                    <div class="g-form-note">
+                        出口监听 = in_proto + in_addr，由客户端协议决定；流量经所选 member 的 output 发出。
                     </div>
-                </template>
-                <template slot-scope="{row}" slot="operate_slot">
-                    <span :style="{display:'inline-flex', width:'45px', justifyContent:'center', verticalAlign:'middle', marginRight:'6px'}">
-                        <i-switch :value="!row.disabled" @on-change="invokeSetDisabled(row, $event)"></i-switch>
-                    </span>
-                    <i-button type="info" size="small" @click="invokeEdit(row)">编辑</i-button>
-                    <i-button type="default" size="small" @click="invokeDelete(row)">删除</i-button>
-                    <i-button type="default" size="small" @click="invokeSwitchLog(row)">记录</i-button>
-                </template>
-            </i-table>
-            <i-page :styles="{margin:'20px'}" :total="pageTotal" :page-size="pageSize" show-elevator show-total @on-change="invokeChangePage"></i-page>
+                </i-form-item>
+                <i-form-item label="协议配置">
+                    <i-input v-model="editModalData.in_proto_cfg"></i-input>
+                </i-form-item>
+                <i-form-item label="成员隧道（按优先级）">
+                    <i-select
+                        v-model="editModalData.members"
+                        multiple
+                        filterable
+                        placeholder="选择 tunnel，顺序即优先级"
+                    >
+                        <i-option v-for="t in memberOptions" :value="t" :key="t">{{ t }}</i-option>
+                    </i-select>
+                    <ol class="g-member-order">
+                        <li v-for="(name, index) in editModalData.members" :key="name">
+                            <span>{{ index + 1 }}. {{ name }}</span
+                            ><button
+                                type="button"
+                                :disabled="index === 0"
+                                @click="moveMember(index, -1)"
+                                :aria-label="name + ' 上移'"
+                            >
+                                ↑</button
+                            ><button
+                                type="button"
+                                :disabled="index === editModalData.members.length - 1"
+                                @click="moveMember(index, 1)"
+                                :aria-label="name + ' 下移'"
+                            >
+                                ↓
+                            </button>
+                        </li>
+                    </ol>
+                    <div class="g-form-note">
+                        第 1 个为最高优先级；其 output 不可用(健康 down)时自动切到下一个。
+                    </div>
+                </i-form-item>
+                <i-form-item label="启用">
+                    <i-switch v-model="editModalEnabled"></i-switch>
+                </i-form-item>
+            </i-form>
+            <div slot="footer">
+                <i-button @click="editModal = false">取消</i-button
+                ><i-button type="primary" :loading="saving" @click="invokeSave">保存配置</i-button>
+            </div>
+        </i-modal>
 
-            <i-modal v-model="editModal" :title="editModalData.uuid ? '编辑入口' : '创建入口'" :width="560" @on-ok="invokeSave">
-                <i-form :label-width="110">
-                    <i-form-item label="名称">
-                        <i-input v-model="editModalData.name" placeholder="如 web-out"></i-input>
-                    </i-form-item>
-                    <i-form-item label="in_proto">
-                        <i-select v-model="editModalData.in_proto" @on-change="handleInputProtoChange">
-                            <i-option v-for="item in inputProtoOptions" :key="item.value" :value="item.value">{{ item.label }}</i-option>
-                        </i-select>
-                    </i-form-item>
-                    <i-form-item label="in_addr">
-                        <i-input v-model="editModalData.in_addr" placeholder="0.0.0.0:1000"></i-input>
-                        <div :style="{color:'#999', fontSize:'12px'}">出口监听 = in_proto + in_addr，由客户端协议决定；流量经所选 member 的 output 发出。</div>
-                    </i-form-item>
-                    <i-form-item label="in_proto_cfg">
-                        <i-input v-model="editModalData.in_proto_cfg"></i-input>
-                    </i-form-item>
-                    <i-form-item label="member(按优先级)">
-                        <i-select v-model="editModalData.members" multiple filterable placeholder="选择 tunnel，顺序即优先级">
-                            <i-option v-for="t in tunnelOptions" :value="t" :key="t">{{ t }}</i-option>
-                        </i-select>
-                        <div :style="{color:'#999', fontSize:'12px'}">第 1 个为最高优先级；其 output 不可用(健康 down)时自动切到下一个。</div>
-                    </i-form-item>
-                    <i-form-item label="启用">
-                        <i-switch v-model="editModalEnabled"></i-switch>
-                    </i-form-item>
-                </i-form>
-            </i-modal>
+        <i-modal v-model="deleteModal" title="删除确认" class-name="g-dialog">
+            <p>确认删除出口「{{ deleteModalData.name }}」？</p>
+            <div slot="footer">
+                <i-button @click="deleteModal = false">取消</i-button>
+                <i-button type="error" @click="invokeConfirmDelete">删除</i-button>
+            </div>
+        </i-modal>
 
-            <i-modal v-model="deleteModal" title="删除确认">
-                <p>确认删除入口「{{ deleteModalData.name }}」？</p>
-                <div slot="footer">
-                    <i-button @click="deleteModal=false">取消</i-button>
-                    <i-button type="error" @click="invokeConfirmDelete">删除</i-button>
-                </div>
-            </i-modal>
-
-            <i-modal v-model="switchLogModal" :title="'切换记录 - ' + switchLogName" :width="480" footer-hide>
-                <div :style="{textAlign:'right', marginBottom:'8px'}">
-                    <i-button size="small" @click="loadSwitchLog">刷新</i-button>
-                </div>
+        <i-modal
+            v-model="switchLogModal"
+            :title="'切换记录 - ' + switchLogName"
+            :width="480"
+            footer-hide
+            class-name="g-dialog"
+        >
+            <div :style="{ textAlign: 'right', marginBottom: '8px' }">
+                <i-button size="small" @click="loadSwitchLog">刷新</i-button>
+            </div>
+            <div class="g-log-table">
                 <i-table :columns="switch_log_cols" :data="switchLogData" size="small">
-                    <template slot-scope="{row}" slot="change_slot">
-                        <span>{{ row.from || '无' }}</span>
-                        <span :style="{margin:'0 6px', color:'#999'}">→</span>
-                        <span :style="{color:'#2d8cf0'}">{{ row.to || '无' }}</span>
+                    <template slot-scope="{ row }" slot="change_slot">
+                        <span>{{ row.from || "无" }}</span>
+                        <span class="g-form-note" :style="{ margin: '0 6px' }">→</span>
+                        <span class="g-log-target">{{ row.to || "无" }}</span>
                     </template>
                 </i-table>
-                <div v-if="switchLogData.length===0" :style="{textAlign:'center', color:'#999', padding:'16px'}">暂无切换记录</div>
-                <div :style="{color:'#999', fontSize:'12px', marginTop:'8px'}">仅保留最近 20 次切换；「无」表示当时无可用 member。</div>
-            </i-modal>
-        </i-content>
+            </div>
+            <div
+                v-if="switchLogData.length === 0"
+                class="g-form-note"
+                :style="{ textAlign: 'center', padding: '16px' }"
+            >
+                暂无切换记录
+            </div>
+            <div class="g-form-note" :style="{ marginTop: '8px' }">
+                仅保留最近 20 次切换；「无」表示当时无可用 member。
+            </div>
+        </i-modal>
     </div>
 </template>
 <script type="text/javascript">
-    const TunnelFormHelper = window.TunnelFormHelper;
+const TunnelFormHelper = window.TunnelFormHelper;
 
-    module.exports = {
-        data: function() {
-            return {
-                main_data: [],
-                pageTotal: 0,
-                pageSize: 0,
-                tunnelOptions: [],
-                inputProtoOptions: TunnelFormHelper.inputProtoOptions,
-                editModal: false,
-                editModalData: {uuid:'', name:'', in_proto:'socks5x', in_addr:'0.0.0.0:1080', in_proto_cfg:'', members:[], disabled:false},
-                editModalEnabled: true,
-                deleteModal: false,
-                deleteModalData: {},
-                switchLogModal: false,
-                switchLogName: '',
-                switchLogData: [],
-                switch_log_cols: [
-                    {title:'时间（北京时间）', key:'time', width: 170},
-                    {title:'切换', slot:'change_slot'},
-                ],
-                routePage: this.page ? this.page : '',
-                col_list: [
-                    {title:'名称', key:'name'},
-                    {title:'状态', key:'status'},
-                    {title:'监听', key:'listen'},
-                    {title:'member(优先级/健康)', slot:'members_slot'},
-                    {title:'操作', slot:'operate_slot', width: 280}
-                ],
-            }
+module.exports = {
+    mixins: [window.GotunUI.list],
+    data: function () {
+        return {
+            main_data: [],
+            pageTotal: 0,
+            pageSize: 0,
+            tunnelOptions: [],
+            inputProtoOptions: TunnelFormHelper.inputProtoOptions,
+            editModal: false,
+            editModalData: {
+                uuid: "",
+                name: "",
+                in_proto: "socks5x",
+                in_addr: "0.0.0.0:1080",
+                in_proto_cfg: "",
+                members: [],
+                disabled: false,
+            },
+            editModalEnabled: true,
+            deleteModal: false,
+            deleteModalData: {},
+            switchLogModal: false,
+            switchLogName: "",
+            switchLogData: [],
+            switch_log_cols: [
+                { title: "时间（北京时间）", key: "time", width: 170 },
+                { title: "切换", slot: "change_slot" },
+            ],
+            routePage: this.page ? this.page : "",
+            col_list: [
+                { title: "名称", key: "name" },
+                { title: "状态", key: "status" },
+                { title: "监听", key: "listen" },
+                { title: "member(优先级/健康)", slot: "members_slot" },
+                { title: "操作", slot: "operate_slot", width: 280 },
+            ],
+        };
+    },
+    props: ["page"],
+    methods: {
+        invokeRowAction: function (action, row) {
+            if (action === "edit") this.invokeEdit(row);
+            if (action === "delete") this.invokeDelete(row);
+            if (action === "log") this.invokeSwitchLog(row);
         },
-        props: ['page'],
-        methods: {
-            healthColor: function(h) {
-                if(h === 'up') return 'green';
-                if(h === 'degraded') return 'orange';
-                if(h === 'down') return 'red';
-                return 'default';
-            },
-            tableData: function() {
-                var pageStr = this.routePage ? '?page='+this.routePage : '';
-                this.axios.post('/api/route_output/list'+pageStr, {}).then(response=>{
-                    if(response.data.code !== 200) { alert(response.data.msg); return }
-                    document.getElementById('appName').textContent = "gotun "+response.data.data.version;
-                    this.main_data = (response.data.data.list || []).map(item => {
-                        item.disabled = !!item.disabled;
-                        return item;
-                    });
-                    this.pageTotal = response.data.data.pagination.total_nums;
-                    this.pageSize = response.data.data.pagination.page_size;
+        moveMember: function (index, delta) {
+            const members = this.editModalData.members;
+            const target = index + delta;
+            if (target < 0 || target >= members.length) return;
+            const name = members.splice(index, 1)[0];
+            members.splice(target, 0, name);
+        },
+        healthColor: function (h) {
+            if (h === "up") return "green";
+            if (h === "degraded") return "orange";
+            if (h === "down") return "red";
+            return "default";
+        },
+        tableData: function () {
+            return this.loadList("/api/route_output/list", (row) =>
+                Object.assign(row, { disabled: !!row.disabled, member_health: row.member_health || {} }),
+            );
+        },
+        loadTunnels: function () {
+            this.axios
+                .post("/api/tunnel/list", {})
+                .then((response) => {
+                    if (response.data.code !== 200) {
+                        return;
+                    }
+                    this.tunnelOptions = (response.data.data.list || []).map((t) => t.name);
                 })
-            },
-            loadTunnels: function() {
-                this.axios.post('/api/tunnel/list', {}).then(response=>{
-                    if(response.data.code !== 200) { return }
-                    this.tunnelOptions = (response.data.data.list || []).map(t => t.name);
-                })
-            },
-            blankForm: function() {
-                return {uuid:'', name:'', in_proto:'socks5x', in_addr:'0.0.0.0:1080', in_proto_cfg:'', members:[], disabled:false};
-            },
-            handleInputProtoChange: function() {
-                this.editModalData.in_addr = TunnelFormHelper.getDefaultInAddr(this.editModalData.in_proto);
-                this.syncInputDefaults();
-            },
-            syncInputDefaults: function() {
-                var defaults = TunnelFormHelper.getSideDefaults('in', this.editModalData.in_proto, 'default', '', '');
-                this.editModalData.in_proto_cfg = defaults.protoCfg;
-            },
-            invokeChangePage: function(page) { this.$router.push({query:{page:page}}) },
-            invokeCreate: function() {
-                this.editModalData = this.blankForm();
-                this.syncInputDefaults();
-                this.editModalEnabled = true;
-                this.editModal = true;
-            },
-            invokeEdit: function(row) {
-                var ep = TunnelFormHelper.splitEndpoint(row.listen, 'socks5x');
-                this.editModalData = {
-                    uuid: row.uuid,
-                    name: row.name,
-                    in_proto: ep.proto,
-                    in_addr: ep.addr,
-                    in_proto_cfg: row.in_proto_cfg || '',
-                    members: (row.members||[]).slice(),
-                    disabled: row.disabled
-                };
-                this.editModalEnabled = !row.disabled;
-                this.editModal = true;
-            },
-            invokeSave: function() {
-                var url = this.editModalData.uuid ? '/api/route_output/edit' : '/api/route_output/create';
-                var payload = {
-                    uuid: this.editModalData.uuid,
-                    name: this.editModalData.name,
-                    listen: TunnelFormHelper.buildEndpoint(this.editModalData.in_proto, this.editModalData.in_addr),
-                    in_proto_cfg: this.editModalData.in_proto_cfg || '',
-                    members: this.editModalData.members,
-                    disabled: !this.editModalEnabled,
-                };
-                this.axios.post(url, payload).then(response=>{
-                    if(response.data.code !== 200) { alert(response.data.msg); return }
-                    this.$Message.success('已保存');
-                    this.editModal = false;
-                    this.tableData();
-                })
-            },
-            invokeSetDisabled: function(row, enabled) {
-                var disabled = !enabled;
-                this.axios.post('/api/route_output/set_disabled?name='+encodeURIComponent(row.name)+'&disabled='+disabled, {}).then(response=>{
-                    if(response.data.code !== 200) { alert(response.data.msg); return }
-                    this.tableData();
-                })
-            },
-            invokeDelete: function(row) {
-                this.deleteModalData = row;
-                this.deleteModal = true;
-            },
-            invokeConfirmDelete: function() {
-                this.axios.post('/api/route_output/delete', {uuid: this.deleteModalData.uuid}).then(response=>{
-                    if(response.data.code !== 200) { alert(response.data.msg); return }
-                    this.$Message.success('已删除');
+                .catch(this.showError);
+        },
+        blankForm: function () {
+            return {
+                uuid: "",
+                name: "",
+                in_proto: "socks5x",
+                in_addr: "0.0.0.0:1080",
+                in_proto_cfg: "",
+                members: [],
+                disabled: false,
+            };
+        },
+        handleInputProtoChange: function () {
+            this.editModalData.in_addr = TunnelFormHelper.getDefaultInAddr(this.editModalData.in_proto);
+            this.syncInputDefaults();
+        },
+        syncInputDefaults: function () {
+            var defaults = TunnelFormHelper.getSideDefaults(
+                "in",
+                this.editModalData.in_proto,
+                "default",
+                "",
+                "",
+            );
+            this.editModalData.in_proto_cfg = defaults.protoCfg;
+        },
+        invokeChangePage: function (page) {
+            this.$router.push({ query: { page: page } });
+        },
+        invokeCreate: function () {
+            this.editModalData = this.blankForm();
+            this.syncInputDefaults();
+            this.editModalEnabled = true;
+            this.editModal = true;
+        },
+        invokeEdit: function (row) {
+            var ep = TunnelFormHelper.splitEndpoint(row.listen, "socks5x");
+            this.editModalData = {
+                uuid: row.uuid,
+                name: row.name,
+                in_proto: ep.proto,
+                in_addr: ep.addr,
+                in_proto_cfg: row.in_proto_cfg || "",
+                members: (row.members || []).slice(),
+                disabled: row.disabled,
+            };
+            this.editModalEnabled = !row.disabled;
+            this.editModal = true;
+        },
+        invokeSave: function () {
+            var url = this.editModalData.uuid ? "/api/route_output/edit" : "/api/route_output/create";
+            var payload = {
+                uuid: this.editModalData.uuid,
+                name: this.editModalData.name,
+                listen: TunnelFormHelper.buildEndpoint(
+                    this.editModalData.in_proto,
+                    this.editModalData.in_addr,
+                ),
+                in_proto_cfg: this.editModalData.in_proto_cfg || "",
+                members: this.editModalData.members,
+                disabled: !this.editModalEnabled,
+            };
+            return this.saveConfiguration(url, payload);
+        },
+        invokeSetDisabled: function (row, enabled) {
+            return this.setDisabled(row, enabled, "/api/route_output/set_disabled", true);
+        },
+        invokeDelete: function (row) {
+            this.deleteModalData = row;
+            this.deleteModal = true;
+        },
+        invokeConfirmDelete: function () {
+            this.axios
+                .post("/api/route_output/delete", { uuid: this.deleteModalData.uuid })
+                .then((response) => {
+                    if (response.data.code !== 200) {
+                        this.showError(response.data.msg);
+                        return;
+                    }
+                    this.$Message.success("已删除");
                     this.deleteModal = false;
                     this.tableData();
                 })
-            },
-            invokeSwitchLog: function(row) {
-                this.switchLogName = row.name;
-                this.switchLogData = [];
-                this.switchLogModal = true;
-                this.loadSwitchLog();
-            },
-            loadSwitchLog: function() {
-                this.axios.post('/api/route_output/switch_log?name='+encodeURIComponent(this.switchLogName), {}).then(response=>{
-                    if(response.data.code !== 200) { alert(response.data.msg); return }
+                .catch(this.showError);
+        },
+        invokeSwitchLog: function (row) {
+            this.switchLogName = row.name;
+            this.switchLogData = [];
+            this.switchLogModal = true;
+            this.loadSwitchLog();
+        },
+        loadSwitchLog: function () {
+            this.axios
+                .post("/api/route_output/switch_log?name=" + encodeURIComponent(this.switchLogName), {})
+                .then((response) => {
+                    if (response.data.code !== 200) {
+                        this.showError(response.data.msg);
+                        return;
+                    }
                     this.switchLogData = response.data.data || [];
                 })
-            },
+                .catch(this.showError);
         },
-        created: function() {
-            this.tableData();
-            this.loadTunnels();
-        }
-    }
+    },
+    created: function () {
+        this.tableData();
+        this.loadTunnels();
+    },
+};
 </script>
