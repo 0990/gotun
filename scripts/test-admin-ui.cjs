@@ -80,6 +80,14 @@ let failSave = false,
     probeCount = 0,
     streamClosed = false;
 const writes = [];
+let failHistory = false;
+const historyReads = [];
+const historyFixture = Array.from({ length: 55 }, (_, i) => ({
+    id: i + 1, tunnel_uuid: "a", time: "2026-10-18T15:20:30.123+08:00",
+    kind: i % 2 ? "route" : "frame", route_name: i % 2 ? "socks5-password" : "",
+    status: i % 2 ? "failed" : "normal", duration_ms: i % 2 ? 5000 : 159,
+    connectivity: i % 2 ? "ok" : "", error: i % 2 ? "下载探测超时" : "",
+}));
 
 function json(res, data) {
     res.writeHead(200, { "Content-Type": "application/json" });
@@ -137,6 +145,15 @@ const server = http.createServer(async (req, res) => {
             }
             if (action === "quality")
                 return json(res, { code: 200, data: { summary: tunnels[0].quality_summary, details: {} } });
+            if (action === "probe_history") {
+                historyReads.push(Object.fromEntries(url.searchParams));
+                if (failHistory) return json(res, { code: 500, msg: "历史查询失败测试" });
+                const before = Number(url.searchParams.get("before") || Infinity);
+                const kind = url.searchParams.get("kind"), status = url.searchParams.get("status");
+                const matches = historyFixture.filter(row => row.tunnel_uuid === url.searchParams.get("uuid") && row.id < before && (!kind || row.kind === kind) && (!status || row.status === status)).reverse();
+                const rows = matches.slice(0, 50);
+                return json(res, { code: 200, data: { records: rows, next_before: matches.length > 50 ? rows.at(-1).id : 0 } });
+            }
             if (action === "switch_log")
                 return json(res, {
                     code: 200,
@@ -283,6 +300,43 @@ async function main() {
         await goto("tunnel");
         await page.locator(".g-desktop-table tbody tr").first().waitFor();
         assert.equal(await page.locator(".g-summary>div").nth(1).locator("strong").textContent(), "1");
+        assert.equal(await page.locator(".g-desktop-table tbody tr").count(), 1, "隧道管理默认仅显示运行中");
+        await page.locator(".g-desktop-table .g-more").first().click();
+        await page.locator(".ivu-dropdown-transfer:visible").getByText("探测历史", { exact: true }).click();
+        await modal().getByText("探测历史 - goai_tcpmux_pw", { exact: true }).waitFor();
+        await modal().getByText("2026-10-18 15:20:30", { exact: true }).first().waitFor();
+        assert.equal(await modal().locator(".ivu-table-tbody tr").count(), 50);
+        assert.equal(historyReads.at(-1).uuid, "a");
+        await modal().getByRole("button", { name: "下一页", exact: true }).click();
+        await modal().getByText("第 2 页", { exact: true }).waitFor();
+        await page.waitForFunction(() => document.querySelectorAll(".ivu-modal:not([style*='display: none']) .ivu-table-tbody tr").length === 5);
+        assert.equal(historyReads.at(-1).before, "6");
+        await modal().getByRole("button", { name: "上一页", exact: true }).click();
+        await modal().getByText("第 1 页", { exact: true }).waitFor();
+        await modal().getByLabel("探测类型").selectOption("route");
+        await modal().getByText("入口：socks5-password", { exact: true }).first().waitFor();
+        assert.equal(historyReads.at(-1).kind, "route");
+        await modal().getByLabel("探测结果").selectOption("slow");
+        await modal().getByText("此范围内暂无探测记录", { exact: true }).waitFor();
+        assert.equal(historyReads.at(-1).status, "slow");
+        await modal().getByLabel("时间范围").selectOption("168");
+        await page.waitForFunction(() => document.querySelector(".g-history-filters select").value === "168");
+        await page.waitForTimeout(100);
+        assert.equal(Number(historyReads.at(-1).until) - Number(historyReads.at(-1).since), 168 * 3600000);
+        failHistory = true;
+        await modal().getByRole("button", { name: "刷新", exact: true }).click();
+        await modal().getByRole("alert").getByText("历史查询失败测试", { exact: false }).waitFor();
+        failHistory = false;
+        await modal().getByRole("button", { name: "重试", exact: true }).click();
+        await modal().getByText("此范围内暂无探测记录", { exact: true }).waitFor();
+        await modal().getByLabel("探测结果").selectOption("");
+        await modal().getByText("入口：socks5-password", { exact: true }).first().waitFor();
+        await screenshot("desktop-history");
+        await page.setViewportSize({ width: 390, height: 844 });
+        await overflow();
+        await screenshot("mobile-history");
+        await modal().locator(".ivu-modal-close").click();
+        await page.setViewportSize({ width: 1440, height: 1050 });
         await screenshot("desktop");
         assert.ok(
             await page
@@ -312,6 +366,7 @@ async function main() {
             assert.ok(label.width >= label.font * 2 && label.height < label.font * 2.5, "入口出口标签换行");
         }
         await screenshot("mobile");
+        await page.getByRole("button", { name: "全部 3", exact: true }).click();
         await page.getByRole("searchbox").fill("quic");
         assert.equal(await page.locator(".g-card").count(), 1);
         await page.getByRole("searchbox").fill("");
@@ -374,6 +429,7 @@ async function main() {
         // 克隆与导入继续使用现有接口，克隆必须默认禁用并保留原协议参数。
         await page.locator(".g-card .g-more").first().click();
         await page.locator(".ivu-dropdown-transfer:visible").getByText("克隆隧道", { exact: true }).click();
+        await page.getByRole("button", { name: /^全部 \d+$/ }).click();
         await page.locator(".g-card").getByText("edited_tunnel-copy", { exact: true }).waitFor();
         const clone = writes.filter((w) => w.kind === "tunnel" && w.action === "import").at(-1).payload;
         assert.equal(clone.disabled, true);
@@ -513,7 +569,7 @@ async function main() {
         await overflow();
         assert.deepEqual(errors, [], "浏览器运行错误");
         console.log(
-            "通过：四个页面、9 种宽度、文字对比度与地址字号、长 IPv6、搜索筛选、保存失败重试、真实字段、四种服务、成员排序、启停失败回退、导入导出、克隆删除、SOCKS5 双阶段检测、MTR 关闭与探测清理。",
+            "通过：四个页面、9 种宽度、文字对比度与地址字号、长 IPv6、默认运行中筛选、探测历史菜单/筛选/翻页/错误重试、搜索筛选、保存失败重试、真实字段、四种服务、成员排序、启停失败回退、导入导出、克隆删除、SOCKS5 双阶段检测、MTR 关闭与探测清理。",
         );
     } finally {
         await browser.close();

@@ -10,9 +10,9 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
-	"github.com/0990/gotun/admin/controller/tunnel"
 	routectl "github.com/0990/gotun/admin/controller/route"
 	svcctl "github.com/0990/gotun/admin/controller/service"
+	"github.com/0990/gotun/admin/controller/tunnel"
 	"github.com/0990/gotun/admin/response"
 	"github.com/0990/gotun/server/service"
 	"github.com/0990/gotun/tun"
@@ -79,6 +79,7 @@ func Register(assets embed.FS, listen string, mgr *tun.Manager, svcMgr *service.
 	h.HandleFunc("/api/tunnel/check_server", authMgr.RequireAuth(tunnel.CheckServer(mgr)))
 	h.HandleFunc("/api/tunnel/quality", authMgr.RequireAuth(tunnel.Quality(mgr)))
 	h.HandleFunc("/api/tunnel/probe", authMgr.RequireAuth(tunnel.Probe(mgr)))
+	h.HandleFunc("/api/tunnel/probe_history", authMgr.RequireAuth(tunnel.ProbeHistory(mgr)))
 	h.HandleFunc("/api/tunnel/bandwidth", authMgr.RequireAuth(tunnel.Bandwidth(mgr)))
 	h.HandleFunc("/api/tunnel/mtr/stream", authMgr.RequireAuth(tunnel.MTRStream(mgr)))
 

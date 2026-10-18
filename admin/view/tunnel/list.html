@@ -189,6 +189,7 @@
                                             <g-icon name="more"></g-icon></button
                                         ><i-dropdown-menu slot="list"
                                             ><i-dropdown-item name="view">查看详情</i-dropdown-item
+                                            ><i-dropdown-item name="history">探测历史</i-dropdown-item
                                             ><i-dropdown-item name="edit">编辑配置</i-dropdown-item
                                             ><i-dropdown-item
                                                 name="bandwidth"
@@ -272,6 +273,7 @@
                                         <g-icon name="more"></g-icon></button
                                     ><i-dropdown-menu slot="list"
                                         ><i-dropdown-item name="view">查看详情</i-dropdown-item
+                                        ><i-dropdown-item name="history">探测历史</i-dropdown-item
                                         ><i-dropdown-item name="edit">编辑配置</i-dropdown-item
                                         ><i-dropdown-item
                                             name="bandwidth"
@@ -305,6 +307,51 @@
         <p class="g-page-note">
             <g-icon name="info"></g-icon>搜索与状态统计针对当前已加载列表。开启探测后自动更新连接质量。
         </p>
+        <i-modal v-model="historyModal" :title="'探测历史 - ' + historyTunnelName" :width="980" class-name="g-dialog" footer-hide @on-visible-change="historyVisibilityChanged">
+            <div class="g-history-filters">
+                <label>时间范围
+                    <select v-model="historyRange" @change="resetProbeHistory">
+                        <option value="1">最近 1 小时</option>
+                        <option value="24">最近 24 小时</option>
+                        <option value="168">最近 7 天</option>
+                    </select>
+                </label>
+                <label>探测类型
+                    <select v-model="historyKind" @change="resetProbeHistory">
+                        <option value="">全部类型</option>
+                        <option value="frame">隧道帧探测</option>
+                        <option value="route">完整链路探测</option>
+                    </select>
+                </label>
+                <label>探测结果
+                    <select v-model="historyStatus" @change="resetProbeHistory">
+                        <option value="">全部结果</option>
+                        <option value="normal">正常</option>
+                        <option value="slow">慢</option>
+                        <option value="failed">失败</option>
+                        <option value="common_failure">共同失败</option>
+                    </select>
+                </label>
+                <button class="g-btn" :disabled="historyLoading" @click="resetProbeHistory">刷新</button>
+            </div>
+            <p class="g-form-note">保留最近 7 天的逐次探测，最新记录在前；时间为北京时间。完整链路记录会标明所属入口。</p>
+            <p v-if="historyError" class="g-danger" role="alert">{{ historyError }} <button class="g-btn-link" @click="loadProbeHistory">重试</button></p>
+            <div class="g-log-table g-history-table" :aria-busy="historyLoading ? 'true' : 'false'">
+                <i-table :columns="historyColumns" :data="historyRecords" :loading="historyLoading" :height="360" size="small" no-data-text="此范围内暂无探测记录">
+                    <template slot="time" slot-scope="{ row }">{{ formatProbeTime(row.time) }}</template>
+                    <template slot="kind" slot-scope="{ row }">{{ row.kind === 'frame' ? '隧道帧探测' : '完整链路探测' }}<div v-if="row.route_name" class="g-subtext">入口：{{ row.route_name }}</div></template>
+                    <template slot="status" slot-scope="{ row }"><span :class="row.status === 'failed' || row.status === 'common_failure' ? 'g-danger' : ''">{{ probeStatusLabel(row.status) }}</span></template>
+                    <template slot="duration" slot-scope="{ row }">{{ row.duration_ms >= 0 ? row.duration_ms + ' ms' : '—' }}</template>
+                    <template slot="detail" slot-scope="{ row }"><span>{{ row.error || '—' }}</span><div v-if="row.connectivity" class="g-subtext">{{ row.connectivity === 'ok' ? '连通确认成功' : '连通确认失败' }}</div></template>
+                </i-table>
+            </div>
+            <div class="g-history-pagination">
+                <button class="g-btn" :disabled="historyLoading || !historyPrevious.length" @click="previousProbeHistory">上一页</button>
+                <span>第 {{ historyPrevious.length + 1 }} 页</span>
+                <button class="g-btn" :disabled="historyLoading || !historyNext" @click="nextProbeHistory">下一页</button>
+            </div>
+            <p class="g-form-note">从升级后开始记录；帧探测需开启帧头探测，完整链路探测需启用智能路由入口的质量策略。</p>
+        </i-modal>
         <i-modal v-model="toolsModal" title="检测工具" :width="560" class-name="g-dialog" footer-hide>
             <label class="g-field"
                 ><span>检测地址</span><i-input v-model="targetAddr" placeholder="127.0.0.1:1080"></i-input
@@ -372,6 +419,28 @@ module.exports = {
     data: function () {
         return {
             main_data: [],
+            statusFilter: "running",
+            historyModal: false,
+            historyTunnelName: "",
+            historyTunnelUUID: "",
+            historyRange: "24",
+            historyKind: "",
+            historyStatus: "",
+            historyRecords: [],
+            historyPrevious: [],
+            historyBefore: 0,
+            historyNext: 0,
+            historyUntil: 0,
+            historyLoading: false,
+            historyError: "",
+            historyRequestId: 0,
+            historyColumns: [
+                { title: "时间（北京时间）", slot: "time", width: 185 },
+                { title: "探测类型 / 所属入口", slot: "kind", minWidth: 160 },
+                { title: "结果", slot: "status", width: 90 },
+                { title: "耗时", slot: "duration", width: 100 },
+                { title: "异常 / 连通确认", slot: "detail", minWidth: 220 },
+            ],
             toolsModal: false,
             targetAddr: "127.0.0.1:1080",
             pageTotal: 0,
@@ -444,6 +513,7 @@ module.exports = {
             this.onCurrentChange(row);
             const handlers = {
                 view: "invokeView",
+                history: "invokeProbeHistory",
                 edit: "invokeEdit",
                 bandwidth: "invokeBandwidthTest",
                 mtr: "invokeMTR",
@@ -452,6 +522,73 @@ module.exports = {
                 delete: "invokeDelete",
             };
             if (handlers[action]) this[handlers[action]](row);
+        },
+        invokeProbeHistory: function (row) {
+            this.historyTunnelName = row.name;
+            this.historyTunnelUUID = row.uuid;
+            this.historyRange = "24";
+            this.historyKind = "";
+            this.historyStatus = "";
+            this.historyModal = true;
+            this.resetProbeHistory();
+        },
+        historyVisibilityChanged: function (visible) {
+            if (!visible) {
+                this.historyRequestId += 1;
+                this.historyLoading = false;
+            }
+        },
+        resetProbeHistory: function () {
+            this.historyPrevious = [];
+            this.historyBefore = 0;
+            this.historyNext = 0;
+            this.historyUntil = Date.now();
+            return this.loadProbeHistory();
+        },
+        loadProbeHistory: function () {
+            const requestId = ++this.historyRequestId;
+            this.historyLoading = true;
+            this.historyError = "";
+            this.historyRecords = [];
+            const params = new URLSearchParams({
+                uuid: this.historyTunnelUUID,
+                since: String(this.historyUntil - Number(this.historyRange) * 3600000),
+                until: String(this.historyUntil),
+                kind: this.historyKind,
+                status: this.historyStatus,
+            });
+            if (this.historyBefore) params.set("before", this.historyBefore);
+            return this.axios.get("/api/tunnel/probe_history?" + params.toString())
+                .then((response) => {
+                    if (requestId !== this.historyRequestId) return;
+                    if (response.data.code !== 200) throw new Error(response.data.msg || "查询失败");
+                    this.historyRecords = response.data.data.records || [];
+                    this.historyNext = response.data.data.next_before || 0;
+                })
+                .catch((error) => {
+                    if (requestId === this.historyRequestId) {
+                        this.historyError = error.message || "查询探测历史失败";
+                        this.historyNext = 0;
+                    }
+                })
+                .finally(() => {
+                    if (requestId === this.historyRequestId) this.historyLoading = false;
+                });
+        },
+        nextProbeHistory: function () {
+            this.historyPrevious.push(this.historyBefore);
+            this.historyBefore = this.historyNext;
+            return this.loadProbeHistory();
+        },
+        previousProbeHistory: function () {
+            this.historyBefore = this.historyPrevious.pop() || 0;
+            return this.loadProbeHistory();
+        },
+        formatProbeTime: function (value) {
+            return value ? value.replace("T", " ").replace(/(?:\.\d+)?[+]08:00$/, "") : "—";
+        },
+        probeStatusLabel: function (value) {
+            return { normal: "正常", slow: "慢", failed: "失败", common_failure: "共同失败" }[value] || value;
         },
         healthColor: function (h) {
             if (h === "up") return "green";
@@ -1245,6 +1382,7 @@ module.exports = {
         next();
     },
     beforeDestroy: function () {
+        this.historyRequestId += 1;
         window.removeEventListener("resize", this.handleMTRWindowResize);
         if (this.mtrResizeTimer) {
             clearTimeout(this.mtrResizeTimer);

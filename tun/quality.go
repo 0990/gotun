@@ -117,10 +117,11 @@ type QualityTracker struct {
 	probeFailureTotal   atomic.Int64
 	consecutiveFailures atomic.Int64
 
-	mu        sync.RWMutex
-	samples   []probeSample
-	lastOKAt  time.Time
-	lastError string
+	mu          sync.RWMutex
+	samples     []probeSample
+	lastOKAt    time.Time
+	lastError   string
+	recordProbe func(time.Time, bool, int64, string)
 }
 
 func NewQualityTracker(service, output string, readCounter, writeCounter stats.Counter, enabled bool, windowSize int) *QualityTracker {
@@ -198,6 +199,9 @@ func (q *QualityTracker) RecordProbeSuccess(rtt time.Duration) {
 	ms := rtt.Milliseconds()
 	q.appendSample(probeSample{success: true, rttMS: ms})
 	q.updatePrometheusLocked()
+	if q.recordProbe != nil {
+		q.recordProbe(q.lastOKAt, true, ms, "")
+	}
 }
 
 func (q *QualityTracker) RecordProbeFailure(err error) {
@@ -215,6 +219,13 @@ func (q *QualityTracker) RecordProbeFailure(err error) {
 	}
 	q.appendSample(probeSample{success: false})
 	q.updatePrometheusLocked()
+	if q.recordProbe != nil {
+		message := ""
+		if err != nil {
+			message = err.Error()
+		}
+		q.recordProbe(time.Now(), false, -1, message)
+	}
 }
 
 func (q *QualityTracker) appendSample(sample probeSample) {

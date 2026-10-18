@@ -92,6 +92,7 @@ stclient 把流量加密后经公网发往 44.55.66.77:B，stserver 解密后转
 ## 更多
 * [配置参考](docs/配置参考.md)（app.yaml/tunnel/智能路由/内置服务各字段说明与场景）
 * [质量选路使用说明](docs/route-quality.md)
+* [逐次探测历史](docs/probe-history.md)
 * [Prometheus 指标](docs/Prometheus指标.md)
 * [管理后台界面](docs/admin-ui.md)
 * [简单转发服务](docs/简单转发服务.md)

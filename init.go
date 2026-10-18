@@ -45,6 +45,7 @@ func Run(fileName string, tunDir string) error {
 	if err != nil {
 		return err
 	}
+	defer closeLogger()
 
 	// pprof与prometheus共用同一个监听端口,通过路径区分:
 	// /metrics 暴露prometheus指标,/debug/pprof/* 暴露pprof。metrics_listen为空则不开启。
@@ -68,6 +69,14 @@ func Run(fileName string, tunDir string) error {
 	})
 
 	mgr := tun.NewManager(tunDir)
+	if err := mgr.OpenProbeHistory(); err != nil {
+		return err
+	}
+	defer func() {
+		if err := mgr.CloseProbeHistory(); err != nil {
+			logrus.WithError(err).Error("关闭探测历史失败")
+		}
+	}()
 	err = mgr.Run()
 	if err != nil {
 		return err
@@ -97,6 +106,5 @@ func Run(fileName string, tunDir string) error {
 	signal := <-quit
 	fmt.Printf("receive signal %v,quit... \n", signal)
 
-	closeLogger()
 	return nil
 }

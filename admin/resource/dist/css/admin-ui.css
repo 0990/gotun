@@ -952,6 +952,38 @@ a:focus-visible {
 .g-log-table .ivu-table {
     min-width: 380px;
 }
+.g-history-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+.g-history-filters label {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    color: var(--g-muted);
+}
+.g-history-filters select {
+    min-height: 36px;
+    padding: 6px 10px;
+    border: 1px solid var(--g-line);
+    border-radius: 6px;
+    color: var(--g-ink);
+    background: white;
+    font: inherit;
+}
+.g-history-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    margin: 12px 0;
+}
+.g-history-table .ivu-table {
+    min-width: 755px;
+}
 @media (min-width: 901px) and (max-width: 1180px) {
     .g-rail {
         width: 184px;

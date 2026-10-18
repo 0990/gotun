@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/0990/gotun/pkg/probehistory"
 )
 
 const routeQualityWindow = 20
@@ -133,6 +135,7 @@ func (q *routeQualityMonitor) applyRound(results map[string]routeProbeResult, av
 		}
 		if allFailed {
 			s.Status = routeProbeCommon
+			q.recordHistory(s)
 			continue
 		}
 		s.window = append(s.window, r.status != routeProbeNormal)
@@ -145,6 +148,7 @@ func (q *routeQualityMonitor) applyRound(results map[string]routeProbeResult, av
 				s.BadSamples++
 			}
 		}
+		q.recordHistory(s)
 	}
 	q.ensureCurrentLocked(available, now)
 	cur := q.states[q.current]
@@ -172,6 +176,19 @@ func (q *routeQualityMonitor) applyRound(results map[string]routeProbeResult, av
 	if best != q.current && cur.BadSamples-q.states[best].BadSamples >= 3 {
 		q.chooseLocked(best, fmt.Sprintf("质量切换：最近 20 次不良由 %d 次降为 %d 次", cur.BadSamples, q.states[best].BadSamples), now)
 	}
+}
+
+// 仅提交通过成员实例校验的完整轮次；共同失败也保留原始异常信息。
+// round 持有 manager 读锁，此处不能再次取 manager 锁。
+func (q *routeQualityMonitor) recordHistory(state *routeMemberQualityState) {
+	if q.mgr == nil || q.mgr.history == nil || state.service == nil {
+		return
+	}
+	q.mgr.recordProbeHistory(probehistory.Record{
+		TunnelUUID: state.service.Cfg().UUID, Time: state.LastProbeAt, Kind: "route",
+		RouteUUID: q.cfg.UUID, RouteName: q.cfg.Name, Status: state.Status,
+		DurationMS: state.LastDurationMS, Connectivity: state.Connectivity, Error: state.LastError,
+	})
 }
 
 func (q *routeQualityMonitor) run() {

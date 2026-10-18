@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/0990/gotun/pkg/probehistory"
 	"github.com/0990/gotun/pkg/util"
 	"github.com/sirupsen/logrus"
 )
@@ -15,6 +16,7 @@ type Manager struct {
 	routes   map[string]*routeService
 	lock     sync.RWMutex
 	tunDir   string
+	history  *probehistory.Store
 }
 
 func NewManager(tunDir string) *Manager {
@@ -114,7 +116,7 @@ func (m *Manager) AddService(config Config, createFile bool) error {
 		return errors.New("name already exist")
 	}
 
-	s, err := prepareManagedService(config)
+	s, err := m.prepareManagedService(config)
 	if err != nil {
 		return err
 	}
@@ -153,7 +155,7 @@ func (m *Manager) ReplaceServiceByUUID(config Config) error {
 		}
 	}
 
-	newService, err := prepareManagedService(config)
+	newService, err := m.prepareManagedService(config)
 	if err != nil {
 		return err
 	}
@@ -192,7 +194,7 @@ func (m *Manager) SetServiceDisabled(name string, disabled bool) error {
 	newCfg := oldCfg
 	newCfg.Disabled = disabled
 
-	newService, err := prepareManagedService(newCfg)
+	newService, err := m.prepareManagedService(newCfg)
 	if err != nil {
 		return err
 	}
@@ -234,7 +236,7 @@ func (m *Manager) getServiceByUUIDLocked(uuid string) (Service, string, bool) {
 }
 
 func (m *Manager) rollbackReplaceLocked(oldName string, oldCfg Config, cause error) error {
-	oldService, rollbackErr := prepareManagedService(oldCfg)
+	oldService, rollbackErr := m.prepareManagedService(oldCfg)
 	if rollbackErr != nil {
 		delete(m.services, oldName)
 		return fmt.Errorf("%w; rollback failed: %v", cause, rollbackErr)
@@ -248,11 +250,15 @@ func (m *Manager) rollbackReplaceLocked(oldName string, oldCfg Config, cause err
 	return cause
 }
 
-func prepareManagedService(config Config) (Service, error) {
+func (m *Manager) prepareManagedService(config Config) (Service, error) {
 	if config.Disabled {
 		return NewDisabledService(config), nil
 	}
-	return NewService(config)
+	s, err := NewService(config)
+	if err == nil {
+		m.attachProbeHistory(s)
+	}
+	return s, err
 }
 
 // runStartWaitTimeout 是等待 Service.Run 首次返回的时长。
