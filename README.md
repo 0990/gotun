@@ -16,7 +16,7 @@ tcp/udp转发器，可将明文流量转换为加密流量在公网上传输，�
 * web界面管理
 * 内置echo,http代理,socks5,socks5x服务，可在web界面独立启停
 ## 使用
-点此下载二进制文件，启动即可（会自动生成配置app.yaml）,最简配置:
+从 [GitHub Releases](https://github.com/0990/gotun/releases/latest) 下载对应平台的二进制压缩包，解压启动即可（会自动生成配置 app.yaml），最简配置:
 ```yaml
 # web监听地址
 web_listen: 0.0.0.0:8080
@@ -90,6 +90,7 @@ stclient 把流量加密后经公网发往 44.55.66.77:B，stserver 解密后转
 * 加密通道协议可以是tcp,tcpmux,quic,kcp,kcpmux,kcpx,kcpx_mux
 
 ## 更多
+* [版本发布流程](docs/release.md)
 * [配置参考](docs/配置参考.md)（app.yaml/tunnel/智能路由/内置服务各字段说明与场景）
 * [质量选路使用说明](docs/route-quality.md)
 * [逐次探测历史](docs/probe-history.md)

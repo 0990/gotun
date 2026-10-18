@@ -1,31 +1,164 @@
-# .github/workflows/release.yaml
-
 name: Publish Go Releases
 
 on:
-  release:
-    types: [created]
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '需要补发的现有版本标签，例如 v0.3.4'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
-  release:
-    name: release amd64
+  verify:
+    name: 验证标签与代码
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        # build and publish in parallel: linux/386, linux/amd64, linux/arm64, windows/386, windows/amd64, darwin/amd64, darwin/arm64
-        goos: [linux, windows,darwin]
-        goarch: [ "386", amd64, arm64 ]
-        exclude:
-          - goarch: "386"
-            goos: darwin
-          - goarch: arm64
-            goos: windows
+    timeout-minutes: 10
     steps:
-    - uses: actions/checkout@v3
-    - uses: wangyoucao577/go-release-action@v1.40
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        goos: ${{ matrix.goos }}
-        goarch: ${{ matrix.goarch }}
-        project_path: "./cmd"
-        ldflags: -X github.com/0990/gotun.Version=${{ github.event.release.tag_name }}
+      - name: 验证版本号
+        shell: bash
+        run: |
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::版本标签格式无效，请使用 v主版本.次版本.补丁版本。"
+            exit 1
+          fi
+
+      - name: 检出版本标签
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
+          persist-credentials: false
+
+      - name: 配置 Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: 运行测试
+        run: go test ./... -timeout 120s
+
+  build:
+    name: 编译 ${{ matrix.goos }}/${{ matrix.goarch }}
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { goos: linux, goarch: '386' }
+          - { goos: linux, goarch: amd64 }
+          - { goos: linux, goarch: arm64 }
+          - { goos: windows, goarch: '386' }
+          - { goos: windows, goarch: amd64 }
+          - { goos: darwin, goarch: amd64 }
+          - { goos: darwin, goarch: arm64 }
+    steps:
+      - name: 检出版本标签
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
+          persist-credentials: false
+
+      - name: 配置 Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: 编译并打包
+        shell: bash
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+        run: |
+          binary=gotun
+          if [[ "$GOOS" == windows ]]; then
+            binary=gotun.exe
+          fi
+          archive="gotun-${RELEASE_TAG}-${GOOS}-${GOARCH}"
+          mkdir -p package dist
+          go build -trimpath -ldflags "-s -w -X github.com/0990/gotun.Version=${RELEASE_TAG}" -o "package/$binary" ./cmd
+
+          if [[ "$GOOS" == windows ]]; then
+            archive="${archive}.zip"
+            (cd package && zip "../dist/$archive" "$binary")
+          else
+            archive="${archive}.tar.gz"
+            tar -C package -czf "dist/$archive" "$binary"
+          fi
+          # 保留已有的文件名及 MD5 附件，兼容现有下载方式。
+          (cd dist && md5sum "$archive" > "${archive}.md5")
+
+      - name: 保存构建产物
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: release-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 3
+
+  release:
+    name: 发布 GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: 汇总全部平台产物
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+
+      - name: 检查产物并生成 SHA256 校验文件
+        shell: bash
+        working-directory: dist
+        run: |
+          shopt -s nullglob
+          archives=(gotun-"${RELEASE_TAG}"-*.tar.gz gotun-"${RELEASE_TAG}"-*.zip)
+          if [[ "${#archives[@]}" -ne 7 ]]; then
+            echo "::error::预期生成 7 个平台压缩包，当前数量为 ${#archives[@]}。"
+            exit 1
+          fi
+          for archive in "${archives[@]}"; do
+            md5sum --check "${archive}.md5"
+          done
+          sha256sum "${archives[@]}" > SHA256SUMS
+
+      - name: 创建 Release 并上传附件
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          flags=(--latest)
+          version="${RELEASE_TAG%%+*}"
+          if [[ "$version" == *-* ]]; then
+            flags=(--prerelease --latest=false)
+          fi
+
+          # 首次发布由 gh 在附件上传完毕后公开；重跑时补齐已有 Release。
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" dist/* --clobber
+            gh release edit "$RELEASE_TAG" --draft=false "${flags[@]}"
+          else
+            gh release create "$RELEASE_TAG" dist/* --verify-tag --title "$RELEASE_TAG" --generate-notes "${flags[@]}"
+          fi
