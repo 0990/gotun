@@ -34,6 +34,24 @@ metrics_listen: ""
 访问[127.0.0.1:8080](http://127.0.0.1:8080),输入默认账号密码admin/admin登录,登录后页面：<br>
 ![tunnel](docs/tunnel.png)
 
+## 一键更新（Linux / systemd）
+
+在仓库目录执行：
+
+```sh
+sudo bash scripts/update.sh
+```
+
+也可以将 `scripts/update.sh` 单独保存到服务器的 `/data/gotun/update.sh`，执行
+`sudo bash /data/gotun/update.sh`。默认更新 `/data/gotun/gotun`；安装在其他目录时，
+使用 `sudo bash scripts/update.sh /你的安装目录`。
+
+脚本自动识别 amd64、arm64、386 架构，从最新正式 Release 下载压缩包并验证
+`SHA256SUMS`，备份当前二进制为 `gotun.old`，替换后执行 `systemctl restart gotun`。
+若重启失败或随后 5 秒内服务未保持运行，会自动恢复旧二进制并重启服务。
+下载或校验失败时不会替换二进制；配置与隧道数据保持不变。需要 root 权限，以及
+`curl`、`tar`、`sha256sum`、`flock`、`timeout` 和 `systemctl` 等常用 Linux 命令。
+
 ## 内置服务
 为了方便测试和部署，内置了 echo、http 代理、socks5、socks5x 四类服务。
 在 web 界面左侧菜单"内置服务"中新建实例即可，支持独立启停、编辑、删除，
