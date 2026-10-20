@@ -109,9 +109,16 @@ func TestRouteQualitySwitchRules(t *testing.T) {
 }
 
 func TestRouteQualitySelectorAndLifecycle(t *testing.T) {
+	for _, policy := range []string{"quality", "priority"} {
+		t.Run(policy, func(t *testing.T) { testRouteFullPathSelectorAndLifecycle(t, policy) })
+	}
+}
+
+func testRouteFullPathSelectorAndLifecycle(t *testing.T, policy string) {
 	a, b := aliveSvc("a"), aliveSvc("b")
 	m := newMgrWithServices(a, b)
 	q, now := qualityMonitorForTest(t)
+	q.cfg.Policy = policy
 	q.mgr = m
 	sel := newRouteSelector(m, []string{"a", "b"})
 	sel.quality = q

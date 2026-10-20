@@ -34,10 +34,11 @@ func routeToModel(rs tun.RouteService) model.Route {
 	}
 
 	health := rs.MemberHealth()
+	quality := memberQuality(rs)
 	noHealth := []string{}
 	for name, h := range health {
 		// 无健康数据（未开帧头探测 → disabled，或非 Server 类型）供 UI 提示
-		if h == tun.QualityStatusDisabled {
+		if h == tun.QualityStatusDisabled && quality == nil {
 			noHealth = append(noHealth, name)
 		}
 	}
@@ -52,7 +53,9 @@ func routeToModel(rs tun.RouteService) model.Route {
 		Members:         cfg.Members,
 		Policy:          cfg.Policy,
 		Quality:         cfg.Quality,
-		MemberQuality:   memberQuality(rs),
+		MemberQuality:   quality,
+		ProbeMode:       cfg.ProbeMode,
+		ProbeWarnings:   cfg.ProbeWarnings,
 		Status:          status,
 		PreferredMember: rs.PreferredMember(),
 		MemberHealth:    health,

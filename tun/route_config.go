@@ -15,6 +15,9 @@ const ROUTE_CONFIG_SUFFIX = ".route"
 const (
 	RouteModeOutput = "output" // listen -> member 的 output（经 member 的转发能力发出）
 	RouteModeInput  = "input"  // listen -> member 的 input（透明转发到 member 的入口监听地址）
+
+	RouteProbeFullPath    = "full_path"
+	RouteProbeLegacyFrame = "legacy_frame" // 仅用于不兼容的旧入口
 )
 
 // RouteConfig 智能路由入口配置
@@ -27,11 +30,13 @@ type RouteConfig struct {
 	Listen   string `json:"listen"` // output 模式: "proto@host:port"；input 模式: "host:port"
 	// InProtoCfg 入口监听协议的扩展配置（如 socks5x 的认证/超时），仅 output 模式使用；
 	// input 模式为裸 TCP 透明转发，无此配置
-	InProtoCfg string             `json:"in_proto_cfg"`
-	Members    []string           `json:"members"` // member tunnel 名称，按优先级排序
-	Policy     string             `json:"policy"`  // priority 故障转移；quality 完整链路质量选路
-	Quality    RouteQualityConfig `json:"quality"`
-	CreatedAt  time.Time          `json:"create_at"`
+	InProtoCfg    string             `json:"in_proto_cfg"`
+	Members       []string           `json:"members"` // member tunnel 名称，按优先级排序
+	Policy        string             `json:"policy"`  // priority 按优先级故障转移；quality 按完整链路质量择优
+	Quality       RouteQualityConfig `json:"quality"`
+	ProbeMode     string             `json:"probe_mode,omitempty"`
+	ProbeWarnings []string           `json:"-"` // 旧入口不能启用完整链路探测的原因，加载时生成
+	CreatedAt     time.Time          `json:"create_at"`
 }
 
 // normalize 填充默认值并规范化
@@ -42,9 +47,16 @@ func (r *RouteConfig) normalize() {
 	if r.Mode == "" {
 		r.Mode = RouteModeOutput
 	}
-	if r.Policy == "quality" {
+	if r.Mode == RouteModeInput && r.ProbeMode == "" {
+		r.ProbeMode = RouteProbeFullPath
+	}
+	if r.usesFullPathProbe() {
 		r.Quality.normalize()
 	}
+}
+
+func (r RouteConfig) usesFullPathProbe() bool {
+	return r.Mode == RouteModeInput && r.ProbeMode == RouteProbeFullPath
 }
 
 // validateBasic 做与 manager 无关的基础校验（名称/模式/监听/member/策略）
@@ -64,6 +76,14 @@ func (r *RouteConfig) validateBasic() error {
 		if r.Mode != RouteModeInput {
 			return errors.New("质量策略仅支持智能路由入口模式")
 		}
+		if !r.usesFullPathProbe() {
+			return errors.New("质量策略必须使用完整链路探测")
+		}
+	}
+	if r.ProbeMode != "" && !r.usesFullPathProbe() && !(r.Mode == RouteModeInput && r.Policy == "priority" && r.ProbeMode == RouteProbeLegacyFrame) {
+		return errors.New("探测模式无效")
+	}
+	if r.usesFullPathProbe() {
 		if err := r.Quality.validate(); err != nil {
 			return err
 		}
@@ -76,8 +96,8 @@ func (r *RouteConfig) validateBasic() error {
 		if strings.TrimSpace(m) == "" {
 			return errors.New("member 名称不能为空")
 		}
-		if r.Policy == "quality" && seen[m] {
-			return fmt.Errorf("质量策略的 member 不能重复:%s", m)
+		if r.usesFullPathProbe() && seen[m] {
+			return fmt.Errorf("完整链路探测的 member 不能重复:%s", m)
 		}
 		seen[m] = true
 	}

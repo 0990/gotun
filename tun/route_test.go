@@ -13,15 +13,15 @@ type fakeService struct {
 	quality QualitySummary
 }
 
-func (f *fakeService) Run() error                                    { return nil }
-func (f *fakeService) Close() error                                  { return nil }
-func (f *fakeService) Cfg() Config                                   { return f.cfg }
-func (f *fakeService) Status() string                                { return f.status }
-func (f *fakeService) QualitySummary() QualitySummary                { return f.quality }
-func (f *fakeService) QualityDetails() map[string]QualitySnapshot    { return nil }
-func (f *fakeService) BandwidthSummary() BandwidthSummary            { return BandwidthSummary{} }
-func (f *fakeService) BandwidthTest() (BandwidthSummary, error)      { return BandwidthSummary{}, nil }
-func (f *fakeService) Probe() bool                                   { return false }
+func (f *fakeService) Run() error                                 { return nil }
+func (f *fakeService) Close() error                               { return nil }
+func (f *fakeService) Cfg() Config                                { return f.cfg }
+func (f *fakeService) Status() string                             { return f.status }
+func (f *fakeService) QualitySummary() QualitySummary             { return f.quality }
+func (f *fakeService) QualityDetails() map[string]QualitySnapshot { return nil }
+func (f *fakeService) BandwidthSummary() BandwidthSummary         { return BandwidthSummary{} }
+func (f *fakeService) BandwidthTest() (BandwidthSummary, error)   { return BandwidthSummary{}, nil }
+func (f *fakeService) Probe() bool                                { return false }
 
 func newMgrWithServices(svcs ...Service) *Manager {
 	m := NewManager("")
@@ -277,4 +277,9 @@ func TestManager_InputModeProtoConsistency(t *testing.T) {
 	if err := m2.AddRoute(cfg2, false); err != nil {
 		t.Fatalf("input 协议一致应通过: %v", err)
 	}
+	t.Cleanup(func() {
+		if svc, ok := m2.GetRoute("in2"); ok {
+			_ = svc.Close()
+		}
+	})
 }

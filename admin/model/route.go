@@ -15,6 +15,8 @@ type Route struct {
 	Policy        string                            `json:"policy"`
 	Quality       tun.RouteQualityConfig            `json:"quality"`
 	MemberQuality map[string]tun.RouteMemberQuality `json:"member_quality,omitempty"`
+	ProbeMode     string                            `json:"probe_mode,omitempty"`
+	ProbeWarnings []string                          `json:"probe_warnings,omitempty"`
 
 	// 运行态（仅 List 返回）
 	Status          string            `json:"status"`           // running/init/... 或 disabled

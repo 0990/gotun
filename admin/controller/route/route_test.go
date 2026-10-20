@@ -144,12 +144,18 @@ func TestRouteCreatedAtBeijing(t *testing.T) {
 }
 
 func TestQualityConfigAPIEditAndValidation(t *testing.T) {
+	for _, policy := range []string{"quality", "priority"} {
+		t.Run(policy, func(t *testing.T) { testFullPathConfigAPIEditAndValidation(t, policy) })
+	}
+}
+
+func testFullPathConfigAPIEditAndValidation(t *testing.T, policy string) {
 	mgr := tun.NewManager(t.TempDir())
 	member := tun.Config{Name: "socks", Input: "socks5x@127.0.0.1:1080", Disabled: true}
 	if err := mgr.AddService(member, true); err != nil {
 		t.Fatal(err)
 	}
-	cfg := tun.RouteConfig{Name: "quality", Mode: tun.RouteModeInput, Listen: "127.0.0.1:0", Members: []string{"socks"}, Policy: "quality", Disabled: true}
+	cfg := tun.RouteConfig{Name: "quality", Mode: tun.RouteModeInput, Listen: "127.0.0.1:0", Members: []string{"socks"}, Policy: policy, Disabled: true}
 	if err := mgr.AddRoute(cfg, true); err != nil {
 		t.Fatal(err)
 	}
@@ -158,6 +164,9 @@ func TestQualityConfigAPIEditAndValidation(t *testing.T) {
 	view := routeToModel(rs)
 	if view.Quality.DownloadBytes != 16384 || view.MemberQuality["socks"].Status != "evaluating" {
 		t.Fatalf("默认配置和评估状态缺失: %+v", view)
+	}
+	if view.ProbeMode != tun.RouteProbeFullPath || len(view.MemberNoHealth) != 0 {
+		t.Fatal("完整链路入口不应因未开启单跳探测而提示无健康数据")
 	}
 	view.Quality.DownloadURL = "https://download.example.com/file"
 	view.Quality.ConnectivityURL = "https://check.example.com/ok"
@@ -183,7 +192,7 @@ func TestQualityConfigAPIEditAndValidation(t *testing.T) {
 		t.Fatalf("保存失败: %d", code)
 	}
 	rs, _ = mgr.GetRoute("quality")
-	if got := routeToModel(rs); got.Quality != view.Quality || got.Policy != "quality" {
+	if got := routeToModel(rs); got.Quality != view.Quality || got.Policy != policy {
 		t.Fatalf("编辑往返失败: %+v", got)
 	}
 	view.Quality.DownloadURL = "http://insecure.example.com"
@@ -193,5 +202,22 @@ func TestQualityConfigAPIEditAndValidation(t *testing.T) {
 	rs, _ = mgr.GetRoute("quality")
 	if rs.RouteCfg().Quality.DownloadURL != "https://download.example.com/file" {
 		t.Fatal("保存失败应保留原配置")
+	}
+}
+
+func TestLegacyProbeModeAPI(t *testing.T) {
+	mgr := tun.NewManager(t.TempDir())
+	if err := mgr.AddService(tun.Config{Name: "tcp", Input: "tcp@127.0.0.1:1080", Disabled: true}, true); err != nil {
+		t.Fatal(err)
+	}
+	cfg := tun.RouteConfig{Name: "旧入口", Mode: tun.RouteModeInput, Listen: "127.0.0.1:0", Members: []string{"tcp"}, Disabled: true}
+	if err := mgr.AddRoute(cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	rs, _ := mgr.GetRoute(cfg.Name)
+	t.Cleanup(func() { _ = rs.Close() })
+	view := routeToModel(rs)
+	if view.ProbeMode != tun.RouteProbeLegacyFrame || len(view.ProbeWarnings) != 1 || view.MemberQuality != nil || len(view.MemberNoHealth) != 1 {
+		t.Fatalf("旧版入口应明确返回探测模式和具体成员原因：%+v", view)
 	}
 }

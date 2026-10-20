@@ -350,7 +350,7 @@
                 <span>第 {{ historyPrevious.length + 1 }} 页</span>
                 <button class="g-btn" :disabled="historyLoading || !historyNext" @click="nextProbeHistory">下一页</button>
             </div>
-            <p class="g-form-note">从升级后开始记录；帧探测需开启帧头探测，完整链路探测需启用智能路由入口的质量策略。</p>
+            <p class="g-form-note">从升级后开始记录；帧探测需开启帧头探测，智能路由入口的优先级和质量策略均支持完整链路探测。</p>
         </i-modal>
         <i-modal v-model="toolsModal" title="检测工具" :width="560" class-name="g-dialog" footer-hide>
             <label class="g-field"

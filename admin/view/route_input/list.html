@@ -50,7 +50,8 @@
                                         </button>
                                     </div>
                                 </div>
-                                <span class="g-subtext">{{ row.policy === 'quality' ? '完整链路质量选路' : '优先级故障转移' }}</span>
+                                <span class="g-subtext">{{ policyLabel(row) }}</span>
+                                <div v-for="warning in row.probe_warnings" :key="warning" class="g-form-note g-danger">{{ warning }}</div>
                             </td>
                             <td>
                                 <span class="g-state" :class="stateClass(row)"
@@ -65,8 +66,8 @@
                                     <span class="g-priority">{{ index + 1 }}</span
                                     ><span class="g-member-name">{{ name }}</span
                                     ><span class="g-preferred" v-if="row.preferred_member === name">当前</span
-                                    ><span :title="row.member_health[name]">{{
-                                        healthLabel(row.member_health[name])
+                                    ><span>{{
+                                        memberStatus(row, name)
                                     }}</span
                                     ><span
                                         class="g-danger"
@@ -74,7 +75,7 @@
                                         >无健康数据</span
                                     >
                                 </div>
-                                <div v-if="row.policy === 'quality'" class="g-route-quality">
+                                <div v-if="row.member_quality" class="g-route-quality">
                                     <div v-for="name in row.members" :key="name" :title="((row.member_quality || {})[name] || {}).last_error">
                                         {{ name }}：{{ qualityText(row, name) }}
                                     </div>
@@ -142,21 +143,22 @@
                                 <span class="g-priority">{{ index + 1 }}</span
                                 ><span class="g-member-name">{{ name }}</span
                                 ><span class="g-preferred" v-if="row.preferred_member === name">当前</span
-                                ><span :title="row.member_health[name]">{{
-                                    healthLabel(row.member_health[name])
+                                ><span>{{
+                                    memberStatus(row, name)
                                 }}</span
                                 ><span class="g-danger" v-if="(row.member_no_health || []).indexOf(name) >= 0"
                                     >无健康数据</span
                                 >
                             </div>
                         </div>
-                        <div v-if="row.policy === 'quality'" class="g-route-quality">
+                        <div v-for="warning in row.probe_warnings" :key="warning" class="g-form-note g-danger">{{ warning }}</div>
+                        <div v-if="row.member_quality" class="g-route-quality">
                             <div v-for="name in row.members" :key="name" :title="((row.member_quality || {})[name] || {}).last_error">
                                 {{ name }}：{{ qualityText(row, name) }}
                             </div>
                         </div>
                         <div class="g-card-bottom">
-                            <span class="g-subtext">{{ row.policy === 'quality' ? '完整链路质量选路' : '按优先级自动切换' }}</span>
+                            <span class="g-subtext">{{ policyLabel(row) }}</span>
                             <div class="g-card-buttons">
                                 <button class="g-btn-link" @click="invokeSwitchLog(row)">记录</button
                                 ><button class="g-btn-link" @click="invokeEdit(row)">编辑</button
@@ -247,11 +249,15 @@
                 <i-form-item label="切换策略">
                     <i-select v-model="editModalData.policy" aria-label="切换策略">
                         <i-option value="quality">质量优先（完整链路）</i-option>
-                        <i-option value="priority">优先级故障转移</i-option>
+                        <i-option value="priority">优先级故障转移（完整链路）</i-option>
                     </i-select>
-                    <div class="g-form-note">质量策略仅支持明文、无 input 帧头的 socks5x 成员；只影响新连接。</div>
+                    <div class="g-form-note">两种策略均使用完整链路探测，仅支持明文、无 input 帧头的 socks5x 成员；只影响新连接。</div>
+                    <div v-if="editModalData.probe_warnings && editModalData.probe_warnings.length" class="g-form-note g-danger">
+                        此入口仍使用旧版单跳探测。保存将升级为完整链路探测，请先调整以下成员：
+                        <div v-for="warning in editModalData.probe_warnings" :key="warning">{{ warning }}</div>
+                    </div>
                 </i-form-item>
-                <template v-if="editModalData.policy === 'quality'">
+                <template>
                     <i-form-item label="下载探测目标">
                         <i-input v-model="editModalData.quality.download_url" placeholder="HTTPS 下载 URL" aria-label="下载探测目标"></i-input>
                     </i-form-item>
@@ -279,7 +285,8 @@
                         <i-input-number v-model="editModalData.quality.normal_ms" :min="1" :max="editModalData.quality.timeout_ms" aria-label="正常时间毫秒"></i-input-number>
                     </i-form-item>
                     <p class="g-form-note g-quality-traffic" role="status">{{ qualityTraffic }}</p>
-                    <p class="g-form-note">连续失败 3 次且备用连续正常 2 次时切换；窗口满 20 次且备用不良至少少 3 次时择优，普通切换冷却 60 秒。所有线路共同失败不计入质量窗口。</p>
+                    <p v-if="editModalData.policy === 'quality'" class="g-form-note">连续失败 3 次且备用连续正常 2 次时切换；窗口满 20 次且备用不良至少少 3 次时择优，普通切换冷却 60 秒。所有线路共同失败不计入质量窗口。</p>
+                    <p v-else class="g-form-note">连续失败 3 次时，按优先级切到连续正常 2 次的备用；高优先级连续正常 2 次且切换冷却满 60 秒后回切。慢请求不单独触发切换，故障转移可绕过冷却，共同失败无可靠备用时保持当前线路。</p>
                 </template>
                 <i-form-item label="启用">
                     <i-switch v-model="editModalEnabled"></i-switch>
@@ -378,12 +385,26 @@ module.exports = {
         defaultQuality: function (value) {
             return Object.assign({ download_url: "https://speed.cloudflare.com/__down?bytes=16384", connectivity_url: "https://www.gstatic.com/generate_204", download_status: 200, connectivity_status: 204, download_bytes: 16384, interval_sec: 30, timeout_ms: 5000, normal_ms: 2000 }, value || {});
         },
+        policyLabel: function (row) {
+            if (row.probe_mode === "legacy_frame") return "优先级故障转移（旧版单跳探测）";
+            return row.policy === "quality" ? "完整链路质量选路" : "优先级故障转移（完整链路）";
+        },
+        memberStatus: function (row, name) {
+            const q = (row.member_quality || {})[name];
+            if (!q) return this.healthLabel((row.member_health || {})[name]);
+            const labels = { normal: "正常", slow: "慢", failed: "失败", common_failure: "共同失败", evaluating: "评估中" };
+            return labels[q.status] || "评估中";
+        },
         qualityText: function (row, name) {
             const q = (row.member_quality || {})[name];
             if (!q) return "评估中";
             const labels = { normal: "正常", slow: "慢", failed: "失败", common_failure: "共同失败", evaluating: "评估中" };
-            let text = (labels[q.status] || "评估中") + " · 不良 " + q.bad_samples + "/" + q.samples + "（窗口 20 次）· 连续失败 " + q.consecutive_failures;
-            if (q.samples < 20) text += " · 评估中";
+            let text = labels[q.status] || "评估中";
+            if (row.policy === "quality") {
+                text += " · 不良 " + q.bad_samples + "/" + q.samples + "（窗口 20 次）";
+                if (q.samples < 20) text += " · 评估中";
+            }
+            text += " · 连续失败 " + q.consecutive_failures + " · 连续正常 " + (q.consecutive_normal || 0);
             if (q.last_duration_ms > 0) text += " · " + q.last_duration_ms + " ms";
             if (q.connectivity) text += q.connectivity === "ok" ? " · 连通确认成功" : " · 连通确认失败";
             if (q.last_error) text += " · " + q.last_error;
@@ -439,7 +460,8 @@ module.exports = {
                 members: (row.members || []).slice(),
                 disabled: row.disabled,
                 policy: row.policy || "priority",
-                quality: this.defaultQuality(row.policy === "quality" ? row.quality : null),
+                quality: this.defaultQuality(row.quality),
+                probe_warnings: row.probe_warnings || [],
             };
             this.editModalEnabled = !row.disabled;
             this.editModal = true;

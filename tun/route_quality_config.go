@@ -79,17 +79,17 @@ func (c RouteQualityConfig) validate() error {
 func routeQualityProxy(cfg Config) (string, InProtoSocks5X, error) {
 	p, addr, err := parseProtocol(cfg.Input)
 	if err != nil || p != Socks5X {
-		return "", InProtoSocks5X{}, errors.New("质量策略要求 member 的 input 为 socks5x")
+		return "", InProtoSocks5X{}, errors.New("完整链路探测要求 member 的 input 为 socks5x")
 	}
 	if cfg.InDecryptMode != "" && cfg.InDecryptMode != "none" {
-		return "", InProtoSocks5X{}, errors.New("质量策略要求 member 的 input 不加密")
+		return "", InProtoSocks5X{}, errors.New("完整链路探测要求 member 的 input 不加密")
 	}
 	ext, err := parseExtend(cfg.InExtend)
 	if err != nil {
 		return "", InProtoSocks5X{}, fmt.Errorf("input 扩展配置无效: %w", err)
 	}
 	if ext.FrameHeaderEnable {
-		return "", InProtoSocks5X{}, errors.New("质量策略要求 member 的 input 不启用帧头")
+		return "", InProtoSocks5X{}, errors.New("完整链路探测要求 member 的 input 不启用帧头")
 	}
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil {

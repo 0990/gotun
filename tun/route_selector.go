@@ -7,8 +7,7 @@ import (
 
 // routeSelector 智能路由的共享选址器
 // 按 RouteConfig.Members 的顺序（索引 0 优先级最高），经 manager 惰性解析 member，
-// 依据 member 的 Service.QualitySummary() 健康分类挑选可用 member。
-// 两种模式（output/input）共用这一套选址逻辑。
+// 完整链路入口由共享探测器决定首选；出口和旧版入口依据单跳健康分类选址。
 type routeSelector struct {
 	mgr     *Manager
 	members []string

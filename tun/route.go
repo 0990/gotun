@@ -58,7 +58,7 @@ func newRouteService(cfg RouteConfig, mgr *Manager) (*routeService, error) {
 		watchStop: make(chan struct{}),
 	}
 	s.SetStatus("init")
-	if cfg.Policy == "quality" {
+	if cfg.usesFullPathProbe() {
 		s.selector.quality = newRouteQualityMonitor(cfg, mgr, s.switchLog)
 	}
 
@@ -344,7 +344,7 @@ func (s *routeService) MemberHealth() map[string]string {
 	return out
 }
 
-// MemberQuality 返回完整业务路径快照，priority 策略没有此数据。
+// MemberQuality 返回完整业务路径快照；出口模式和旧版单跳入口没有此数据。
 func (s *routeService) MemberQuality() map[string]RouteMemberQuality {
 	if s.selector.quality == nil {
 		return nil

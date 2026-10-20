@@ -17,6 +17,7 @@ type RouteMemberQuality struct {
 	Samples             int       `json:"samples"`
 	BadSamples          int       `json:"bad_samples"`
 	ConsecutiveFailures int       `json:"consecutive_failures"`
+	ConsecutiveNormal   int       `json:"consecutive_normal"`
 	LastDurationMS      int64     `json:"last_duration_ms"`
 	LastError           string    `json:"last_error"`
 	Connectivity        string    `json:"connectivity"`
@@ -25,9 +26,8 @@ type RouteMemberQuality struct {
 
 type routeMemberQualityState struct {
 	RouteMemberQuality
-	window       []bool
-	normalStreak int
-	service      Service
+	window  []bool
+	service Service
 }
 
 type routeQualityMonitor struct {
@@ -78,6 +78,14 @@ func (q *routeQualityMonitor) ensureCurrentLocked(available []string, now time.T
 	name, reason := "", "没有运行中的 member"
 	if len(available) > 0 {
 		name, reason = available[0], "按成员顺序选择运行中的线路"
+		if q.cfg.Policy == "priority" {
+			for _, candidate := range available {
+				if s := q.states[candidate]; s != nil && s.ConsecutiveNormal >= 2 {
+					name, reason = candidate, "原成员不可用，按优先级选择连续正常的线路"
+					break
+				}
+			}
+		}
 	}
 	q.chooseLocked(name, reason, now)
 }
@@ -119,7 +127,7 @@ func (q *routeQualityMonitor) applyRound(results map[string]routeProbeResult, av
 		}
 		s.Status, s.LastDurationMS, s.LastError, s.Connectivity, s.LastProbeAt = r.status, r.duration.Milliseconds(), r.err, r.connectivity, now
 		if r.status == routeProbeFailed {
-			s.normalStreak = 0
+			s.ConsecutiveNormal = 0
 			if allFailed && r.connectivity == "ok" {
 				s.ConsecutiveFailures = 0
 			} else {
@@ -128,9 +136,9 @@ func (q *routeQualityMonitor) applyRound(results map[string]routeProbeResult, av
 		} else {
 			s.ConsecutiveFailures = 0
 			if r.status == routeProbeNormal {
-				s.normalStreak++
+				s.ConsecutiveNormal++
 			} else {
-				s.normalStreak = 0
+				s.ConsecutiveNormal = 0
 			}
 		}
 		if allFailed {
@@ -155,10 +163,42 @@ func (q *routeQualityMonitor) applyRound(results map[string]routeProbeResult, av
 	if cur == nil || allFailed {
 		return
 	}
+	if q.cfg.Policy == "priority" {
+		q.applyPriorityLocked(available, cur, now)
+		return
+	}
+	q.applyQualityLocked(available, cur, now)
+}
+
+// applyPriorityLocked 只在故障时转移；高优先级恢复稳定且冷却结束后回切。
+func (q *routeQualityMonitor) applyPriorityLocked(available []string, cur *routeMemberQualityState, now time.Time) {
 	if cur.ConsecutiveFailures >= 3 {
 		for _, name := range available {
-			if name != q.current && q.states[name].normalStreak >= 2 {
-				q.chooseLocked(name, fmt.Sprintf("故障切换：当前连续失败 %d 次，备用连续正常 %d 次", cur.ConsecutiveFailures, q.states[name].normalStreak), now)
+			if name != q.current && q.states[name].ConsecutiveNormal >= 2 {
+				q.chooseLocked(name, fmt.Sprintf("故障转移：当前连续失败 %d 次，备用连续正常 %d 次，按优先级选择", cur.ConsecutiveFailures, q.states[name].ConsecutiveNormal), now)
+				return
+			}
+		}
+	}
+	if now.Sub(q.lastSwitch) < 60*time.Second {
+		return
+	}
+	for _, name := range available {
+		if name == q.current {
+			break
+		}
+		if q.states[name].ConsecutiveNormal >= 2 {
+			q.chooseLocked(name, fmt.Sprintf("优先级恢复回切：高优先级线路连续正常 %d 次，切换冷却已满 60 秒", q.states[name].ConsecutiveNormal), now)
+			return
+		}
+	}
+}
+
+func (q *routeQualityMonitor) applyQualityLocked(available []string, cur *routeMemberQualityState, now time.Time) {
+	if cur.ConsecutiveFailures >= 3 {
+		for _, name := range available {
+			if name != q.current && q.states[name].ConsecutiveNormal >= 2 {
+				q.chooseLocked(name, fmt.Sprintf("故障切换：当前连续失败 %d 次，备用连续正常 %d 次", cur.ConsecutiveFailures, q.states[name].ConsecutiveNormal), now)
 				return
 			}
 		}

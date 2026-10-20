@@ -26,8 +26,8 @@ func TestProbeHistoryCapturesBothKindsAndSurvivesRename(t *testing.T) {
 	tracker := outputTracker(s.output)
 	tracker.RecordProbeSuccess(123 * time.Millisecond)
 	tracker.RecordProbeFailure(errors.New("帧探测超时"))
-	for _, name := range []string{"入口甲", "入口乙"} {
-		q := newRouteQualityMonitor(RouteConfig{UUID: name + "-id", Name: name, Members: []string{cfg.Name}}, m, &routeSwitchLog{})
+	for i, name := range []string{"入口甲", "入口乙"} {
+		q := newRouteQualityMonitor(RouteConfig{UUID: name + "-id", Name: name, Policy: []string{"quality", "priority"}[i], Members: []string{cfg.Name}}, m, &routeSwitchLog{})
 		q.probe = func(context.Context, Config, RouteQualityConfig) routeProbeResult {
 			return routeProbeResult{status: routeProbeSlow, duration: 2500 * time.Millisecond}
 		}

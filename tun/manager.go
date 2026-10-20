@@ -315,14 +315,22 @@ func (m *Manager) validateRouteLocked(cfg *RouteConfig, excludeUUID string) erro
 		return errors.New("name already exist（已存在同名 tunnel，避免混淆请改名）")
 	}
 
+	cfg.ProbeWarnings = nil
+	seen := make(map[string]bool)
 	// member 必须存在
 	for _, member := range cfg.Members {
 		if _, ok := m.services[member]; !ok {
 			return fmt.Errorf("member 不存在:%s", member)
 		}
-		if cfg.Policy == "quality" {
-			if _, _, err := routeQualityProxy(m.services[member].Cfg()); err != nil {
+		if cfg.Mode == RouteModeInput {
+			if cfg.ProbeMode == RouteProbeLegacyFrame && seen[member] {
+				cfg.ProbeWarnings = append(cfg.ProbeWarnings, fmt.Sprintf("%s：完整链路探测不支持重复成员", member))
+			}
+			seen[member] = true
+			if _, _, err := routeQualityProxy(m.services[member].Cfg()); err != nil && cfg.usesFullPathProbe() {
 				return fmt.Errorf("member %s: %w", member, err)
+			} else if err != nil {
+				cfg.ProbeWarnings = append(cfg.ProbeWarnings, fmt.Sprintf("%s：%s", member, err))
 			}
 		}
 	}
@@ -363,6 +371,28 @@ func (m *Manager) AddRoute(cfg RouteConfig, createFile bool) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
+	// 只有旧配置加载可回退到单跳；显式 full_path 配置不能静默降级。
+	if !createFile && cfg.Mode == RouteModeInput && (cfg.Policy == "" || cfg.Policy == "priority") && (cfg.ProbeMode == "" || cfg.ProbeMode == RouteProbeLegacyFrame) {
+		cfg.ProbeMode = RouteProbeFullPath
+		seen := make(map[string]bool)
+		for _, name := range cfg.Members {
+			if seen[name] {
+				cfg.ProbeMode = RouteProbeLegacyFrame
+				break
+			}
+			seen[name] = true
+			if svc, ok := m.services[name]; ok {
+				if _, _, err := routeQualityProxy(svc.Cfg()); err != nil {
+					cfg.ProbeMode = RouteProbeLegacyFrame
+					break
+				}
+			}
+		}
+	}
+	if createFile && cfg.ProbeMode == RouteProbeLegacyFrame {
+		return errors.New("新建入口必须使用完整链路探测")
+	}
+
 	if cfg.UUID == "" {
 		cfg.UUID = util.NewUUID()
 	}
@@ -372,6 +402,9 @@ func (m *Manager) AddRoute(cfg RouteConfig, createFile bool) error {
 
 	if err := m.validateRouteLocked(&cfg, ""); err != nil {
 		return err
+	}
+	if len(cfg.ProbeWarnings) > 0 {
+		logrus.WithField("route", cfg.Name).WithField("members", cfg.ProbeWarnings).Warn("旧入口继续使用单跳探测，请调整成员后保存以启用完整链路探测")
 	}
 
 	svc, err := m.buildRouteServiceLocked(cfg)
@@ -415,6 +448,10 @@ func (m *Manager) ReplaceRouteByUUID(cfg RouteConfig) error {
 
 	cfg.UUID = oldCfg.UUID
 	cfg.CreatedAt = oldCfg.CreatedAt
+	// 编辑入口时统一升级；兼容模式只用于加载和启停旧配置。
+	if cfg.Mode == RouteModeInput {
+		cfg.ProbeMode = RouteProbeFullPath
+	}
 
 	if err := m.validateRouteLocked(&cfg, cfg.UUID); err != nil {
 		return err

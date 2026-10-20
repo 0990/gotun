@@ -74,6 +74,19 @@ const records = {
         udp_timeout: 120,
     })),
 };
+records.route_input[0].probe_mode = "full_path";
+records.route_input.push({
+    ...structuredClone(records.route_input[0]), uuid: "priority", name: "auto_priority", policy: "priority",
+    quality: { ...records.route_input[0].quality, download_url: "https://priority.example.com/probe.bin", interval_sec: 45 },
+    member_quality: {
+        [tunnels[0].name]: { status: "normal", samples: 2, bad_samples: 0, consecutive_failures: 0, consecutive_normal: 2, last_duration_ms: 800 },
+        [tunnels[1].name]: { status: "failed", samples: 2, bad_samples: 2, consecutive_failures: 2, consecutive_normal: 0, last_duration_ms: 5000 },
+    },
+});
+records.route_input.push({
+    ...routeFixture("legacy"), listen: "127.0.0.1:1089", policy: "priority", probe_mode: "legacy_frame",
+    probe_warnings: ["legacy_tcp：完整链路探测要求 member 的 input 为 socks5x"],
+});
 let failSave = false,
     failList = false,
     failToggle = false,
@@ -531,6 +544,41 @@ async function main() {
                 await modal().waitFor();
                 assert.equal(await modal().getByPlaceholder("HTTPS 下载 URL").inputValue(), payload.quality.download_url);
                 await modal().getByRole("button", { name: "取消", exact: true }).click();
+                const priority = page.locator(".g-card").filter({ has: page.locator(".g-name", { hasText: "auto_priority" }) });
+                await priority.getByText("优先级故障转移（完整链路）", { exact: true }).waitFor();
+                assert.ok((await priority.textContent()).includes("连续正常 2"));
+                assert.ok(!(await priority.textContent()).includes("评估中"), "优先级策略不应等待窗口收满");
+                await priority.getByText("编辑", { exact: true }).click();
+                assert.equal(await modal().getByPlaceholder("HTTPS 下载 URL").inputValue(), "https://priority.example.com/probe.bin");
+                await modal().getByText("高优先级连续正常 2 次", { exact: false }).waitFor();
+                const choosePolicy = async (label) => {
+                    await modal().locator('[aria-label="切换策略"]').click();
+                    await page.locator(".ivu-select-dropdown:visible .ivu-select-item").getByText(label, { exact: true }).click();
+                };
+                await choosePolicy("质量优先（完整链路）");
+                await choosePolicy("优先级故障转移（完整链路）");
+                assert.equal(await modal().getByPlaceholder("HTTPS 下载 URL").inputValue(), "https://priority.example.com/probe.bin");
+                await overflow();
+                await screenshot("mobile-priority-config");
+                await save().click();
+                await modal().waitFor({ state: "hidden" });
+                const priorityPayload = writes.filter((w) => w.kind === kind && w.action === "edit").at(-1).payload;
+                assert.equal(priorityPayload.policy, "priority");
+                assert.equal(priorityPayload.quality.interval_sec, 45);
+                assert.equal(priorityPayload.quality.download_url, "https://priority.example.com/probe.bin");
+                const legacy = page.locator(".g-card").filter({ has: page.locator(".g-name", { hasText: "auto_legacy" }) });
+                await legacy.getByText("优先级故障转移（旧版单跳探测）", { exact: true }).waitFor();
+                await legacy.getByText("legacy_tcp：完整链路探测要求 member 的 input 为 socks5x", { exact: true }).waitFor();
+                await legacy.getByText("编辑", { exact: true }).click();
+                await modal().getByText("保存将升级为完整链路探测", { exact: false }).waitFor();
+                await overflow();
+                await screenshot("mobile-legacy-config");
+                await modal().getByRole("button", { name: "取消", exact: true }).click();
+                await page.setViewportSize({ width: 1440, height: 1050 });
+                await overflow();
+                await readableText();
+                await screenshot("desktop-priority-routes");
+                await page.setViewportSize({ width: 390, height: 844 });
             }
             await screenshot("mobile-" + kind);
         }
@@ -569,7 +617,7 @@ async function main() {
         await overflow();
         assert.deepEqual(errors, [], "浏览器运行错误");
         console.log(
-            "通过：四个页面、9 种宽度、文字对比度与地址字号、长 IPv6、默认运行中筛选、探测历史菜单/筛选/翻页/错误重试、搜索筛选、保存失败重试、真实字段、四种服务、成员排序、启停失败回退、导入导出、克隆删除、SOCKS5 双阶段检测、MTR 关闭与探测清理。",
+            "通过：四个页面、9 种宽度、文字对比度与地址字号、长 IPv6、默认运行中筛选、探测历史菜单/筛选/翻页/错误重试、搜索筛选、保存失败重试、真实字段、四种服务、成员排序、两种入口策略共用探测配置与切换保留、优先级状态、旧版兼容提示、启停失败回退、导入导出、克隆删除、SOCKS5 双阶段检测、MTR 关闭与探测清理。",
         );
     } finally {
         await browser.close();

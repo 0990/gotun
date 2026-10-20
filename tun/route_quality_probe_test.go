@@ -62,10 +62,10 @@ func TestRouteQualityProbeMultiHop(t *testing.T) {
 		t.Cleanup(func() { _ = s.Close() })
 		return s
 	}
-	start(Config{Name: "quality-final", Input: "tcp_mux@" + lastAddr, Output: fmt.Sprintf("tcp@127.0.0.1:%d", port), InExtend: frame})
+	last := start(Config{Name: "quality-final", Input: "tcp_mux@" + lastAddr, Output: fmt.Sprintf("tcp@127.0.0.1:%d", port), InExtend: frame})
 	start(Config{Name: "quality-middle", Input: "tcp_mux@" + middleAddr, Output: "tcp_mux@" + lastAddr, InExtend: frame, OutExtend: outFrame})
 	cfg := Config{Name: "quality-entry", Input: "socks5x@" + entryAddr, InProtoCfg: `{"username":"probe","password":"secret"}`, Output: "tcp_mux@" + middleAddr, OutExtend: outFrame}
-	start(cfg)
+	entry := start(cfg)
 	client, err := newRouteProbeClient(context.Background(), cfg, 2*time.Second)
 	if err != nil {
 		t.Fatal(err)
@@ -120,6 +120,52 @@ func TestRouteQualityProbeMultiHop(t *testing.T) {
 	if err := routeProbeRequest(context.Background(), authClient, target.URL+"/download", 200, 16384); err == nil {
 		t.Fatal("错误认证不能绕过 SOCKS")
 	}
+	t.Run("优先级入口发现第一跳之后的故障", func(t *testing.T) {
+		backup := start(Config{Name: "priority-backup", Input: "socks5x@" + reserveTCPAddr(t), Output: fmt.Sprintf("tcp@127.0.0.1:%d", port)})
+		m := newMgrWithServices(entry, backup)
+		route, err := newRouteService(RouteConfig{
+			Name: "priority-input", Mode: RouteModeInput, Listen: "127.0.0.1:0", Policy: "priority",
+			Members: []string{entry.Cfg().Name, backup.Cfg().Name},
+		}, m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer route.Close()
+		q := route.selector.quality
+		q.cfg.Quality.DownloadURL, q.cfg.Quality.ConnectivityURL = target.URL+"/download", target.URL+"/ok"
+		q.cfg.Quality.TimeoutMS = 500
+		q.probe = func(ctx context.Context, cfg Config, quality RouteQualityConfig) routeProbeResult {
+			client, err := newRouteProbeClient(ctx, cfg, time.Duration(quality.TimeoutMS)*time.Millisecond)
+			if err != nil {
+				t.Error(err)
+				return routeProbeResult{status: routeProbeFailed}
+			}
+			defer client.CloseIdleConnections()
+			client.Transport.(*http.Transport).TLSClientConfig = target.Client().Transport.(*http.Transport).TLSClientConfig.Clone()
+			return probeRouteWithClient(ctx, client, quality)
+		}
+		q.round()
+		q.round()
+		if route.PreferredMember() != cfg.Name || route.MemberQuality()[cfg.Name].ConsecutiveNormal != 2 {
+			t.Fatal("完整链路正常时应优先使用主线路")
+		}
+		// 断开最后一跳，保留入口到中间节点的帧探测应答。
+		_ = last.Close()
+		entry.probeRunner.maybeProbe(time.Now(), true)
+		if entry.QualitySummary().Status != QualityStatusUp {
+			t.Fatal("测试条件不成立：第一跳帧探测仍应正常")
+		}
+		for i := 0; i < 3; i++ {
+			q.round()
+		}
+		if route.PreferredMember() != backup.Cfg().Name || route.MemberQuality()[cfg.Name].ConsecutiveFailures != 3 {
+			t.Fatalf("后续链路故障应切到备用：%+v", route.MemberQuality())
+		}
+		entry.probeRunner.maybeProbe(time.Now(), true)
+		if entry.QualitySummary().Status != QualityStatusUp {
+			t.Fatal("完整链路切换不应依赖第一跳变为 down")
+		}
+	})
 }
 
 func TestRouteQualityCancelDuringSOCKSHandshake(t *testing.T) {
