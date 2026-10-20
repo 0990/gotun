@@ -2,10 +2,11 @@
     <div class="g-app-shell">
         <aside class="g-rail">
             <a href="#/tunnel/list" class="g-brand"
-                ><span class="g-brand-mark"><g-icon name="tunnel"></g-icon></span>gotun<span
-                    class="g-version"
-                    :title="version"
-                    >{{ version || "dev" }}</span
+                ><span class="g-brand-mark"><g-icon name="tunnel"></g-icon></span><span
+                    class="g-brand-info"
+                    >gotun<span class="g-version" :title="version || 'dev'"
+                        >{{ version || "dev" }}</span
+                    ></span
                 ></a
             >
             <div class="g-nav-caption">WORKSPACE</div>
