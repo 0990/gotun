@@ -95,8 +95,9 @@ let failSave = false,
 const writes = [];
 let failHistory = false;
 const historyReads = [];
+const historyTime = new Date(Math.floor((Date.now() - 5 * 60000) / 1000) * 1000 + 8 * 3600000).toISOString().slice(0, 19);
 const historyFixture = Array.from({ length: 55 }, (_, i) => ({
-    id: i + 1, tunnel_uuid: "a", time: "2026-10-18T15:20:30.123+08:00",
+    id: i + 1, tunnel_uuid: "a", time: historyTime + ".123+08:00",
     kind: i % 2 ? "route" : "frame", route_name: i % 2 ? "socks5-password" : "",
     status: i % 2 ? "failed" : "normal", duration_ms: i % 2 ? 5000 : 159,
     connectivity: i % 2 ? "ok" : "", error: i % 2 ? "下载探测超时" : "",
@@ -162,8 +163,9 @@ const server = http.createServer(async (req, res) => {
                 historyReads.push(Object.fromEntries(url.searchParams));
                 if (failHistory) return json(res, { code: 500, msg: "历史查询失败测试" });
                 const before = Number(url.searchParams.get("before") || Infinity);
+                const since = Number(url.searchParams.get("since")), until = Number(url.searchParams.get("until"));
                 const kind = url.searchParams.get("kind"), status = url.searchParams.get("status");
-                const matches = historyFixture.filter(row => row.tunnel_uuid === url.searchParams.get("uuid") && row.id < before && (!kind || row.kind === kind) && (!status || row.status === status)).reverse();
+                const matches = historyFixture.filter(row => row.tunnel_uuid === url.searchParams.get("uuid") && row.id < before && Date.parse(row.time) >= since && Date.parse(row.time) <= until && (!kind || row.kind === kind) && (!status || row.status === status)).reverse();
                 const rows = matches.slice(0, 50);
                 return json(res, { code: 200, data: { records: rows, next_before: matches.length > 50 ? rows.at(-1).id : 0 } });
             }
@@ -241,7 +243,7 @@ async function main() {
         channel: process.env.PLAYWRIGHT_CHANNEL || "chrome",
         headless: true,
     });
-    const page = await browser.newPage({ viewport: { width: 1440, height: 1050 } });
+    const page = await browser.newPage({ viewport: { width: 1440, height: 1050 }, timezoneId: "America/Los_Angeles" });
     page.setDefaultTimeout(8000);
     const errors = [];
     page.on("pageerror", (error) => errors.push(String(error)));
@@ -317,7 +319,7 @@ async function main() {
         await page.locator(".g-desktop-table .g-more").first().click();
         await page.locator(".ivu-dropdown-transfer:visible").getByText("探测历史", { exact: true }).click();
         await modal().getByText("探测历史 - goai_tcpmux_pw", { exact: true }).waitFor();
-        await modal().getByText("2026-10-18 15:20:30", { exact: true }).first().waitFor();
+        await modal().getByText(historyTime.replace("T", " "), { exact: true }).first().waitFor();
         assert.equal(await modal().locator(".ivu-table-tbody tr").count(), 50);
         assert.equal(historyReads.at(-1).uuid, "a");
         await modal().getByRole("button", { name: "下一页", exact: true }).click();
@@ -344,6 +346,61 @@ async function main() {
         await modal().getByText("此范围内暂无探测记录", { exact: true }).waitFor();
         await modal().getByLabel("探测结果").selectOption("");
         await modal().getByText("入口：socks5-password", { exact: true }).first().waitFor();
+        const historyQuery = async (action) => {
+            const response = page.waitForResponse(res => res.url().includes("/api/tunnel/probe_history?"));
+            await Promise.all([response, action()]);
+            await page.waitForFunction(() => document.querySelector(".g-history-table").getAttribute("aria-busy") === "false");
+        };
+        await historyQuery(() => modal().getByLabel("探测类型").selectOption(""));
+        const preset = historyReads.at(-1);
+        await historyQuery(() => modal().getByLabel("时间范围").selectOption("custom"));
+        const beijingInput = ms => new Date(Number(ms) + 8 * 3600000).toISOString().slice(0, 19);
+        const startInput = modal().getByLabel("开始时间（北京时间）", { exact: true });
+        const endInput = modal().getByLabel("结束时间（北京时间）", { exact: true });
+        assert.equal(await startInput.inputValue(), beijingInput(preset.since), "自定义初值应使用北京时间");
+        assert.equal(await endInput.inputValue(), beijingInput(preset.until));
+        const changeTime = async (input, value) => {
+            await input.fill(value);
+            await input.dispatchEvent("change");
+        };
+        await historyQuery(() => changeTime(startInput, historyTime));
+        await historyQuery(() => changeTime(endInput, historyTime));
+        assert.equal(await modal().locator(".ivu-table-tbody tr").count(), 50, "相同起止秒应包含该秒内的记录");
+        const custom = { ...historyReads.at(-1) };
+        assert.equal(Number(custom.since), Date.parse(historyTime + "+08:00"), "查询时间不能随浏览器时区变化");
+        assert.equal(Number(custom.until), Number(custom.since) + 999);
+        await historyQuery(() => modal().getByRole("button", { name: "下一页", exact: true }).click());
+        assert.equal(await modal().locator(".ivu-table-tbody tr").count(), 5);
+        assert.equal(historyReads.at(-1).since, custom.since);
+        assert.equal(historyReads.at(-1).until, custom.until);
+        await historyQuery(() => modal().getByLabel("探测类型").selectOption("route"));
+        await modal().getByText("第 1 页", { exact: true }).waitFor();
+        assert.equal(historyReads.at(-1).before, undefined, "修改筛选应重置游标");
+        assert.equal(historyReads.at(-1).since, custom.since);
+        await historyQuery(() => modal().getByRole("button", { name: "刷新", exact: true }).click());
+        assert.equal(historyReads.at(-1).until, custom.until, "刷新应保留自定义区间");
+        const readCount = historyReads.length;
+        await changeTime(startInput, beijingInput(Number(custom.until) + 1000));
+        await modal().getByRole("alert").getByText("开始时间不能晚于结束时间", { exact: false }).waitFor();
+        await changeTime(startInput, "");
+        await modal().getByRole("alert").getByText("请选择完整的开始时间和结束时间", { exact: false }).waitFor();
+        assert.equal(historyReads.length, readCount, "无效时间区间不能发送查询");
+        await historyQuery(() => changeTime(startInput, historyTime));
+        const beforeRecord = beijingInput(Number(custom.since) - 1000);
+        await historyQuery(() => changeTime(startInput, beforeRecord));
+        await historyQuery(() => changeTime(endInput, beforeRecord));
+        await modal().getByText("此范围内暂无探测记录", { exact: true }).waitFor();
+        const afterRecord = beijingInput(Number(custom.until) + 1000);
+        await historyQuery(() => changeTime(endInput, afterRecord));
+        await historyQuery(() => changeTime(startInput, afterRecord));
+        await modal().getByText("此范围内暂无探测记录", { exact: true }).waitFor();
+        await historyQuery(() => changeTime(startInput, historyTime));
+        await historyQuery(() => changeTime(endInput, historyTime));
+        await historyQuery(() => modal().getByLabel("时间范围").selectOption("1"));
+        assert.equal(await startInput.count(), 0);
+        assert.equal(Number(historyReads.at(-1).until) - Number(historyReads.at(-1).since), 3600000);
+        await historyQuery(() => modal().getByLabel("时间范围").selectOption("custom"));
+        assert.equal(historyReads.at(-1).since, custom.since, "切换回自定义应保留所选区间");
         await screenshot("desktop-history");
         await page.setViewportSize({ width: 390, height: 844 });
         await overflow();
@@ -617,7 +674,7 @@ async function main() {
         await overflow();
         assert.deepEqual(errors, [], "浏览器运行错误");
         console.log(
-            "通过：四个页面、9 种宽度、文字对比度与地址字号、长 IPv6、默认运行中筛选、探测历史菜单/筛选/翻页/错误重试、搜索筛选、保存失败重试、真实字段、四种服务、成员排序、两种入口策略共用探测配置与切换保留、优先级状态、旧版兼容提示、启停失败回退、导入导出、克隆删除、SOCKS5 双阶段检测、MTR 关闭与探测清理。",
+            "通过：四个页面、9 种宽度、文字对比度与地址字号、长 IPv6、默认运行中筛选、探测历史菜单/自定义时间区间/跨时区/筛选/翻页/错误重试、搜索筛选、保存失败重试、真实字段、四种服务、成员排序、两种入口策略共用探测配置与切换保留、优先级状态、旧版兼容提示、启停失败回退、导入导出、克隆删除、SOCKS5 双阶段检测、MTR 关闭与探测清理。",
         );
     } finally {
         await browser.close();

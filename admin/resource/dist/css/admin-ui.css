@@ -970,8 +970,12 @@ a:focus-visible {
     flex-direction: column;
     gap: 5px;
     color: var(--g-muted);
+    max-width: 100%;
 }
-.g-history-filters select {
+.g-history-filters select,
+.g-history-filters input {
+    min-width: 0;
+    max-width: 100%;
     min-height: 36px;
     padding: 6px 10px;
     border: 1px solid var(--g-line);

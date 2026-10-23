@@ -310,10 +310,11 @@
         <i-modal v-model="historyModal" :title="'探测历史 - ' + historyTunnelName" :width="980" class-name="g-dialog" footer-hide @on-visible-change="historyVisibilityChanged">
             <div class="g-history-filters">
                 <label>时间范围
-                    <select v-model="historyRange" @change="resetProbeHistory">
+                    <select v-model="historyRange" @change="changeProbeHistoryRange">
                         <option value="1">最近 1 小时</option>
                         <option value="24">最近 24 小时</option>
                         <option value="168">最近 7 天</option>
+                        <option value="custom">自定义时间区间</option>
                     </select>
                 </label>
                 <label>探测类型
@@ -333,6 +334,14 @@
                     </select>
                 </label>
                 <button class="g-btn" :disabled="historyLoading" @click="resetProbeHistory">刷新</button>
+            </div>
+            <div v-if="historyRange === 'custom'" class="g-history-filters">
+                <label>开始时间（北京时间）
+                    <input type="datetime-local" step="1" v-model="historyStart" @change="resetProbeHistory">
+                </label>
+                <label>结束时间（北京时间）
+                    <input type="datetime-local" step="1" v-model="historyEnd" @change="resetProbeHistory">
+                </label>
             </div>
             <p class="g-form-note">保留最近 7 天的逐次探测，最新记录在前；时间为北京时间。完整链路记录会标明所属入口。</p>
             <p v-if="historyError" class="g-danger" role="alert">{{ historyError }} <button class="g-btn-link" @click="loadProbeHistory">重试</button></p>
@@ -424,12 +433,15 @@ module.exports = {
             historyTunnelName: "",
             historyTunnelUUID: "",
             historyRange: "24",
+            historyStart: "",
+            historyEnd: "",
             historyKind: "",
             historyStatus: "",
             historyRecords: [],
             historyPrevious: [],
             historyBefore: 0,
             historyNext: 0,
+            historySince: 0,
             historyUntil: 0,
             historyLoading: false,
             historyError: "",
@@ -527,6 +539,8 @@ module.exports = {
             this.historyTunnelName = row.name;
             this.historyTunnelUUID = row.uuid;
             this.historyRange = "24";
+            this.historyStart = "";
+            this.historyEnd = "";
             this.historyKind = "";
             this.historyStatus = "";
             this.historyModal = true;
@@ -538,11 +552,24 @@ module.exports = {
                 this.historyLoading = false;
             }
         },
+        changeProbeHistoryRange: function () {
+            if (this.historyRange === "custom" && !this.historyStart && !this.historyEnd) {
+                this.historyStart = this.probeHistoryTimeInput(this.historySince);
+                this.historyEnd = this.probeHistoryTimeInput(this.historyUntil);
+            }
+            return this.resetProbeHistory();
+        },
+        probeHistoryTimeInput: function (value) {
+            return new Date(value + 8 * 3600000).toISOString().slice(0, 19);
+        },
         resetProbeHistory: function () {
             this.historyPrevious = [];
             this.historyBefore = 0;
             this.historyNext = 0;
-            this.historyUntil = Date.now();
+            if (this.historyRange !== "custom") {
+                this.historyUntil = Date.now();
+                this.historySince = this.historyUntil - Number(this.historyRange) * 3600000;
+            }
             return this.loadProbeHistory();
         },
         loadProbeHistory: function () {
@@ -550,9 +577,26 @@ module.exports = {
             this.historyLoading = true;
             this.historyError = "";
             this.historyRecords = [];
+            if (this.historyRange === "custom") {
+                const since = Date.parse(this.historyStart + "+08:00");
+                const until = Date.parse(this.historyEnd + "+08:00");
+                if (!Number.isFinite(since) || !Number.isFinite(until)) {
+                    this.historyError = "请选择完整的开始时间和结束时间";
+                } else if (since > until) {
+                    this.historyError = "开始时间不能晚于结束时间";
+                }
+                if (this.historyError) {
+                    this.historyLoading = false;
+                    this.historyNext = 0;
+                    return Promise.resolve();
+                }
+                this.historySince = since;
+                // 包含结束时间所在秒内的全部探测记录。
+                this.historyUntil = until + 999;
+            }
             const params = new URLSearchParams({
                 uuid: this.historyTunnelUUID,
-                since: String(this.historyUntil - Number(this.historyRange) * 3600000),
+                since: String(this.historySince),
                 until: String(this.historyUntil),
                 kind: this.historyKind,
                 status: this.historyStatus,
